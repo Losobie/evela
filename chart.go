@@ -60,6 +60,7 @@ type plotData struct {
 	Maximum       float64
 	Logarithmic   bool
 	AverageWindow time.Duration
+	Markers       []plotMarker
 }
 
 // Shift by one before taking the log so zero-DPS buckets retain their baseline.
@@ -301,6 +302,14 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 			drawLine(img, lastX, lastY, w-1, lastY, series.Color)
 		}
 	}
+	markerColor := color.NRGBA{255, 70, 70, 255}
+	for _, marker := range data.Markers {
+		if marker.At.Before(data.Start) || !marker.At.Before(data.End) {
+			continue
+		}
+		x := int(math.Round(float64(marker.At.Sub(data.Start)) / float64(data.End.Sub(data.Start)) * float64(w-1)))
+		drawLine(img, x, 0, x, h-1, markerColor)
+	}
 	return img
 }
 
@@ -352,7 +361,7 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 	chart.mu.RLock()
 	data := chart.data
 	chart.mu.RUnlock()
-	if len(data.Series) == 0 || data.Bucket <= 0 || !data.End.After(data.Start) || chart.hover == nil {
+	if (len(data.Series) == 0 && len(data.Markers) == 0) || data.Bucket <= 0 || !data.End.After(data.Start) || chart.hover == nil {
 		return
 	}
 	w := chart.Size().Width - chartPlotLeft - chartPlotRight
@@ -384,6 +393,13 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 	}
 	sort.SliceStable(readings, func(i, j int) bool { return readings[i].value > readings[j].value })
 	chart.hover.Text = data.Start.Add(time.Duration(bin)*data.Bucket).Format("Jan 02 15:04:05") + " UTC"
+	for _, marker := range data.Markers {
+		markerX := float64(marker.At.Sub(data.Start)) / float64(data.End.Sub(data.Start)) * float64(w)
+		if math.Abs(markerX-x) <= 4 {
+			chart.hover.Text += " · Target invulnerable at " + marker.At.UTC().Format("15:04:05") + " UTC: " + marker.Label
+			break
+		}
+	}
 	for _, label := range chart.hoverReadings {
 		label.Hide()
 	}

@@ -430,6 +430,7 @@ func (ui *analyzerUI) renderSelection() {
 		in.AverageWindow = dpsAverageWindow
 	}
 	out := in
+	out.Markers = ui.view.structureMarkers(ui.snapshot, ui.selected)
 	var incoming, outgoing float64
 	var hitsIn, hitsOut, count int
 	active := ui.view.activeSeries()

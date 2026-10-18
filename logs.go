@@ -26,7 +26,7 @@ const logTimeLayout = "2006.01.02 15:04:05"
 
 var (
 	markup        = regexp.MustCompile(`<[^>]*>`)
-	damageMessage = regexp.MustCompile(`^([0-9][0-9,.]*)\s+(from|to)\s+\S`)
+	damageMessage = regexp.MustCompile(`^([0-9][0-9,.]*)\s+(from|to)\s+(\S.*)$`)
 )
 
 type damagePoint struct {
@@ -36,13 +36,14 @@ type damagePoint struct {
 }
 
 type parsedLog struct {
-	Character string
-	Points    []damagePoint
-	Hash      [32]byte
+	Character       string
+	Points          []damagePoint
+	StructureEvents []structureEvent
+	Hash            [32]byte
 }
 
-// parseLog accepts EVE's UTF-8 and BOM-marked UTF-16 exports. Only numeric
-// damage messages are included; capacitor warfare, repairs and misses are not.
+// parseLog accepts EVE's UTF-8 and BOM-marked UTF-16 exports. Rates use numeric
+// damage messages; structure invulnerability notifications are recorded separately.
 func parseLog(input io.Reader) (*parsedLog, error) {
 	hash := sha256.New()
 	raw := bufio.NewReader(io.TeeReader(input, hash))
@@ -54,13 +55,16 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 	scanner.Buffer(make([]byte, 4096), 4*1024*1024)
 	result := &parsedLog{}
 	seconds := make(map[int64]*damagePoint)
+	var lastStructure structureEvent
+	structurePending := false
 	for scanner.Scan() {
 		line := strings.TrimSpace(strings.TrimPrefix(scanner.Text(), "\ufeff"))
 		if strings.HasPrefix(line, "Listener:") {
 			result.Character = strings.TrimSpace(strings.TrimPrefix(line, "Listener:"))
+			structurePending = false
 			continue
 		}
-		if !strings.Contains(line, "(combat)") || len(line) < 25 || line[0] != '[' {
+		if len(line) < 25 || line[0] != '[' {
 			continue
 		}
 		closeBracket := strings.IndexByte(line, ']')
@@ -68,10 +72,28 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 			continue
 		}
 		message := strings.TrimSpace(line[closeBracket+1:])
-		if !strings.HasPrefix(message, "(combat)") {
+		channelEnd := strings.IndexByte(message, ')')
+		if !strings.HasPrefix(message, "(") || channelEnd < 0 {
 			continue
 		}
-		message = strings.TrimSpace(html.UnescapeString(markup.ReplaceAllString(strings.TrimPrefix(message, "(combat)"), "")))
+		combat := message[:channelEnd+1] == "(combat)"
+		if !combat && !strings.Contains(message, "invulnerable") {
+			continue
+		}
+		message = strings.TrimSpace(html.UnescapeString(markup.ReplaceAllString(message[channelEnd+1:], "")))
+		if message == "Target is invulnerable." {
+			at, err := time.Parse(logTimeLayout, strings.TrimSpace(line[1:closeBracket]))
+			if err == nil && structurePending && at.Unix() >= lastStructure.Second && at.Unix()-lastStructure.Second <= int64(structureInvulnerabilityWindow/time.Second) {
+				event := lastStructure
+				event.Second = at.Unix()
+				result.StructureEvents = append(result.StructureEvents, event)
+				structurePending = false // One marker until another structure hit.
+			}
+			continue
+		}
+		if !combat {
+			continue
+		}
 		match := damageMessage.FindStringSubmatch(message)
 		if match == nil {
 			continue
@@ -96,6 +118,11 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		} else {
 			point.Outgoing += amount
 			point.OutgoingHits++
+			target, typeName, recognized := outgoingStructureTarget(match[3])
+			structurePending = recognized
+			if recognized {
+				lastStructure = structureEvent{Second: second, Target: target, Type: typeName}
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -106,6 +133,7 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		result.Points = append(result.Points, *point)
 	}
 	sort.Slice(result.Points, func(i, j int) bool { return result.Points[i].Second < result.Points[j].Second })
+	sort.Slice(result.StructureEvents, func(i, j int) bool { return result.StructureEvents[i].Second < result.StructureEvents[j].Second })
 	return result, nil
 }
 
@@ -246,14 +274,23 @@ func (index *logIndex) refresh(ctx context.Context, directory string, cutoff tim
 		}
 		seen[log.Hash] = true
 		snapshot.Logs = append(snapshot.Logs, log)
-		if len(log.Points) == 0 {
-			continue
+		var first, last time.Time
+		if len(log.Points) > 0 {
+			first, last = time.Unix(log.Points[0].Second, 0).UTC(), time.Unix(log.Points[len(log.Points)-1].Second, 0).UTC()
 		}
-		first, last := time.Unix(log.Points[0].Second, 0).UTC(), time.Unix(log.Points[len(log.Points)-1].Second, 0).UTC()
-		if snapshot.First.IsZero() || first.Before(snapshot.First) {
+		for _, event := range log.StructureEvents {
+			at := time.Unix(event.Second, 0).UTC()
+			if first.IsZero() || at.Before(first) {
+				first = at
+			}
+			if last.IsZero() || at.After(last) {
+				last = at
+			}
+		}
+		if !first.IsZero() && (snapshot.First.IsZero() || first.Before(snapshot.First)) {
 			snapshot.First = first
 		}
-		if snapshot.Last.IsZero() || last.After(snapshot.Last) {
+		if !last.IsZero() && (snapshot.Last.IsZero() || last.After(snapshot.Last)) {
 			snapshot.Last = last
 		}
 	}
