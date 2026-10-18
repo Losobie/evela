@@ -14,7 +14,7 @@ import (
 
 const characterGroupsPreference = "characters.groups.v1"
 const characterGroupsMode = "Character groups"
-const ungroupedCharacters = "No group"
+const ungroupedCharacters = "Ungrouped characters"
 
 type characterGroup struct {
 	ID      string
@@ -57,23 +57,6 @@ func (ui *analyzerUI) loadCharacterGroups() {
 	}
 	ids, names := map[string]bool{}, map[string]bool{}
 	for _, group := range saved {
-		names[characterKey(strings.TrimSpace(group.Name))] = true
-	}
-	// Preserve existing groups whose names now conflict with the fallback label.
-	renamed := false
-	for index := range saved {
-		if strings.EqualFold(strings.TrimSpace(saved[index].Name), ungroupedCharacters) {
-			name := ungroupedCharacters + " (custom)"
-			for suffix := 2; names[characterKey(name)]; suffix++ {
-				name = fmt.Sprintf("%s (custom %d)", ungroupedCharacters, suffix)
-			}
-			saved[index].Name = name
-			names[characterKey(name)] = true
-			renamed = true
-		}
-	}
-	names = map[string]bool{}
-	for _, group := range saved {
 		group.Name = strings.TrimSpace(group.Name)
 		if group.ID == "" || group.Name == "" || ids[group.ID] || names[characterKey(group.Name)] || strings.EqualFold(group.Name, ungroupedCharacters) {
 			continue
@@ -83,10 +66,6 @@ func (ui *analyzerUI) loadCharacterGroups() {
 		ids[group.ID], names[characterKey(group.Name)] = true, true
 	}
 	ui.sortCharacterGroups()
-	if renamed {
-		data, _ := json.Marshal(ui.characterGroups)
-		fyne.CurrentApp().Preferences().SetString(characterGroupsPreference, string(data))
-	}
 }
 
 func (ui *analyzerUI) sortCharacterGroups() {
