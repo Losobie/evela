@@ -198,3 +198,71 @@ func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 		}
 	}
 }
+
+func TestGraphFormatPreferencesRestoreBeforeLoadingLogs(t *testing.T) {
+	application := test.NewTempApp(t)
+	newUI := func() *analyzerUI {
+		window := application.NewWindow("Saved graph format")
+		t.Cleanup(window.Close)
+		return newAnalyzerUI(window)
+	}
+	choose := func(ui *analyzerUI, label string) {
+		t.Helper()
+		for _, item := range ui.graphFormatMenu().Items {
+			if item.Label == label {
+				item.Action()
+				return
+			}
+		}
+		t.Fatalf("missing format option %q", label)
+	}
+	first := newUI()
+	choose(first, "Logarithmic (DPS + 1)")
+	choose(first, "10-second DPS average")
+	choose(first, "By ship class (ship history)")
+	// A new UI reads the same saved user preferences, as on the next launch.
+	restored := newUI()
+	if !restored.graphLogarithmic || !restored.graphAverage10s || !restored.shipClassGrouping() || !strings.Contains(restored.graphFormatLabel.Text, "By ship class") || !strings.Contains(restored.graphFormatLabel.Text, "10-second average") {
+		t.Fatal("startup lost the saved scale, grouping, average or format label")
+	}
+	for _, chart := range []*damageChart{restored.outgoing, restored.incoming} {
+		if !chart.data.Logarithmic || chart.data.AverageWindow != 10*time.Second {
+			t.Fatal("saved format was not applied to both graphs before loading logs")
+		}
+	}
+	for _, item := range restored.graphFormatMenu().Items {
+		want := item.Label == "Logarithmic (DPS + 1)" || item.Label == "10-second DPS average" || item.Label == "By ship class (ship history)"
+		if item.Checked != want {
+			t.Fatalf("restored menu checkmark for %q = %v, want %v", item.Label, item.Checked, want)
+		}
+	}
+	start := time.Date(2026, 10, 18, 2, 0, 0, 0, time.UTC)
+	restored.snapshot = &logSnapshot{Characters: []string{"A", "B"}, Logs: []*parsedLog{
+		{Character: "A", Points: []damagePoint{{Second: start.Unix(), Outgoing: 10, Incoming: 2}}},
+		{Character: "B", Points: []damagePoint{{Second: start.Unix(), Outgoing: 20, Incoming: 4}}},
+	}}
+	restored.selected["A"], restored.selected["B"] = true, true
+	restored.applyGraphRange(start, start.Add(20*time.Second))
+	applyTestShipRecords(restored, []shipRecord{
+		{CharacterName: "A", TypeID: 1, TypeName: "Loki", ClassName: "Strategic Cruiser", CheckedAt: time.Now()},
+		{CharacterName: "B", TypeID: 2, TypeName: "Tengu", ClassName: "Strategic Cruiser", CheckedAt: time.Now()},
+	})
+	if len(restored.outgoing.data.Series) != 1 || restored.outgoing.data.Series[0].Name != "Strategic Cruiser" || restored.outgoing.data.Series[0].Values[0] != 3 || math.Abs(restored.incoming.data.Series[0].Values[0]-.6) > 1e-10 {
+		t.Fatal("first loaded data did not use the restored class grouping and average")
+	}
+	choose(restored, "Linear")
+	choose(restored, "10-second DPS average")
+	choose(restored, "Per character")
+	reset := newUI()
+	if reset.graphLogarithmic || reset.graphAverage10s || reset.shipGrouping() {
+		t.Fatal("turning format options off was not saved")
+	}
+	reset.groupSelect.SetSelected("Ship history")
+	if next := newUI(); !next.shipGrouping() || next.shipClassGrouping() {
+		t.Fatal("sidebar grouping was not saved with the format preferences")
+	}
+	application.Preferences().SetString(graphGroupingPreference, "obsolete-grouping")
+	if next := newUI(); next.shipGrouping() || next.groupSelect.Selected != "Characters" {
+		t.Fatal("unknown saved grouping did not fall back to per-character mode")
+	}
+}

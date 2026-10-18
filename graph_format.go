@@ -6,7 +6,26 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+const (
+	graphLogarithmicPreference = "graph.format.logarithmic"
+	graphAveragePreference     = "graph.format.average-10s"
+	graphGroupingPreference    = "graph.format.grouping"
+)
+
 func (ui *analyzerUI) initGraphFormat() {
+	preferences := fyne.CurrentApp().Preferences()
+	ui.graphLogarithmic = preferences.Bool(graphLogarithmicPreference)
+	ui.graphAverage10s = preferences.Bool(graphAveragePreference)
+	// Restore before the first view is built. Assigning directly avoids firing
+	// grouping callbacks while the totals table is still being constructed.
+	switch preferences.String(graphGroupingPreference) {
+	case "ship-type":
+		ui.groupSelect.Selected = "Ship history"
+	case "ship-class":
+		ui.groupSelect.Selected = "Ship class history"
+	default:
+		ui.groupSelect.Selected = "Characters"
+	}
 	ui.graphFormatLabel = widget.NewLabel("")
 	ui.graphFormatLabel.Wrapping = fyne.TextWrapWord
 	ui.graphFormatLabel.Truncation = fyne.TextTruncateEllipsis
@@ -18,10 +37,31 @@ func (ui *analyzerUI) initGraphFormat() {
 	ui.updateGraphFormatLabel()
 }
 
+func (ui *analyzerUI) saveGraphFormatPreferences() {
+	preferences := fyne.CurrentApp().Preferences()
+	preferences.SetBool(graphLogarithmicPreference, ui.graphLogarithmic)
+	preferences.SetBool(graphAveragePreference, ui.graphAverage10s)
+	grouping := "characters"
+	if ui.shipClassGrouping() {
+		grouping = "ship-class"
+	} else if ui.shipGrouping() {
+		grouping = "ship-type"
+	}
+	preferences.SetString(graphGroupingPreference, grouping)
+}
+
 func (ui *analyzerUI) graphFormatMenu() *fyne.Menu {
-	linear := fyne.NewMenuItem("Linear", func() { ui.graphLogarithmic = false; ui.renderSelection() })
+	linear := fyne.NewMenuItem("Linear", func() {
+		ui.graphLogarithmic = false
+		ui.saveGraphFormatPreferences()
+		ui.renderSelection()
+	})
 	linear.Checked = !ui.graphLogarithmic
-	logarithmic := fyne.NewMenuItem("Logarithmic (DPS + 1)", func() { ui.graphLogarithmic = true; ui.renderSelection() })
+	logarithmic := fyne.NewMenuItem("Logarithmic (DPS + 1)", func() {
+		ui.graphLogarithmic = true
+		ui.saveGraphFormatPreferences()
+		ui.renderSelection()
+	})
 	logarithmic.Checked = ui.graphLogarithmic
 	characters := fyne.NewMenuItem("Per character", func() { ui.groupSelect.SetSelected("Characters") })
 	characters.Checked = !ui.shipGrouping()
@@ -31,6 +71,7 @@ func (ui *analyzerUI) graphFormatMenu() *fyne.Menu {
 	classes.Checked = ui.shipClassGrouping()
 	average := fyne.NewMenuItem("10-second DPS average", func() {
 		ui.graphAverage10s = !ui.graphAverage10s
+		ui.saveGraphFormatPreferences()
 		ui.renderSelection()
 		ui.rebuildCharacters()
 	})

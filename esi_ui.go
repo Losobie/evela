@@ -44,7 +44,11 @@ func (ui *analyzerUI) initESI() {
 		}
 	})
 	ui.cancelLogin.Hide()
-	ui.groupSelect = widget.NewSelect([]string{"Characters", "Ship history", "Ship class history"}, func(string) { ui.rebuildCharacters(); ui.renderSelection() })
+	ui.groupSelect = widget.NewSelect([]string{"Characters", "Ship history", "Ship class history"}, func(string) {
+		ui.saveGraphFormatPreferences()
+		ui.rebuildCharacters()
+		ui.renderSelection()
+	})
 	ui.groupSelect.Selected = "Characters"
 }
 
