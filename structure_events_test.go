@@ -152,6 +152,29 @@ func TestStructureMarkersOutgoingRenderingSelectionAndFormats(t *testing.T) {
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
 	window.Show()
+	indicatorOption := func() *fyne.MenuItem {
+		t.Helper()
+		for _, item := range ui.graphFormatMenu().Items {
+			if item.Label == "Target invulnerability indicators" {
+				return item
+			}
+		}
+		t.Fatal("missing invulnerability indicator format option")
+		return nil
+	}
+	if indicatorOption().Checked || ui.graphInvulnerabilityMarkers || len(ui.outgoing.data.Markers) != 0 {
+		t.Fatal("invulnerability indicators should default to off without a saved preference")
+	}
+	summary := ui.summary.Text
+	indicatorOption().Action()
+	if !indicatorOption().Checked || !application.Preferences().Bool(graphInvulnerabilityPreference) || ui.summary.Text != summary {
+		t.Fatal("enabling indicators did not update the menu and preference or changed damage totals")
+	}
+	restoredWindow := application.NewWindow("Restored indicators")
+	defer restoredWindow.Close()
+	if restored := newAnalyzerUI(restoredWindow); !restored.graphInvulnerabilityMarkers {
+		t.Fatal("enabled indicators were not restored on the next launch")
+	}
 	red := color.RGBA{255, 70, 70, 255}
 	for _, grouping := range []string{"Characters", "Ship history", "Ship class history"} {
 		ui.groupSelect.SetSelected(grouping)
@@ -197,6 +220,16 @@ func TestStructureMarkersOutgoingRenderingSelectionAndFormats(t *testing.T) {
 	if !strings.Contains(ui.outgoing.hover.Text, "Target invulnerable") {
 		t.Fatal("a notification-only range could not inspect its marker")
 	}
+	indicatorOption().Action()
+	if indicatorOption().Checked || len(ui.outgoing.data.Markers) != 0 || strings.Contains(ui.outgoing.hover.Text, "Target invulnerable") || application.Preferences().Bool(graphInvulnerabilityPreference) {
+		t.Fatal("disabling indicators retained a marker, hover information or saved enabled preference")
+	}
+	disabledWindow := application.NewWindow("Restored disabled indicators")
+	defer disabledWindow.Close()
+	if restored := newAnalyzerUI(disabledWindow); restored.graphInvulnerabilityMarkers {
+		t.Fatal("disabled indicators were not restored on the next launch")
+	}
+	indicatorOption().Action()
 	ui.selected["A"], ui.selected["B"] = false, false
 	ui.renderSelection()
 	if len(ui.outgoing.data.Markers) != 0 {

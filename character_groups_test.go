@@ -168,6 +168,7 @@ func TestCharacterGroupEditorTransfersAndSessionEligibility(t *testing.T) {
 
 func TestCharacterGroupGroupingFilteringPersistenceAndDeletion(t *testing.T) {
 	application := test.NewTempApp(t)
+	application.Preferences().SetBool(graphInvulnerabilityPreference, true)
 	window := application.NewWindow("Character group filters")
 	defer window.Close()
 	ui := newAnalyzerUI(window)

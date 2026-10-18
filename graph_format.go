@@ -7,15 +7,17 @@ import (
 )
 
 const (
-	graphLogarithmicPreference = "graph.format.logarithmic"
-	graphAveragePreference     = "graph.format.average-10s"
-	graphGroupingPreference    = "graph.format.grouping"
+	graphLogarithmicPreference     = "graph.format.logarithmic"
+	graphAveragePreference         = "graph.format.average-10s"
+	graphGroupingPreference        = "graph.format.grouping"
+	graphInvulnerabilityPreference = "graph.format.invulnerability-markers"
 )
 
 func (ui *analyzerUI) initGraphFormat() {
 	preferences := fyne.CurrentApp().Preferences()
 	ui.graphLogarithmic = preferences.Bool(graphLogarithmicPreference)
 	ui.graphAverage10s = preferences.Bool(graphAveragePreference)
+	ui.graphInvulnerabilityMarkers = preferences.Bool(graphInvulnerabilityPreference)
 	// Restore before the first view is built. Assigning directly avoids firing
 	// grouping callbacks while the totals table is still being constructed.
 	switch preferences.String(graphGroupingPreference) {
@@ -48,6 +50,7 @@ func (ui *analyzerUI) saveGraphFormatPreferences() {
 	preferences := fyne.CurrentApp().Preferences()
 	preferences.SetBool(graphLogarithmicPreference, ui.graphLogarithmic)
 	preferences.SetBool(graphAveragePreference, ui.graphAverage10s)
+	preferences.SetBool(graphInvulnerabilityPreference, ui.graphInvulnerabilityMarkers)
 	grouping := "characters"
 	if ui.shipClassGrouping() {
 		grouping = "ship-class"
@@ -99,7 +102,13 @@ func (ui *analyzerUI) graphFormatMenu() *fyne.Menu {
 		ui.rebuildCharacters()
 	})
 	average.Checked = ui.graphAverage10s
-	return fyne.NewMenu("Format options", linear, logarithmic, fyne.NewMenuItemSeparator(), characters, ships, classes, groups, filters, fyne.NewMenuItemSeparator(), average)
+	invulnerability := fyne.NewMenuItem("Target invulnerability indicators", func() {
+		ui.graphInvulnerabilityMarkers = !ui.graphInvulnerabilityMarkers
+		ui.saveGraphFormatPreferences()
+		ui.renderSelection()
+	})
+	invulnerability.Checked = ui.graphInvulnerabilityMarkers
+	return fyne.NewMenu("Format options", linear, logarithmic, fyne.NewMenuItemSeparator(), characters, ships, classes, groups, filters, fyne.NewMenuItemSeparator(), average, invulnerability)
 }
 
 func (ui *analyzerUI) updateGraphFormatLabel() {

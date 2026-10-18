@@ -68,6 +68,7 @@ type analyzerUI struct {
 	logLoadingDialog                         *dialog.CustomDialog
 	graphLogarithmic                         bool
 	graphAverage10s                          bool
+	graphInvulnerabilityMarkers              bool
 	graphFormatLabel                         *widget.Label
 	graphFormatButton                        *widget.Button
 }
@@ -445,7 +446,9 @@ func (ui *analyzerUI) renderSelection() {
 	}
 	out := in
 	selected := ui.filteredCharacterSelection()
-	out.Markers = ui.view.structureMarkers(ui.snapshot, selected)
+	if ui.graphInvulnerabilityMarkers {
+		out.Markers = ui.view.structureMarkers(ui.snapshot, selected)
+	}
 	var incoming, outgoing float64
 	var hitsIn, hitsOut, count int
 	active := ui.view.activeSeries()
