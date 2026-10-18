@@ -44,7 +44,7 @@ func (ui *analyzerUI) initESI() {
 		}
 	})
 	ui.cancelLogin.Hide()
-	ui.groupSelect = widget.NewSelect([]string{"Characters", "Ship history", "Ship class history"}, func(string) {
+	ui.groupSelect = widget.NewSelect(ui.characterGroupingOptions(), func(string) {
 		ui.saveGraphFormatPreferences()
 		ui.rebuildCharacters()
 		ui.renderSelection()
@@ -291,7 +291,11 @@ func (ui *analyzerUI) groupedShipSeries(selected map[string]bool, average bool) 
 func (ui *analyzerUI) characterRow(name, group, shipNames string) fyne.CanvasObject {
 	check := widget.NewCheck(name, nil)
 	check.SetChecked(ui.selected[name])
-	check.OnChanged = func(checked bool) { ui.selected[name] = checked; ui.renderSelection() }
+	check.OnChanged = func(checked bool) {
+		ui.selected[name] = checked
+		ui.renderSelection()
+		ui.rebuildCharacters()
+	}
 	if group == "" {
 		group = name
 	}
@@ -304,7 +308,17 @@ func (ui *analyzerUI) characterRow(name, group, shipNames string) fyne.CanvasObj
 
 func (ui *analyzerUI) groupedCharacterList(query string) []fyne.CanvasObject {
 	var rows []fyne.CanvasObject
-	for _, group := range ui.groupedShipSeries(nil, ui.graphAverage10s) {
+	var groups []characterSeries
+	if ui.characterGroupGrouping() {
+		series := ui.view.activeSeries()
+		if ui.graphAverage10s {
+			series = ui.view.tenSecondAverage(ui.snapshot)
+		}
+		groups = ui.groupCustomCharacterSeries(series, nil)
+	} else {
+		groups = ui.groupedShipSeries(nil, ui.graphAverage10s)
+	}
+	for _, group := range groups {
 		var names []string
 		for _, name := range group.Members {
 			if strings.Contains(strings.ToLower(name+" "+group.Name+" "+strings.Join(group.MemberShips[name], " ")), query) {

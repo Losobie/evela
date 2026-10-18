@@ -39,6 +39,7 @@ type parsedLog struct {
 	Character       string
 	Points          []damagePoint
 	StructureEvents []structureEvent
+	EntrySeconds    []int64
 	Hash            [32]byte
 }
 
@@ -55,6 +56,7 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 	scanner.Buffer(make([]byte, 4096), 4*1024*1024)
 	result := &parsedLog{}
 	seconds := make(map[int64]*damagePoint)
+	entries := make(map[int64]bool)
 	var lastStructure structureEvent
 	structurePending := false
 	for scanner.Scan() {
@@ -71,6 +73,11 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		if closeBracket < 0 {
 			continue
 		}
+		at, err := time.Parse(logTimeLayout, strings.TrimSpace(line[1:closeBracket]))
+		if err != nil {
+			continue
+		}
+		entries[at.Unix()] = true
 		message := strings.TrimSpace(line[closeBracket+1:])
 		channelEnd := strings.IndexByte(message, ')')
 		if !strings.HasPrefix(message, "(") || channelEnd < 0 {
@@ -82,8 +89,7 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		}
 		message = strings.TrimSpace(html.UnescapeString(markup.ReplaceAllString(message[channelEnd+1:], "")))
 		if message == "Target is invulnerable." {
-			at, err := time.Parse(logTimeLayout, strings.TrimSpace(line[1:closeBracket]))
-			if err == nil && structurePending && at.Unix() >= lastStructure.Second && at.Unix()-lastStructure.Second <= int64(structureInvulnerabilityWindow/time.Second) {
+			if structurePending && at.Unix() >= lastStructure.Second && at.Unix()-lastStructure.Second <= int64(structureInvulnerabilityWindow/time.Second) {
 				event := lastStructure
 				event.Second = at.Unix()
 				result.StructureEvents = append(result.StructureEvents, event)
@@ -100,10 +106,6 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		}
 		amount, err := strconv.ParseFloat(strings.ReplaceAll(match[1], ",", ""), 64)
 		if err != nil || amount < 0 || math.IsInf(amount, 0) || math.IsNaN(amount) {
-			continue
-		}
-		at, err := time.Parse(logTimeLayout, strings.TrimSpace(line[1:closeBracket]))
-		if err != nil {
 			continue
 		}
 		second := at.Unix()
@@ -129,6 +131,10 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		return nil, err
 	}
 	copy(result.Hash[:], hash.Sum(nil))
+	for second := range entries {
+		result.EntrySeconds = append(result.EntrySeconds, second)
+	}
+	sort.Slice(result.EntrySeconds, func(i, j int) bool { return result.EntrySeconds[i] < result.EntrySeconds[j] })
 	for _, point := range seconds {
 		result.Points = append(result.Points, *point)
 	}

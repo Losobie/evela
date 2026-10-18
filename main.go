@@ -38,6 +38,9 @@ type analyzerUI struct {
 	ships                                    map[string]shipRecord
 	shipHistory                              shipHistory
 	groupSelect                              *widget.Select
+	characterGroups                          []characterGroup
+	characterGroupEditor                     *characterGroupEditor
+	groupingNote                             *widget.Label
 	tableSeries                              []characterSeries
 	totalsSortColumn                         int
 	totalsSortDescending                     bool
@@ -89,6 +92,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.path = widget.NewEntry()
 	ui.path.SetText(defaultLogDirectory())
 	ui.logLookbackDays = savedLogLookbackDays()
+	ui.loadCharacterGroups()
 	ui.start, ui.end = widget.NewEntry(), widget.NewEntry()
 	ui.start.SetPlaceHolder("2026-10-17 00:00:00")
 	ui.end.SetPlaceHolder("2026-10-18 00:00:00")
@@ -148,6 +152,9 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 				if ui.shipClassGrouping() {
 					first = "Ship class"
 				}
+				if ui.characterGroupGrouping() {
+					first, second = "Character group", "Members"
+				}
 				heading := []string{first, second, "Outgoing damage", "Incoming damage", "Avg out DPS", "Avg in DPS", "Hits out / in"}[id.Col]
 				if id.Col == ui.totalsSortColumn {
 					cell.icon.SetResource(theme.MoveUpIcon())
@@ -169,7 +176,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 				duration = 1
 			}
 			ship := shipLabel(series.Name, ui.ships)
-			if ui.shipGrouping() {
+			if ui.anyGrouping() {
 				ship = fmt.Sprintf("%d characters", len(series.Members))
 			}
 			label.SetText([]string{series.Name, ship, fmt.Sprintf("%.0f", series.TotalOutgoing), fmt.Sprintf("%.0f", series.TotalIncoming), fmt.Sprintf("%.2f", series.TotalOutgoing/duration), fmt.Sprintf("%.2f", series.TotalIncoming/duration), fmt.Sprintf("%d / %d", series.OutgoingHits, series.IncomingHits)}[id.Col])
@@ -191,6 +198,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.initGraphRangeShortcuts()
 	window.SetMainMenu(fyne.NewMainMenu(fyne.NewMenu("Settings",
 		fyne.NewMenuItem("Log loading…", ui.openLogLoadingSettings),
+		fyne.NewMenuItem("Character groups…", ui.openCharacterGroupSettings),
 		fyne.NewMenuItem("ESI configuration…", ui.openESISettings))))
 	return ui
 }
@@ -234,9 +242,10 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	controls := container.NewVBox(heading, refreshStatus, ui.directoryInfo, pathRow, filters, container.NewHBox(apply, layout.NewSpacer(), ui.interval), widget.NewSeparator())
 	all := widget.NewButton("All", func() { ui.selectRangeCharacters(true) })
 	none := widget.NewButton("None", func() { ui.selectRangeCharacters(false) })
-	groupNote := widget.NewLabel("Ship groups use history at each damage event's UTC time. Unobserved times stay unknown.")
-	groupNote.Wrapping = fyne.TextWrapWord
-	sidebar := container.NewBorder(container.NewVBox(widget.NewLabelWithStyle("GROUP / LEGEND", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), ui.groupSelect, groupNote, ui.characterSearch, container.NewGridWithColumns(2, all, none)), nil, nil, nil, container.NewVScroll(ui.characters))
+	ui.groupingNote = widget.NewLabel("")
+	ui.groupingNote.Wrapping = fyne.TextWrapWord
+	ui.updateGroupingNote()
+	sidebar := container.NewBorder(container.NewVBox(widget.NewLabelWithStyle("GROUP / LEGEND", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), ui.groupSelect, ui.groupingNote, ui.characterSearch, container.NewGridWithColumns(2, all, none)), nil, nil, nil, container.NewVScroll(ui.characters))
 	charts := container.NewGridWithRows(2,
 		widget.NewCard("Outgoing damage", "DPS dealt by selected characters or ship groups", ui.graphPanContent(ui.outgoing)),
 		widget.NewCard("Incoming damage", "DPS received by selected characters or ship groups", ui.graphPanContent(ui.incoming)))
@@ -388,7 +397,7 @@ func (ui *analyzerUI) rebuildCharacters() {
 	var rows []fyne.CanvasObject
 	active := ui.view.activeSeries()
 	query := strings.ToLower(strings.TrimSpace(ui.characterSearch.Text))
-	if ui.shipGrouping() {
+	if ui.anyGrouping() {
 		rows = ui.groupedCharacterList(query)
 	} else {
 		for _, series := range active {
@@ -414,11 +423,16 @@ func (ui *analyzerUI) rebuildCharacters() {
 	// temporarily shrink its content and reset the user's scroll position.
 	ui.characters.Objects = rows
 	ui.characters.Refresh()
+	if ui.characterGroupEditor != nil {
+		ui.characterGroupEditor.refreshLists()
+	}
 }
 
 func (ui *analyzerUI) selectRangeCharacters(selected bool) {
 	for _, series := range ui.view.activeSeries() {
-		ui.selected[series.Name] = selected
+		if ui.characterMatchesGroupFilter(series.Name) {
+			ui.selected[series.Name] = selected
+		}
 	}
 	ui.rebuildCharacters()
 	ui.renderSelection()
@@ -430,12 +444,13 @@ func (ui *analyzerUI) renderSelection() {
 		in.AverageWindow = dpsAverageWindow
 	}
 	out := in
-	out.Markers = ui.view.structureMarkers(ui.snapshot, ui.selected)
+	selected := ui.filteredCharacterSelection()
+	out.Markers = ui.view.structureMarkers(ui.snapshot, selected)
 	var incoming, outgoing float64
 	var hitsIn, hitsOut, count int
 	active := ui.view.activeSeries()
 	for _, series := range active {
-		if !ui.selected[series.Name] {
+		if !selected[series.Name] {
 			continue
 		}
 		count++
@@ -452,9 +467,12 @@ func (ui *analyzerUI) renderSelection() {
 	if ui.shipGrouping() {
 		ui.tableSeries = ui.groupedShipSeries(nil, false)
 		graphSeries = ui.groupedShipSeries(ui.selected, ui.graphAverage10s)
+	} else if ui.characterGroupGrouping() {
+		ui.tableSeries = ui.groupCustomCharacterSeries(active, nil)
+		graphSeries = ui.groupCustomCharacterSeries(graphSeries, selected)
 	}
 	for _, series := range graphSeries {
-		if !ui.shipGrouping() && !ui.selected[series.Name] {
+		if !ui.anyGrouping() && !selected[series.Name] {
 			continue
 		}
 		ink := characterColor(series.Name)

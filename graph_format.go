@@ -23,8 +23,15 @@ func (ui *analyzerUI) initGraphFormat() {
 		ui.groupSelect.Selected = "Ship history"
 	case "ship-class":
 		ui.groupSelect.Selected = "Ship class history"
+	case "character-groups":
+		ui.groupSelect.Selected = characterGroupsMode
 	default:
 		ui.groupSelect.Selected = "Characters"
+		for _, group := range ui.characterGroups {
+			if preferences.String(graphGroupingPreference) == "character-group:"+group.ID {
+				ui.groupSelect.Selected = "Group: " + group.Name
+			}
+		}
 	}
 	ui.graphFormatLabel = widget.NewLabel("")
 	ui.graphFormatLabel.Wrapping = fyne.TextWrapWord
@@ -46,6 +53,10 @@ func (ui *analyzerUI) saveGraphFormatPreferences() {
 		grouping = "ship-class"
 	} else if ui.shipGrouping() {
 		grouping = "ship-type"
+	} else if id := ui.selectedCharacterGroupID(); id != "" {
+		grouping = "character-group:" + id
+	} else if ui.characterGroupGrouping() {
+		grouping = "character-groups"
 	}
 	preferences.SetString(graphGroupingPreference, grouping)
 }
@@ -64,11 +75,23 @@ func (ui *analyzerUI) graphFormatMenu() *fyne.Menu {
 	})
 	logarithmic.Checked = ui.graphLogarithmic
 	characters := fyne.NewMenuItem("Per character", func() { ui.groupSelect.SetSelected("Characters") })
-	characters.Checked = !ui.shipGrouping()
+	characters.Checked = !ui.anyGrouping()
 	ships := fyne.NewMenuItem("By ship type (ship history)", func() { ui.groupSelect.SetSelected("Ship history") })
 	ships.Checked = ui.shipGrouping() && !ui.shipClassGrouping()
 	classes := fyne.NewMenuItem("By ship class (ship history)", func() { ui.groupSelect.SetSelected("Ship class history") })
 	classes.Checked = ui.shipClassGrouping()
+	groups := fyne.NewMenuItem("By character group", func() { ui.groupSelect.SetSelected(characterGroupsMode) })
+	groups.Checked = ui.groupSelect.Selected == characterGroupsMode
+	filters := fyne.NewMenuItem("Character group filters", nil)
+	var groupFilters []*fyne.MenuItem
+	for _, group := range ui.characterGroups {
+		option := "Group: " + group.Name
+		item := fyne.NewMenuItem(group.Name, func() { ui.groupSelect.SetSelected(option) })
+		item.Checked = ui.groupSelect.Selected == option
+		groupFilters = append(groupFilters, item)
+	}
+	filters.ChildMenu = fyne.NewMenu("Character groups", groupFilters...)
+	filters.Disabled = len(groupFilters) == 0
 	average := fyne.NewMenuItem("10-second DPS average", func() {
 		ui.graphAverage10s = !ui.graphAverage10s
 		ui.saveGraphFormatPreferences()
@@ -76,7 +99,7 @@ func (ui *analyzerUI) graphFormatMenu() *fyne.Menu {
 		ui.rebuildCharacters()
 	})
 	average.Checked = ui.graphAverage10s
-	return fyne.NewMenu("Format options", linear, logarithmic, fyne.NewMenuItemSeparator(), characters, ships, classes, fyne.NewMenuItemSeparator(), average)
+	return fyne.NewMenu("Format options", linear, logarithmic, fyne.NewMenuItemSeparator(), characters, ships, classes, groups, filters, fyne.NewMenuItemSeparator(), average)
 }
 
 func (ui *analyzerUI) updateGraphFormatLabel() {
@@ -93,9 +116,16 @@ func (ui *analyzerUI) updateGraphFormatLabel() {
 	if ui.shipClassGrouping() {
 		grouping = "By ship class · history at event time"
 	}
+	if ui.characterGroupGrouping() {
+		grouping = "By character group"
+		if ui.selectedCharacterGroupID() != "" {
+			grouping = ui.groupSelect.Selected
+		}
+	}
 	text := scale + " · " + grouping
 	if ui.graphAverage10s {
 		text += " · 10-second average"
 	}
 	ui.graphFormatLabel.SetText(text)
+	ui.updateGroupingNote()
 }

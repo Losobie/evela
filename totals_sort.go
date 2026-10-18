@@ -35,7 +35,7 @@ func (ui *analyzerUI) sortTotalsByColumn(column int) {
 		ui.totalsSortDescending = !ui.totalsSortDescending
 	} else {
 		ui.totalsSortColumn = column
-		ui.totalsSortDescending = column >= 2 || (column == 1 && ui.shipGrouping())
+		ui.totalsSortDescending = column >= 2 || (column == 1 && ui.anyGrouping())
 	}
 	ui.sortDamageTotals()
 	ui.totals.Refresh()
@@ -56,7 +56,7 @@ func (ui *analyzerUI) sortDamageTotals() {
 		case 0:
 			order = compareTotalsText(left.Name, right.Name)
 		case 1:
-			if ui.shipGrouping() {
+			if ui.anyGrouping() {
 				order = cmp.Compare(len(left.Members), len(right.Members))
 			} else {
 				order = compareTotalsText(shipLabel(left.Name, ui.ships), shipLabel(right.Name, ui.ships))
