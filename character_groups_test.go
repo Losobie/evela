@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"image/png"
 	"math"
 	"os"
@@ -181,6 +182,24 @@ func TestCharacterGroupGroupingFilteringPersistenceAndDeletion(t *testing.T) {
 		ui.selected[name] = true
 	}
 	ui.applyGraphRange(start, start.Add(10*time.Second))
+	groupFilters := func() []*fyne.MenuItem {
+		t.Helper()
+		for _, item := range ui.graphFormatMenu().Items {
+			if item.Label == "Character group filters" && !item.Disabled && item.ChildMenu != nil {
+				return item.ChildMenu.Items
+			}
+		}
+		t.Fatal("character group filters are missing or disabled")
+		return nil
+	}
+	filters := groupFilters()
+	if len(filters) != 1 || filters[0].Label != "All" || filters[0].Checked {
+		t.Fatal("All should be the first available group filter even without saved groups")
+	}
+	filters[0].Action()
+	if !groupFilters()[0].Checked || len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Name != "No group" || ui.outgoing.data.Series[0].Values[0] != 60 || ui.incoming.data.Series[0].Values[0] != 6 {
+		t.Fatal("All did not combine unassigned characters under No group on both graphs")
+	}
 	fleet, err := ui.saveCharacterGroup(characterGroup{Name: "Fleet", Members: []string{"a", "A", "B", "Inactive"}})
 	if err != nil || len(fleet.Members) != 3 {
 		t.Fatalf("group creation or case-insensitive member deduplication failed: %+v / %v", fleet, err)
@@ -197,9 +216,16 @@ func TestCharacterGroupGroupingFilteringPersistenceAndDeletion(t *testing.T) {
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
 	window.Show()
-	ui.groupSelect.SetSelected(characterGroupsMode)
-	if !reflect.DeepEqual(totalsNames(ui), []string{"Fleet", "Scouts", ungroupedCharacters}) || ui.tableSeries[0].TotalOutgoing != 30 || ui.tableSeries[1].TotalOutgoing != 20 || ui.tableSeries[2].TotalOutgoing != 30 {
+	filters = groupFilters()
+	if len(filters) != 3 || filters[0].Label != "All" || filters[1].Label != "Fleet" || filters[2].Label != "Scouts" {
+		t.Fatal("All should precede the individual group filters")
+	}
+	filters[0].Action()
+	if !reflect.DeepEqual(totalsNames(ui), []string{"Fleet", "No group", "Scouts"}) || ui.tableSeries[0].TotalOutgoing != 30 || ui.tableSeries[1].TotalOutgoing != 30 || ui.tableSeries[2].TotalOutgoing != 20 {
 		t.Fatal("named groups did not combine members or keep ungrouped characters")
+	}
+	if len(ui.outgoing.data.Series) != 3 || ui.outgoing.data.Series[1].Name != "No group" || ui.outgoing.data.Series[1].Values[0] != 30 || ui.incoming.data.Series[1].Values[0] != 3 || ui.outgoing.data.Series[1].MemberCount != 1 {
+		t.Fatal("All did not keep unassigned characters in a separate No group series")
 	}
 	if !strings.Contains(ui.summary.Text, "3 selected") || !strings.Contains(ui.summary.Text, "Outgoing 60 damage") {
 		t.Fatal("shared members were counted twice in the summary")
@@ -219,7 +245,10 @@ func TestCharacterGroupGroupingFilteringPersistenceAndDeletion(t *testing.T) {
 	if ui.outgoing.data.Series[0].Values[0] != 3 || math.Abs(ui.incoming.data.Series[0].Values[0]-.3) > 1e-10 || ui.tableSeries[0].TotalOutgoing != 30 {
 		t.Fatal("group averaging changed raw totals or combined rolling DPS incorrectly")
 	}
-	ui.groupSelect.SetSelected("Group: Scouts")
+	filters[2].Action()
+	if groupFilters()[0].Checked || !groupFilters()[2].Checked {
+		t.Fatal("All remained checked after choosing an individual group")
+	}
 	if len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Name != "Scouts" || len(ui.tableSeries) != 1 || !strings.Contains(ui.summary.Text, "1 selected") {
 		t.Fatal("individual group filter included other characters or groups")
 	}
@@ -241,8 +270,43 @@ func TestCharacterGroupGroupingFilteringPersistenceAndDeletion(t *testing.T) {
 	if len(restored.characterGroups) != 2 || restored.groupSelect.Selected != "Group: Wing" || restored.selectedCharacterGroupID() != scouts.ID {
 		t.Fatal("groups or the active group filter did not survive a new UI")
 	}
+	groupFilters()[0].Action()
+	allWindow := application.NewWindow("Restored All filter")
+	defer allWindow.Close()
+	if next := newAnalyzerUI(allWindow); next.groupSelect.Selected != characterGroupsMode || !strings.Contains(next.graphFormatLabel.Text, "All") {
+		t.Fatal("All filter was not restored on the next launch")
+	}
+	ui.groupSelect.SetSelected("Group: Wing")
 	ui.deleteCharacterGroup(scouts.ID)
 	if ui.groupSelect.Selected != "Characters" || len(ui.characterGroups) != 1 {
 		t.Fatal("deleting the active group did not fall back to per-character mode")
+	}
+}
+
+func TestCharacterGroupsPreserveSavedNoGroupName(t *testing.T) {
+	application := test.NewTempApp(t)
+	saved, err := json.Marshal([]characterGroup{
+		{ID: "existing", Name: "No group", Members: []string{"Pilot"}},
+		{ID: "other", Name: "No group (custom)"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	application.Preferences().SetString(characterGroupsPreference, string(saved))
+	application.Preferences().SetString(graphGroupingPreference, "character-group:existing")
+	window := application.NewWindow("Existing group names")
+	defer window.Close()
+	ui := newAnalyzerUI(window)
+	if len(ui.characterGroups) != 2 || ui.selectedCharacterGroupID() != "existing" || ui.groupSelect.Selected != "Group: No group (custom 2)" {
+		t.Fatal("reserving No group lost an existing group, membership or selection")
+	}
+	for _, group := range ui.characterGroups {
+		if group.ID == "existing" && !group.contains("Pilot") {
+			t.Fatal("renaming the saved group lost its membership")
+		}
+	}
+	var restored []characterGroup
+	if err := json.Unmarshal([]byte(application.Preferences().String(characterGroupsPreference)), &restored); err != nil || !reflect.DeepEqual(restored, ui.characterGroups) {
+		t.Fatal("renamed group was not persisted")
 	}
 }

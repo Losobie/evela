@@ -83,15 +83,20 @@ func (ui *analyzerUI) graphFormatMenu() *fyne.Menu {
 	groups := fyne.NewMenuItem("By character group", func() { ui.groupSelect.SetSelected(characterGroupsMode) })
 	groups.Checked = ui.groupSelect.Selected == characterGroupsMode
 	filters := fyne.NewMenuItem("Character group filters", nil)
-	var groupFilters []*fyne.MenuItem
+	all := fyne.NewMenuItem("All", func() { ui.groupSelect.SetSelected(characterGroupsMode) })
+	all.Checked = ui.groupSelect.Selected == characterGroupsMode
+	groupFilters := []*fyne.MenuItem{all}
 	for _, group := range ui.characterGroups {
 		option := "Group: " + group.Name
-		item := fyne.NewMenuItem(group.Name, func() { ui.groupSelect.SetSelected(option) })
+		label := group.Name
+		if label == "All" {
+			label = "All (group)"
+		}
+		item := fyne.NewMenuItem(label, func() { ui.groupSelect.SetSelected(option) })
 		item.Checked = ui.groupSelect.Selected == option
 		groupFilters = append(groupFilters, item)
 	}
 	filters.ChildMenu = fyne.NewMenu("Character groups", groupFilters...)
-	filters.Disabled = len(groupFilters) == 0
 	average := fyne.NewMenuItem("10-second DPS average", func() {
 		ui.graphAverage10s = !ui.graphAverage10s
 		ui.saveGraphFormatPreferences()
@@ -117,7 +122,7 @@ func (ui *analyzerUI) updateGraphFormatLabel() {
 		grouping = "By ship class · history at event time"
 	}
 	if ui.characterGroupGrouping() {
-		grouping = "By character group"
+		grouping = "By character group · All"
 		if ui.selectedCharacterGroupID() != "" {
 			grouping = ui.groupSelect.Selected
 		}
