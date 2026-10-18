@@ -91,9 +91,9 @@ func TestShipClassFormatSynchronizesGraphsLegendAndTotals(t *testing.T) {
 			t.Fatal("grouping format checkmarks disagree")
 		}
 	}
-	header := widget.NewLabel("")
+	header := newTotalsCell()
 	ui.totals.UpdateCell(widget.TableCellID{Row: 0, Col: 0}, header)
-	if header.Text != "Ship class" {
+	if header.label.Text != "Ship class" || !header.icon.Visible() {
 		t.Fatal("totals retained the ship-type header")
 	}
 	ui.characterSearch.SetText("supercarrier")

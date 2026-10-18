@@ -39,6 +39,8 @@ type analyzerUI struct {
 	shipHistory                              shipHistory
 	groupSelect                              *widget.Select
 	tableSeries                              []characterSeries
+	totalsSortColumn                         int
+	totalsSortDescending                     bool
 	clientID                                 *widget.Entry
 	esiStatus                                *widget.Label
 	esiConnections                           *fyne.Container
@@ -126,15 +128,19 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.initGraphFormat()
 	ui.totals = widget.NewTable(
 		func() (int, int) { return len(ui.tableSeries) + 1, 7 },
-		func() fyne.CanvasObject { return widget.NewLabel("Character name") },
+		func() fyne.CanvasObject { return newTotalsCell() },
 		func(id widget.TableCellID, object fyne.CanvasObject) {
-			label := object.(*widget.Label)
+			cell := object.(*totalsCell)
+			label := cell.label
+			cell.icon.Hide()
 			label.TextStyle = fyne.TextStyle{Bold: id.Row == 0}
+			label.Truncation = fyne.TextTruncateEllipsis
 			label.Alignment = fyne.TextAlignTrailing
 			if id.Col <= 1 {
 				label.Alignment = fyne.TextAlignLeading
 			}
 			if id.Row == 0 {
+				label.Alignment = fyne.TextAlignLeading
 				first, second := "Character", "Current ship"
 				if ui.shipGrouping() {
 					first, second = "Ship type", "Members"
@@ -142,7 +148,16 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 				if ui.shipClassGrouping() {
 					first = "Ship class"
 				}
-				label.SetText([]string{first, second, "Outgoing damage", "Incoming damage", "Avg out DPS", "Avg in DPS", "Hits out / in"}[id.Col])
+				heading := []string{first, second, "Outgoing damage", "Incoming damage", "Avg out DPS", "Avg in DPS", "Hits out / in"}[id.Col]
+				if id.Col == ui.totalsSortColumn {
+					cell.icon.SetResource(theme.MoveUpIcon())
+					if ui.totalsSortDescending {
+						cell.icon.SetResource(theme.MoveDownIcon())
+					}
+					cell.icon.Show()
+				}
+				label.SetText(heading)
+				cell.Refresh()
 				return
 			}
 			if id.Row > len(ui.tableSeries) {
@@ -158,8 +173,17 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 				ship = fmt.Sprintf("%d characters", len(series.Members))
 			}
 			label.SetText([]string{series.Name, ship, fmt.Sprintf("%.0f", series.TotalOutgoing), fmt.Sprintf("%.0f", series.TotalIncoming), fmt.Sprintf("%.2f", series.TotalOutgoing/duration), fmt.Sprintf("%.2f", series.TotalIncoming/duration), fmt.Sprintf("%d / %d", series.OutgoingHits, series.IncomingHits)}[id.Col])
+			cell.Refresh()
 		})
-	for col, width := range []float32{210, 155, 150, 150, 120, 120, 130} {
+	ui.totals.StickyRowCount = 1
+	ui.totals.OnSelected = func(id widget.TableCellID) {
+		if id.Row == 0 {
+			ui.sortTotalsByColumn(id.Col)
+			// Allow repeated clicks on the same heading to reverse the order.
+			ui.totals.UnselectAll()
+		}
+	}
+	for col, width := range []float32{190, 145, 175, 175, 130, 130, 140} {
 		ui.totals.SetColumnWidth(col, width)
 	}
 	ui.bucketSelect.SetSelected("Auto")
@@ -218,7 +242,9 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 		widget.NewCard("Incoming damage", "DPS received by selected characters or ship groups", ui.graphPanContent(ui.incoming)))
 	graphControls := container.NewBorder(nil, nil, nil, ui.graphFormatButton, ui.graphFormatLabel)
 	graphContent := container.NewBorder(graphControls, nil, nil, nil, charts)
-	totals := container.NewBorder(widget.NewLabel("All characters in this date range · average DPS includes idle time"), nil, nil, nil, ui.totals)
+	totalsNote := widget.NewLabel("All characters in this date range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.")
+	totalsNote.Wrapping = fyne.TextWrapWord
+	totals := container.NewBorder(totalsNote, nil, nil, nil, ui.totals)
 	tabs := container.NewAppTabs(container.NewTabItem("Damage graphs", graphContent), container.NewTabItem("Damage totals", totals), container.NewTabItem("ESI & ships", ui.esiContent()))
 	ui.tabs = tabs
 	split := container.NewHSplit(sidebar, tabs)
@@ -417,7 +443,7 @@ func (ui *analyzerUI) renderSelection() {
 		hitsIn += series.IncomingHits
 		hitsOut += series.OutgoingHits
 	}
-	ui.tableSeries = active
+	ui.tableSeries = append([]characterSeries(nil), active...)
 	graphSeries := active
 	if ui.graphAverage10s && !ui.shipGrouping() {
 		graphSeries = ui.view.tenSecondAverage(ui.snapshot)
@@ -436,6 +462,7 @@ func (ui *analyzerUI) renderSelection() {
 	}
 	ui.incoming.setData(in)
 	ui.outgoing.setData(out)
+	ui.sortDamageTotals()
 	ui.totals.Refresh()
 	ui.summary.SetText(fmt.Sprintf("%d selected   |   Outgoing %s damage / %d hits   |   Incoming %s damage / %d hits", count, shortNumber(outgoing), hitsOut, shortNumber(incoming), hitsIn))
 	ui.updateGraphFormatLabel()
