@@ -263,7 +263,7 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.")
 	totalsNote.Wrapping = fyne.TextWrapWord
 	totals := container.NewBorder(totalsNote, nil, nil, nil, ui.totals)
-	tabs := container.NewAppTabs(container.NewTabItem("Damage graphs", graphContent), container.NewTabItem("Damage totals", totals), container.NewTabItem("Events", ui.events.content), container.NewTabItem("ESI & ships", ui.esiContent()))
+	tabs := container.NewAppTabs(container.NewTabItem("Graphs", graphContent), container.NewTabItem("Totals", totals), container.NewTabItem("Events", ui.events.content), container.NewTabItem("ESI & ships", ui.esiContent()))
 	ui.tabs = tabs
 	footer := container.NewVBox(widget.NewSeparator(), ui.summary)
 	return container.NewPadded(container.NewBorder(controls, footer, nil, nil, tabs))
