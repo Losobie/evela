@@ -390,6 +390,7 @@ func (ui *analyzerUI) rebuildView() {
 	ui.saveGraphRangePreference()
 	ui.renderSelection()
 	ui.rebuildCharacters()
+	ui.events.setRange(ui.snapshot, start, end)
 }
 
 func (ui *analyzerUI) rebuildCharacters() {
@@ -495,11 +496,4 @@ func (ui *analyzerUI) renderSelection() {
 	ui.summary.SetText(fmt.Sprintf("%d selected   |   Outgoing %s damage / %d hits   |   Incoming %s damage / %d hits", count, shortNumber(outgoing), hitsOut, shortNumber(incoming), hitsIn))
 	ui.updateGraphFormatLabel()
 	ui.refreshDamageFilterControls()
-	if ui.events != nil {
-		characters := make(map[string]bool, len(ui.snapshot.Characters))
-		for _, log := range ui.snapshot.Logs {
-			characters[log.Character] = ui.damageFilterSelected(filterCharacters, log.Character)
-		}
-		ui.events.setRange(ui.snapshot, ui.view.Start, ui.view.End, characters)
-	}
 }

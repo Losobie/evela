@@ -153,10 +153,6 @@ func TestEventsTabRangeSortingAndMessageSearch(t *testing.T) {
 	viewer.search.SetText("")
 	viewer.table.OnSelected(widget.TableCellID{Row: 0, Col: 0})
 	ui.setAllDamageFilterOptions(filterCharacters, false)
-	if len(viewer.rows) != 0 {
-		t.Fatal("clearing Characters did not hide Events")
-	}
-	ui.setAllDamageFilterOptions(filterCharacters, true)
 	ui.setAllDamageFilterOptions(filterShipType, false)
 	if len(viewer.rows) != 6 {
 		t.Fatal("damage filters hid non-damage log events")
@@ -206,68 +202,6 @@ func TestEventsRefreshPreferencesAndPreview(t *testing.T) {
 	}
 }
 
-func TestEventsFollowCharacterSelectionsWithSearchAndSort(t *testing.T) {
-	ui, start := newEventsTestUI(t)
-	other, err := parseLog(strings.NewReader(strings.Replace(eventsLog, "Pilot A", "Pilot B", 1)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshot := *ui.snapshot
-	snapshot.Characters = []string{"Pilot A", "Pilot B"}
-	snapshot.Logs = append(append([]*parsedLog(nil), snapshot.Logs...), other)
-	ui.snapshot = &snapshot
-	ui.rebuildView()
-	viewer := ui.events
-	viewer.regex.SetChecked(true)
-	viewer.search.SetText(`(?i)jumping|hello`)
-	viewer.table.OnSelected(widget.TableCellID{Row: 0, Col: 0})
-	if len(viewer.rows) != 4 {
-		t.Fatal("both selected characters should contribute matching messages")
-	}
-	ui.setDamageFilterOption(filterCharacters, "Pilot A", false)
-	if len(viewer.rows) != 2 {
-		t.Fatal("unchecking a character did not update Events without changing the range")
-	}
-	for _, row := range viewer.rows {
-		if row.Character != "Pilot B" {
-			t.Fatal("unchecked character leaked into message search")
-		}
-	}
-	ui.setAllDamageFilterOptions(filterCharacters, false)
-	if len(viewer.rows) != 0 || !strings.Contains(viewer.status.Text, "selected characters") {
-		t.Fatal("Characters All did not clear the event list")
-	}
-	ui.setAllDamageFilterOptions(filterCharacters, true)
-	if len(viewer.rows) != 4 || !viewer.regex.Checked || !viewer.descending || viewer.search.Text != `(?i)jumping|hello` {
-		t.Fatal("restoring Characters All lost search or timestamp order")
-	}
-	// Legacy character-list controls update ui.selected and render directly.
-	ui.selected["Pilot A"] = false
-	ui.renderSelection()
-	if len(viewer.rows) != 2 || viewer.rows[0].Character != "Pilot B" {
-		t.Fatal("direct character selection did not update Events")
-	}
-	ui.setAllDamageFilterOptions(filterShipType, false)
-	ui.setAllDamageFilterOptions(filterNPCNames, false)
-	if len(viewer.rows) != 2 {
-		t.Fatal("damage-specific filters changed character-filtered Events")
-	}
-	ui.applyGraphRange(start.Add(2*time.Second), start.Add(3*time.Second))
-	if len(viewer.rows) != 1 || viewer.rows[0].Character != "Pilot B" {
-		t.Fatal("time range and character selection did not intersect")
-	}
-	ui.undoGraphRange()
-	if len(viewer.rows) != 2 {
-		t.Fatal("range undo lost character-filtered Events")
-	}
-	refreshed := snapshot
-	ui.snapshot = &refreshed
-	ui.updateRange()
-	if len(viewer.rows) != 2 || viewer.rows[0].Character != "Pilot B" {
-		t.Fatal("refresh restored events for an unchecked character")
-	}
-}
-
 func TestEventDuplicateExportsRetainDistinctMessages(t *testing.T) {
 	directory := t.TempDir()
 	for _, name := range []string{"original.txt", "copy.txt"} {
@@ -302,7 +236,7 @@ func TestEventDuplicateExportsRetainDistinctMessages(t *testing.T) {
 	defer window.Close()
 	viewer := newEventsViewer(window)
 	start := time.Date(2026, 10, 19, 1, 59, 0, 0, time.UTC)
-	viewer.setRange(snapshot, start, start.Add(time.Hour), nil)
+	viewer.setRange(snapshot, start, start.Add(time.Hour))
 	viewer.search.SetText("Jumping")
 	characters := map[string]bool{}
 	for row, event := range viewer.rows {
@@ -346,7 +280,7 @@ func TestLocalEvents(t *testing.T) {
 	window := application.NewWindow("Real Events")
 	defer window.Close()
 	viewer := newEventsViewer(window)
-	viewer.setRange(snapshot, start, end, nil)
+	viewer.setRange(snapshot, start, end)
 	if expected == 0 || len(viewer.rows) != expected {
 		t.Fatalf("real Events range: got %d rows, want %d", len(viewer.rows), expected)
 	}

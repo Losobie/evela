@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"maps"
 	"regexp"
 	"sort"
 	"strings"
@@ -38,7 +37,6 @@ type eventsViewer struct {
 	rangeEvents []eventRow
 	rows        []eventRow
 	descending  bool
-	selected    map[string]bool
 }
 
 func newEventsViewer(window fyne.Window) *eventsViewer {
@@ -117,34 +115,29 @@ func newEventsViewer(window fyne.Window) *eventsViewer {
 		details.Show()
 	}
 	search := container.NewBorder(nil, nil, widget.NewLabel("Message search"), viewer.regex, viewer.search)
-	note := widget.NewLabel("Selected characters · EVE time · Click Timestamp to reverse order; select a row to read its full message.")
+	note := widget.NewLabel("All loaded characters · EVE time · Click Timestamp to reverse order; select a row to read its full message.")
 	note.Truncation = fyne.TextTruncateEllipsis
 	viewer.content = container.NewBorder(container.NewVBox(search, viewer.status), note, nil, nil, viewer.table)
 	viewer.applySearch()
 	return viewer
 }
 
-func (viewer *eventsViewer) setRange(snapshot *logSnapshot, start, end time.Time, selected map[string]bool) {
-	sameRange := viewer.snapshot == snapshot && viewer.start.Equal(start) && viewer.end.Equal(end)
-	sameSelection := (viewer.selected == nil) == (selected == nil) && maps.Equal(viewer.selected, selected)
-	if sameRange && sameSelection {
+func (viewer *eventsViewer) setRange(snapshot *logSnapshot, start, end time.Time) {
+	if viewer.snapshot == snapshot && viewer.start.Equal(start) && viewer.end.Equal(end) {
 		return
 	}
 	changedRange := !viewer.start.Equal(start) || !viewer.end.Equal(end)
-	viewer.selected = maps.Clone(selected)
 	viewer.snapshot, viewer.start, viewer.end = snapshot, start, end
-	if !sameRange {
-		viewer.rangeEvents = nil
-		first, last := start.Unix(), end.Unix()
-		for _, log := range snapshot.Logs {
-			// Parsed events are sorted once, so broad archives need only a binary
-			// search and a copy of records belonging to the visible time window.
-			left := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= first })
-			right := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= last })
-			if left < right {
-				for _, event := range log.Events[left:right] {
-					viewer.rangeEvents = append(viewer.rangeEvents, eventRow{logEvent: event, Character: log.Character})
-				}
+	viewer.rangeEvents = nil
+	first, last := start.Unix(), end.Unix()
+	for _, log := range snapshot.Logs {
+		// Parsed events are sorted once, so broad archives need only a binary
+		// search and a copy of records belonging to the visible time window.
+		left := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= first })
+		right := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= last })
+		if left < right {
+			for _, event := range log.Events[left:right] {
+				viewer.rangeEvents = append(viewer.rangeEvents, eventRow{logEvent: event, Character: log.Character})
 			}
 		}
 	}
@@ -169,12 +162,7 @@ func (viewer *eventsViewer) applySearch() {
 	}
 	viewer.rows = nil
 	literal := strings.ToLower(query)
-	eligible := 0
 	for _, event := range viewer.rangeEvents {
-		if viewer.selected != nil && !viewer.selected[event.Character] {
-			continue
-		}
-		eligible++
 		matches := query == ""
 		if !matches {
 			if pattern != nil {
@@ -193,11 +181,9 @@ func (viewer *eventsViewer) applySearch() {
 		}
 		return viewer.rows[i].Second < viewer.rows[j].Second
 	})
-	status := fmt.Sprintf("%d of %d events", len(viewer.rows), eligible)
+	status := fmt.Sprintf("%d of %d events", len(viewer.rows), len(viewer.rangeEvents))
 	if len(viewer.rangeEvents) == 0 {
 		status = "No events in this time range"
-	} else if eligible == 0 {
-		status = "No events for selected characters in this time range"
 	} else if len(viewer.rows) == 0 {
 		status = "No matching messages · " + status
 	}
