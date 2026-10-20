@@ -82,11 +82,11 @@ func TestShipClassFormatSynchronizesGraphsLegendAndTotals(t *testing.T) {
 		t.Fatal("class format did not update the totals or active format label")
 	}
 	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+1, 80, 0))
-	if label := ui.outgoing.hoverReadings[0]; !strings.Contains(label.Text, "Supercarrier (2):") || label.Color != characterColor("Supercarrier") {
-		t.Fatalf("ship-class hover lost its member count or color: %s", label.Text)
+	if label := ui.outgoing.hoverReadings[0]; !strings.Contains(label.Text, "Supercarrier · B: 200 damage") || label.Color != characterColor("Supercarrier") {
+		t.Fatalf("ship-class hit hover lost its character or color: %s", label.Text)
 	}
 	ui.incoming.MouseMoved(testMouseEvent(chartPlotLeft+1, 80, 0))
-	if label := ui.incoming.hoverReadings[0]; !strings.Contains(label.Text, "B: 20 DPS") || label.Color != characterColor("B") {
+	if label := ui.incoming.hoverReadings[0]; !strings.Contains(label.Text, "B: 20 damage") || label.Color != characterColor("B") {
 		t.Fatalf("incoming hover lost its independent character grouping: %s", label.Text)
 	}
 	for _, item := range ui.graphFormatMenu().Items {

@@ -335,9 +335,9 @@ func TestCharacterGroupGroupingFilteringPersistenceAndDeletion(t *testing.T) {
 		t.Fatal("shared members were counted twice in the summary")
 	}
 	width := ui.outgoing.Size().Width - chartPlotLeft - chartPlotRight
-	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+width*.025, 80, 0))
-	if !strings.Contains(ui.outgoing.hoverReadings[0].Text, "Fleet (2): 30 DPS") {
-		t.Fatal("named-group hover lost membership counts or damage")
+	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+min(float32(1), width*.025), 80, 0))
+	if !strings.Contains(ui.outgoing.hoverReadings[0].Text, ungroupedCharacters+" · C: 30 damage") || !strings.Contains(ui.outgoing.hoverReadings[1].Text, "Fleet · B: 20 damage") {
+		t.Fatal("named-group hit hover lost character attribution or damage")
 	}
 	ui.characterSearch.SetText("fleet")
 	if got := characterFilterChecks(ui.characters); !reflect.DeepEqual(got, map[string]bool{"A": true, "B": true}) {

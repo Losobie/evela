@@ -52,16 +52,18 @@ type plotSeries struct {
 	Name         string
 	Color        color.NRGBA
 	Values       []float64
+	Hits         []plotHit
 	MemberCount  int
 	MemberCounts []int
 }
 type plotData struct {
-	Start, End    time.Time
-	Bucket        time.Duration
-	Series        []plotSeries
-	Maximum       float64
-	AverageWindow time.Duration
-	Markers       []plotMarker
+	Start, End     time.Time
+	Bucket         time.Duration
+	Series         []plotSeries
+	Maximum        float64
+	AverageWindow  time.Duration
+	Markers        []plotMarker
+	IndividualHits bool
 }
 
 // Plot coordinates and axis labels always use a linear DPS scale.
@@ -127,9 +129,15 @@ func (chart *damageChart) setData(data plotData) {
 		chart.dragBlocked = true
 	}
 	for _, series := range data.Series {
-		for _, value := range series.Values {
-			if value > data.Maximum {
-				data.Maximum = value
+		if data.IndividualHits {
+			for _, hit := range series.Hits {
+				data.Maximum = math.Max(data.Maximum, hit.Damage)
+			}
+		} else {
+			for _, value := range series.Values {
+				if value > data.Maximum {
+					data.Maximum = value
+				}
 			}
 		}
 	}
@@ -223,6 +231,10 @@ func (r *chartRenderer) Refresh() {
 	r.chart.mu.RUnlock()
 	hasDamage := false
 	for _, series := range data.Series {
+		if data.IndividualHits {
+			hasDamage = hasDamage || len(series.Hits) > 0
+			continue
+		}
 		for _, value := range series.Values {
 			if value > 0 {
 				hasDamage = true
@@ -255,6 +267,8 @@ func (r *chartRenderer) Refresh() {
 	hint := chartHint
 	if data.AverageWindow > 0 {
 		hint += " · " + data.AverageWindow.String() + " avg"
+	} else if data.IndividualHits {
+		hint += " · individual hits · damage"
 	}
 	r.chart.setHoverHint(hint)
 	if r.chart.drag != nil && r.chart.drag.Moved {
@@ -293,6 +307,17 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 	stroke.SetStroke(fixed.Int26_6(math.Round(lineWidth*64)), 4*64, rasterx.RoundCap, nil, rasterx.RoundGap, rasterx.Round)
 	duration := data.End.Sub(data.Start).Seconds()
 	for _, series := range data.Series {
+		if data.IndividualHits {
+			for _, hit := range series.Hits {
+				if hit.Second < data.Start.Unix() || hit.Second >= data.End.Unix() {
+					continue
+				}
+				x := float64(hit.Second-data.Start.Unix()) / duration * float64(w-1)
+				y := float64(h-1) * (1 - data.fraction(hit.Damage))
+				drawHitPoint(img, x+0.5, y+0.5, 2.5*lineWidth/1.25, series.Color)
+			}
+			continue
+		}
 		if len(series.Values) == 0 {
 			continue
 		}
@@ -323,6 +348,24 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 		drawLine(img, x, 0, x, h-1, markerColor)
 	}
 	return img
+}
+
+func drawHitPoint(img *image.RGBA, x, y, radius float64, ink color.NRGBA) {
+	for row := max(0, int(math.Floor(y-radius-1))); row <= min(img.Bounds().Max.Y-1, int(math.Ceil(y+radius+1))); row++ {
+		for column := max(0, int(math.Floor(x-radius-1))); column <= min(img.Bounds().Max.X-1, int(math.Ceil(x+radius+1))); column++ {
+			coverage := math.Max(0, math.Min(1, radius+0.5-math.Hypot(float64(column)+0.5-x, float64(row)+0.5-y)))
+			if coverage == 0 {
+				continue
+			}
+			alpha := coverage * float64(ink.A) / 255
+			old := img.RGBAAt(column, row)
+			img.SetRGBA(column, row, color.RGBA{
+				R: uint8(math.Round(float64(ink.R)*alpha + float64(old.R)*(1-alpha))),
+				G: uint8(math.Round(float64(ink.G)*alpha + float64(old.G)*(1-alpha))),
+				B: uint8(math.Round(float64(ink.B)*alpha + float64(old.B)*(1-alpha))), A: 255,
+			})
+		}
+	}
 }
 
 func drawLine(img *image.RGBA, x0, y0, x1, y1 int, ink color.NRGBA) {
@@ -390,21 +433,55 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 		color color.NRGBA
 	}
 	var readings []reading
-	for _, series := range data.Series {
-		if bin >= 0 && bin < len(series.Values) {
-			name := series.Name
-			count := series.MemberCount
-			if bin < len(series.MemberCounts) {
-				count = series.MemberCounts[bin]
+	hoverTime := data.Start.Add(time.Duration(bin) * data.Bucket)
+	if data.IndividualHits {
+		hoverTime = data.Start.Add(time.Duration(math.Floor(elapsed)) * time.Second)
+		nearest, distance, found := int64(0), float64(5), false
+		target := float64(data.Start.Unix()) + elapsed
+		for _, series := range data.Series {
+			index := sort.Search(len(series.Hits), func(i int) bool { return float64(series.Hits[i].Second) >= target })
+			for _, candidate := range []int{index - 1, index} {
+				if candidate < 0 || candidate >= len(series.Hits) {
+					continue
+				}
+				second := series.Hits[candidate].Second
+				delta := math.Abs(float64(second)-target) / data.End.Sub(data.Start).Seconds() * float64(w)
+				if delta <= distance {
+					nearest, distance, found = second, delta, true
+				}
 			}
-			if count > 1 {
-				name = fmt.Sprintf("%s (%d)", name, count)
+		}
+		if found {
+			hoverTime = time.Unix(nearest, 0).UTC()
+			for _, series := range data.Series {
+				index := sort.Search(len(series.Hits), func(i int) bool { return series.Hits[i].Second >= nearest })
+				for ; index < len(series.Hits) && series.Hits[index].Second == nearest; index++ {
+					hit := series.Hits[index]
+					name := series.Name
+					if hit.Character != "" && hit.Character != name {
+						name += " · " + hit.Character
+					}
+					readings = append(readings, reading{name, hit.Damage, series.Color})
+				}
 			}
-			readings = append(readings, reading{name, series.Values[bin], series.Color})
+		}
+	} else {
+		for _, series := range data.Series {
+			if bin >= 0 && bin < len(series.Values) {
+				name := series.Name
+				count := series.MemberCount
+				if bin < len(series.MemberCounts) {
+					count = series.MemberCounts[bin]
+				}
+				if count > 1 {
+					name = fmt.Sprintf("%s (%d)", name, count)
+				}
+				readings = append(readings, reading{name, series.Values[bin], series.Color})
+			}
 		}
 	}
 	sort.SliceStable(readings, func(i, j int) bool { return readings[i].value > readings[j].value })
-	chart.hover.Text = data.Start.Add(time.Duration(bin)*data.Bucket).Format("Jan 02 15:04:05") + " EVE time"
+	chart.hover.Text = hoverTime.Format("Jan 02 15:04:05") + " EVE time"
 	for _, marker := range data.Markers {
 		markerX := float64(marker.At.Sub(data.Start)) / float64(data.End.Sub(data.Start)) * float64(w)
 		if math.Abs(markerX-x) <= 4 {
@@ -420,6 +497,12 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 			break
 		}
 		rate, unit := shortNumber(reading.value), "DPS"
+		if data.IndividualHits {
+			unit = "damage"
+			if reading.value < 1000 {
+				rate = fmt.Sprintf("%g", reading.value)
+			}
+		}
 		if data.AverageWindow > 0 {
 			if reading.value < 1000 {
 				rate = fmt.Sprintf("%.1f", reading.value)

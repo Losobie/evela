@@ -177,8 +177,8 @@ func TestGraphGroupingUsesHistoryWithoutCurrentConnections(t *testing.T) {
 		t.Fatal("graphs did not use the ship at each event time")
 	}
 	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+1, 80, 0))
-	if !strings.Contains(ui.outgoing.hoverReadings[0].Text, "Destroyer (2): 40 DPS") {
-		t.Fatal("hover lost historical class membership")
+	if !strings.Contains(ui.outgoing.hoverReadings[0].Text, "Destroyer · B: 30 damage") {
+		t.Fatal("individual-hit hover lost historical class attribution")
 	}
 	// A current ship snapshot must not rewrite old damage, and disconnected
 	// characters keep their historical groups after refreshing.

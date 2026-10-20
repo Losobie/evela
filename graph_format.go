@@ -138,6 +138,8 @@ func (ui *analyzerUI) updateGraphFormatLabel() {
 	text := "Linear · " + grouping
 	if ui.graphAverage10s {
 		text += " · 10-second average"
+	} else {
+		text += " · individual hits"
 	}
 	ui.graphFormatLabel.SetText(text)
 }

@@ -135,16 +135,16 @@ func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 	if !strings.Contains(ui.graphFormatLabel.Text, "Linear") || !strings.Contains(ui.graphFormatLabel.Text, "ship type") {
 		t.Fatal("active format was not displayed")
 	}
-	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+float32(10.5/60)*(ui.outgoing.Size().Width-chartPlotLeft-chartPlotRight), 80, 0))
-	if label := ui.outgoing.hoverReadings[0]; !strings.Contains(label.Text, "Loki (2): 28 DPS") || label.Color != characterColor("Loki") {
-		t.Fatalf("ship-type hover lost its member count or color: %s", label.Text)
+	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+float32(10.1/60)*(ui.outgoing.Size().Width-chartPlotLeft-chartPlotRight), 80, 0))
+	if label := ui.outgoing.hoverReadings[0]; !strings.Contains(label.Text, "Loki · Pilot B: 19 damage") || label.Color != characterColor("Loki") {
+		t.Fatalf("ship-type hit hover lost its character or color: %s", label.Text)
 	}
 	ui.selected["Pilot B"] = false
 	ui.updateRange() // Automatic log refresh.
 	if ui.outgoing.data.Series[0].Values[10] != 9 || !checked("Ship type (ship history)") {
 		t.Fatal("refresh lost graph format or selection")
 	}
-	if label := ui.outgoing.hoverReadings[0]; !strings.Contains(label.Text, "Loki: 9 DPS") {
+	if label := ui.outgoing.hoverReadings[0]; !strings.Contains(label.Text, "Loki · Pilot A: 9 damage") {
 		t.Fatalf("stationary hover retained the old count after deselection: %s", label.Text)
 	}
 	ui.applyGraphRange(start.Add(5*time.Second), start.Add(45*time.Second))

@@ -35,9 +35,17 @@ type damagePoint struct {
 	IncomingHits, OutgoingHits int
 }
 
+type damageHit struct {
+	Second   int64
+	Amount   float64
+	Source   int
+	Incoming bool
+}
+
 type parsedLog struct {
 	Character       string
 	Points          []damagePoint
+	Hits            []damageHit
 	Sources         []damageSource
 	IncomingSources []incomingSourcePoint
 	StructureEvents []structureEvent
@@ -166,9 +174,11 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 			}
 			contribution.Damage += amount
 			contribution.Hits++
+			result.Hits = append(result.Hits, damageHit{Second: second, Amount: amount, Source: sourceID, Incoming: true})
 		} else {
 			point.Outgoing += amount
 			point.OutgoingHits++
+			result.Hits = append(result.Hits, damageHit{Second: second, Amount: amount, Source: -1})
 			target, typeName, recognized := outgoingStructureTarget(match[3])
 			structurePending = recognized
 			if recognized {
@@ -189,6 +199,7 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		result.Points = append(result.Points, *point)
 	}
 	sort.Slice(result.Points, func(i, j int) bool { return result.Points[i].Second < result.Points[j].Second })
+	sort.SliceStable(result.Hits, func(i, j int) bool { return result.Hits[i].Second < result.Hits[j].Second })
 	for _, point := range sourceSeconds {
 		result.IncomingSources = append(result.IncomingSources, *point)
 	}

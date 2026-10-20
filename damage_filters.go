@@ -242,6 +242,7 @@ func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
 		copyLog := *log
 		copyLog.Points, copyLog.StructureEvents = nil, nil
 		copyLog.IncomingSources = nil
+		copyLog.Hits = nil
 		// Rebuild incoming values from source contributions before bucketing and
 		// averaging. Outgoing values and structure markers use only shared filters.
 		incoming := map[int64]incomingSourcePoint{}
@@ -249,6 +250,21 @@ func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
 		for id, source := range log.Sources {
 			names, types := npcFilterOptions(source)
 			included[id] = npcNames.selected(names.Key) && npcTypes.selected(types.Key)
+		}
+		for _, hit := range log.Hits {
+			if !matches(hit.Second) {
+				continue
+			}
+			if hit.Incoming && restrictNPC {
+				allowed := npcNames.selected(filterOtherSources) && npcTypes.selected(filterOtherSources)
+				if hit.Source >= 0 && hit.Source < len(included) {
+					allowed = included[hit.Source]
+				}
+				if !allowed {
+					continue
+				}
+			}
+			copyLog.Hits = append(copyLog.Hits, hit)
 		}
 		for _, contribution := range log.IncomingSources {
 			if included[contribution.Source] && matches(contribution.Second) {
