@@ -167,7 +167,7 @@ func TestGraphDragSynchronizesRangesAndTotals(t *testing.T) {
 			}
 		}
 		chart.DragEnd()
-		if ui.rangeSelect.Selected != "Custom UTC range" {
+		if ui.rangeSelect.Selected != "Custom" {
 			t.Fatal("drag did not select a custom range")
 		}
 		if ui.view.Start.Before(start.Add(19*time.Second)) || ui.view.Start.After(start.Add(21*time.Second)) || ui.view.End.Before(start.Add(79*time.Second)) || ui.view.End.After(start.Add(81*time.Second)) {
@@ -176,7 +176,7 @@ func TestGraphDragSynchronizesRangesAndTotals(t *testing.T) {
 		if !ui.incoming.data.Start.Equal(ui.view.Start) || !ui.outgoing.data.End.Equal(ui.view.End) {
 			t.Fatal("graphs are not synchronized")
 		}
-		if ui.view.Series[0].TotalOutgoing != 90 || ui.view.Series[0].TotalIncoming != 9 || ui.tableSeries[0].TotalOutgoing != 390 {
+		if ui.view.Series[0].TotalOutgoing != 90 || ui.view.Series[0].TotalIncoming != 9 || ui.tableSeries[0].TotalOutgoing != 90 {
 			t.Fatal("damage totals did not filter to selected interval")
 		}
 		if !ui.selected["Pilot A"] || ui.selected["Pilot B"] || !ui.shipGrouping() {

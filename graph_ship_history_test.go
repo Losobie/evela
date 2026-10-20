@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -60,10 +61,10 @@ func TestHistoricalShipEventsSplitWithinBucketsAndAverages(t *testing.T) {
 			{Second: start.Unix() - 1, Outgoing: 100},
 			{Second: start.Unix(), Outgoing: 10, Incoming: 1, OutgoingHits: 1},
 			{Second: start.Unix() + 2, Outgoing: 20, Incoming: 2, OutgoingHits: 1},
-			{Second: start.Unix() + 3, Outgoing: 30, Incoming: 3, OutgoingHits: 1}, // Between observed hulls.
+			{Second: start.Unix() + 3, Outgoing: 30, Incoming: 3, OutgoingHits: 1}, // Assume the previous hull until the new sighting.
 			{Second: start.Unix() + 4, Outgoing: 40, Incoming: 4, OutgoingHits: 1},
 			{Second: start.Unix() + 5, Outgoing: 50, Incoming: 5, OutgoingHits: 1},
-			{Second: start.Unix() + 8, Outgoing: 80, Incoming: 8, OutgoingHits: 1}, // After last observation.
+			{Second: start.Unix() + 8, Outgoing: 80, Incoming: 8, OutgoingHits: 1}, // Within 45 seconds of the last sighting.
 			{Second: start.Unix() + 9, Outgoing: 90},                               // Exclusive range end.
 		}},
 		{Character: "B", Points: []damagePoint{{Second: start.Unix(), Outgoing: 20, Incoming: 2, OutgoingHits: 1}}},
@@ -85,28 +86,25 @@ func TestHistoricalShipEventsSplitWithinBucketsAndAverages(t *testing.T) {
 		return result
 	}
 	groups := byName(view.historicalShipSeries(snapshot, history, nil, false, false))
-	if len(groups) != 4 || groups["Thrasher"].TotalOutgoing != 30 || groups["Caracal"].TotalOutgoing != 90 || groups["Cormorant"].TotalOutgoing != 20 || groups["Unknown ship"].TotalOutgoing != 110 {
+	if len(groups) != 3 || groups["Thrasher"].TotalOutgoing != 60 || groups["Caracal"].TotalOutgoing != 170 || groups["Cormorant"].TotalOutgoing != 20 {
 		t.Fatalf("events were not assigned to their historical hulls: %+v", groups)
 	}
-	if !reflect.DeepEqual(groups["Caracal"].Outgoing, []float64{8, 12.5}) || !reflect.DeepEqual(groups["Unknown ship"].Outgoing, []float64{6, 20}) || groups["Unknown ship"].OutgoingHits != 2 {
+	if !reflect.DeepEqual(groups["Caracal"].Outgoing, []float64{8, 32.5}) || !reflect.DeepEqual(groups["Thrasher"].Outgoing, []float64{12, 0}) || groups["Caracal"].OutgoingHits != 3 {
 		t.Fatal("intra-bucket ship changes, partial bucket rates or unknown hits are incorrect")
 	}
 	classes := byName(view.historicalShipSeries(snapshot, history, nil, true, false))
-	if len(classes) != 3 || classes["Destroyer"].TotalOutgoing != 50 || !reflect.DeepEqual(classes["Destroyer"].MemberCounts, []int{2, 0}) || !reflect.DeepEqual(classes["Cruiser"].MemberCounts, []int{1, 1}) {
+	if len(classes) != 2 || classes["Destroyer"].TotalOutgoing != 80 || !reflect.DeepEqual(classes["Destroyer"].MemberCounts, []int{2, 0}) || !reflect.DeepEqual(classes["Cruiser"].MemberCounts, []int{1, 1}) {
 		t.Fatal("class grouping did not merge hulls or preserve bucket membership")
 	}
 	selected := byName(view.historicalShipSeries(snapshot, history, map[string]bool{"A": true}, true, false))
-	if selected["Destroyer"].TotalOutgoing != 30 || len(selected["Destroyer"].Members) != 1 || selected["Destroyer"].MemberCounts[0] != 1 {
+	if selected["Destroyer"].TotalOutgoing != 60 || len(selected["Destroyer"].Members) != 1 || selected["Destroyer"].MemberCounts[0] != 1 {
 		t.Fatal("historical class groups ignored character selection")
 	}
 	// Compare coarse historical rolling averages with the mean of one-second
 	// historical rates. A's old hull must retain its pre-range damage tail.
 	averages := byName(view.historicalShipSeries(snapshot, history, nil, false, true))
-	if averages["Thrasher"].Outgoing[0] != 12.2 || averages["Thrasher"].Outgoing[1] != 13 || averages["Caracal"].Outgoing[0] != .8 || averages["Caracal"].Outgoing[1] != 9 {
+	if math.Abs(averages["Thrasher"].Outgoing[0]-13.4) > 1e-10 || averages["Thrasher"].Outgoing[1] != 16 || averages["Caracal"].Outgoing[0] != .8 || averages["Caracal"].Outgoing[1] != 11 {
 		t.Fatalf("rolling damage moved to the new hull or used the wrong denominator: %+v", averages)
-	}
-	if averages["Unknown ship"].Outgoing[0] != 1.2 || averages["Unknown ship"].Outgoing[1] != 5 {
-		t.Fatal("averaging introduced an inactive character or changed uncovered damage")
 	}
 	if averages["Cormorant"].Outgoing[0] != 2 || averages["Cormorant"].Outgoing[1] != 2 {
 		t.Fatal("averaging lost a second character or included the out-of-range character")
@@ -119,8 +117,40 @@ func TestHistoricalShipEventsSplitWithinBucketsAndAverages(t *testing.T) {
 	}
 }
 
+func TestHistoricalShipAssumptionExpiresForTypeAndClass(t *testing.T) {
+	start := time.Date(2026, 10, 18, 2, 0, 0, 0, time.UTC)
+	snapshot := &logSnapshot{Characters: []string{"Pilot"}, Logs: []*parsedLog{{Character: "Pilot", Points: []damagePoint{
+		{Second: start.Unix() - 1, Outgoing: 40}, // Before any observation.
+		{Second: start.Unix(), Outgoing: 10},
+		{Second: start.Unix() + 45, Outgoing: 20},
+		{Second: start.Unix() + 46, Outgoing: 30}, // Beyond the assumption window.
+	}}}}
+	history := shipHistory{123: {{CharacterID: 123, CharacterName: "Pilot", TypeID: 29990,
+		TypeName: "Loki", ClassName: "Strategic Cruiser", FirstSeen: start, LastSeen: start}}}
+	view := buildView(snapshot, start.Add(-time.Second), start.Add(56*time.Second), time.Second)
+	for _, byClass := range []bool{false, true} {
+		for _, average := range []bool{false, true} {
+			known, unknown := "Loki", "Unknown ship"
+			if byClass {
+				known, unknown = "Strategic Cruiser", "Unknown ship class"
+			}
+			groups := map[string]characterSeries{}
+			for _, series := range view.historicalShipSeries(snapshot, history, nil, byClass, average) {
+				groups[series.Name] = series
+			}
+			if len(groups) != 2 || groups[known].TotalOutgoing != 30 || groups[unknown].TotalOutgoing != 70 {
+				t.Fatalf("type/class grouping or averaging ignored the 45-second cutoff: class=%v, average=%v, groups=%+v", byClass, average, groups)
+			}
+			if average && groups[known].Outgoing[47] != 2 {
+				t.Fatal("rolling damage lost its assumed ship when its tail crossed the cutoff")
+			}
+		}
+	}
+}
+
 func TestGraphGroupingUsesHistoryWithoutCurrentConnections(t *testing.T) {
 	application := test.NewTempApp(t)
+	application.Preferences().SetBool(graphAveragePreference, false)
 	window := application.NewWindow("Historical damage groups")
 	defer window.Close()
 	ui := newAnalyzerUI(window)

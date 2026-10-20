@@ -50,7 +50,7 @@ func TestCharacterFiltersFollowDamageWindow(t *testing.T) {
 			if !strings.HasPrefix(ui.summary.Text, "2 selected") {
 				t.Fatalf("out-of-range selections counted in summary: %s", ui.summary.Text)
 			}
-			if len(ui.tableSeries) != map[string]int{"Characters": 3, "Ship history": 2}[grouping] || len(ui.outgoing.data.Series) != 2 {
+			if len(ui.tableSeries) != 2 || len(ui.outgoing.data.Series) != 2 {
 				t.Fatal("inactive characters or ships remained in totals or plots")
 			}
 			if grouping == "Ship history" {

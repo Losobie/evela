@@ -7,7 +7,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// The inline status stays one row high; the full message remains available here.
+// Full refresh diagnostics remain available without taking space in the main view.
 func (ui *analyzerUI) showRefreshDetails(title, message string) {
 	label := widget.NewLabel(message)
 	label.Wrapping = fyne.TextWrapWord

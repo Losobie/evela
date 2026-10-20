@@ -106,9 +106,6 @@ func (service *esiService) authorize(ctx context.Context, openBrowser func(strin
 	if strings.TrimSpace(service.config.ClientID) == "" {
 		return nil, fmt.Errorf("enter your EVE application's public client ID first")
 	}
-	if err := validateESIAuth(service.config.AuthMode, service.config.ClientSecret); err != nil {
-		return nil, err
-	}
 	port, err := parseCallbackPort(strconv.Itoa(service.config.CallbackPort))
 	if err != nil {
 		return nil, err
@@ -135,11 +132,9 @@ func (service *esiService) authorize(ctx context.Context, openBrowser func(strin
 	server := &http.Server{Handler: loginCallback(state, result), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 10 * time.Second}
 	go server.Serve(listener)
 	defer server.Close()
-	query := url.Values{"response_type": {"code"}, "client_id": {service.config.ClientID}, "redirect_uri": {callbackURL}, "scope": {shipScope}, "state": {state}}
-	if service.config.AuthMode == esiAuthPKCE {
-		query.Set("code_challenge", base64.RawURLEncoding.EncodeToString(challenge[:]))
-		query.Set("code_challenge_method", "S256")
-	}
+	query := url.Values{"response_type": {"code"}, "client_id": {service.config.ClientID}, "redirect_uri": {callbackURL}, "scope": {shipScope + " " + locationScope}, "state": {state}}
+	query.Set("code_challenge", base64.RawURLEncoding.EncodeToString(challenge[:]))
+	query.Set("code_challenge_method", "S256")
 	if err = openBrowser(metadata.Authorization + "?" + query.Encode()); err != nil {
 		return nil, fmt.Errorf("open EVE sign-in browser: %w", err)
 	}
@@ -153,9 +148,7 @@ func (service *esiService) authorize(ctx context.Context, openBrowser func(strin
 		return nil, answer.err
 	}
 	form := url.Values{"grant_type": {"authorization_code"}, "code": {answer.code}, "client_id": {service.config.ClientID}, "redirect_uri": {callbackURL}}
-	if service.config.AuthMode == esiAuthPKCE {
-		form.Set("code_verifier", verifier)
-	}
+	form.Set("code_verifier", verifier)
 	token, identity, err := service.exchange(ctx, form)
 	if err != nil {
 		return nil, err
@@ -172,26 +165,13 @@ type ssoIdentity struct {
 	ID     int64
 	Name   string
 	Expiry time.Time
+	Scopes []string
 }
 
 func (service *esiService) exchange(ctx context.Context, form url.Values) (esiToken, ssoIdentity, error) {
-	if err := validateESIAuth(service.config.AuthMode, service.config.ClientSecret); err != nil {
-		return esiToken{}, ssoIdentity{}, err
-	}
 	metadata, err := service.discover(ctx)
 	if err != nil {
 		return esiToken{}, ssoIdentity{}, err
-	}
-	// Confidential clients authenticate with HTTP Basic instead of placing
-	// their client credentials in the form body.
-	if service.config.AuthMode == esiAuthClientSecret {
-		copyForm := make(url.Values, len(form))
-		for name, values := range form {
-			copyForm[name] = append([]string(nil), values...)
-		}
-		copyForm.Del("client_id")
-		copyForm.Del("client_secret")
-		form = copyForm
 	}
 	var response struct {
 		AccessToken  string `json:"access_token"`
@@ -208,7 +188,7 @@ func (service *esiService) exchange(ctx context.Context, form url.Values) (esiTo
 	if err != nil {
 		return esiToken{}, ssoIdentity{}, err
 	}
-	return esiToken{AccessToken: response.AccessToken, RefreshToken: response.RefreshToken, ExpiresAt: identity.Expiry}, identity, nil
+	return esiToken{AccessToken: response.AccessToken, RefreshToken: response.RefreshToken, ExpiresAt: identity.Expiry, Scopes: identity.Scopes}, identity, nil
 }
 
 func (service *esiService) renew(ctx context.Context, account *esiAccount) error {
@@ -405,5 +385,5 @@ func (service *esiService) validateToken(ctx context.Context, token string) (sso
 	if err != nil || id <= 0 {
 		return fail("invalid character ID")
 	}
-	return ssoIdentity{ID: id, Name: claims.Name, Expiry: time.Unix(claims.Exp, 0)}, nil
+	return ssoIdentity{ID: id, Name: claims.Name, Expiry: time.Unix(claims.Exp, 0), Scopes: append([]string{}, claims.Scp...)}, nil
 }

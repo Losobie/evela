@@ -10,9 +10,137 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 )
+
+func TestCharacterGroupRowSelectsBeforeDoubleClickTimeout(t *testing.T) {
+	test.NewTempApp(t)
+	row := newCharacterGroupRow()
+	var modifiers []fyne.KeyModifier
+	moves := 0
+	row.onSelect = func(modifier fyne.KeyModifier) { modifiers = append(modifiers, modifier) }
+	row.onMove = func() { moves++ }
+	event := &desktop.MouseEvent{Button: desktop.MouseButtonPrimary, Modifier: fyne.KeyModifierControl}
+	row.MouseDown(event)
+	if !reflect.DeepEqual(modifiers, []fyne.KeyModifier{fyne.KeyModifierControl}) {
+		t.Fatal("mouse-down did not select immediately with the held modifier")
+	}
+	row.MouseUp(event)
+	// The eventual single-click callback must not toggle Ctrl selection again.
+	row.Tapped(&fyne.PointEvent{})
+	if len(modifiers) != 1 {
+		t.Fatal("the delayed tap selected a second time")
+	}
+	row.MouseDown(event)
+	row.MouseUp(event)
+	row.MouseDown(event)
+	row.MouseUp(event)
+	row.DoubleTapped(&fyne.PointEvent{})
+	if len(modifiers) != 3 || moves != 1 {
+		t.Fatal("double-click did not preserve immediate selection and a single transfer")
+	}
+	row.MouseDown(&desktop.MouseEvent{Button: desktop.MouseButtonSecondary})
+	if len(modifiers) != 3 {
+		t.Fatal("secondary mouse button changed the selection")
+	}
+	// Touch and programmatic taps still select without a desktop mouse event.
+	row.Tapped(&fyne.PointEvent{})
+	if len(modifiers) != 4 || modifiers[3] != 0 {
+		t.Fatal("a tap without mouse-down did not select")
+	}
+}
+
+func TestCharacterGroupMultiSelection(t *testing.T) {
+	application := test.NewTempApp(t)
+	window := application.NewWindow("Character group multi-selection")
+	defer window.Close()
+	ui := newAnalyzerUI(window)
+	start := time.Date(2026, 10, 18, 2, 0, 0, 0, time.UTC)
+	ui.snapshot = &logSnapshot{}
+	for _, name := range []string{"A", "B", "C", "D", "E"} {
+		ui.snapshot.Characters = append(ui.snapshot.Characters, name)
+		ui.snapshot.Logs = append(ui.snapshot.Logs, &parsedLog{Character: name, EntrySeconds: []int64{start.Unix()}})
+	}
+	ui.applyGraphRange(start, start.Add(time.Minute))
+	ui.openCharacterGroupSettings()
+	editor := ui.characterGroupEditor
+	// Use the same row callbacks and mouse events as the desktop driver.
+	click := func(list *widget.List, index int, modifiers fyne.KeyModifier) {
+		t.Helper()
+		row := list.CreateItem().(*characterGroupRow)
+		list.UpdateItem(index, row)
+		row.MouseDown(&desktop.MouseEvent{Button: desktop.MouseButtonPrimary, Modifier: modifiers})
+		row.MouseUp(&desktop.MouseEvent{Button: desktop.MouseButtonPrimary, Modifier: modifiers})
+		test.Tap(row)
+	}
+	assertSelected := func(list *widget.List, want ...string) {
+		t.Helper()
+		var got []string
+		for i := 0; i < list.Length(); i++ {
+			row := list.CreateItem().(*characterGroupRow)
+			list.UpdateItem(i, row)
+			if row.background.Visible() {
+				got = append(got, row.label.Text)
+			}
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("selected rows = %v, want %v", got, want)
+		}
+	}
+	click(editor.leftList, 1, 0)
+	click(editor.leftList, 3, fyne.KeyModifierControl)
+	assertSelected(editor.leftList, "B", "D")
+	click(editor.leftList, 1, fyne.KeyModifierControl)
+	assertSelected(editor.leftList, "D")
+	click(editor.leftList, 4, fyne.KeyModifierShift)
+	assertSelected(editor.leftList, "B", "C", "D", "E")
+	// Repeated Shift-clicks keep the original anchor and can shrink the range.
+	click(editor.leftList, 2, fyne.KeyModifierShift)
+	assertSelected(editor.leftList, "B", "C")
+	click(editor.leftList, 4, fyne.KeyModifierControl|fyne.KeyModifierShift)
+	assertSelected(editor.leftList, "B", "C", "D", "E")
+	click(editor.leftList, 2, 0)
+	assertSelected(editor.leftList, "C")
+	click(editor.leftList, 0, fyne.KeyModifierShift)
+	assertSelected(editor.leftList, "A", "B", "C")
+	editor.refreshLists()
+	assertSelected(editor.leftList, "A", "B", "C")
+	test.Tap(editor.addButton)
+	if !reflect.DeepEqual(editor.included, []string{"A", "B", "C"}) || !editor.addButton.Disabled() {
+		t.Fatalf("batch add failed: %v", editor.included)
+	}
+	assertSelected(editor.leftList)
+	click(editor.rightList, 0, 0)
+	click(editor.rightList, 2, fyne.KeyModifierControl)
+	assertSelected(editor.rightList, "A", "C")
+	test.Tap(editor.removeButton)
+	if !reflect.DeepEqual(editor.included, []string{"B"}) || !editor.removeButton.Disabled() {
+		t.Fatalf("batch remove failed: %v", editor.included)
+	}
+	assertSelected(editor.rightList)
+	// Losing eligible characters clears their selection and range anchor.
+	click(editor.leftList, 0, 0)
+	click(editor.leftList, 1, fyne.KeyModifierShift)
+	click(editor.leftList, 2, fyne.KeyModifierControl)
+	click(editor.leftList, 3, fyne.KeyModifierControl)
+	ui.applyGraphRange(start.Add(time.Hour), start.Add(2*time.Hour))
+	assertSelected(editor.leftList, "A", "C") // Removed members stay eligible in this session.
+	if editor.leftSelection.anchor != "" {
+		t.Fatal("an ineligible character remained the range anchor")
+	}
+	click(editor.leftList, 1, fyne.KeyModifierControl)
+	click(editor.leftList, 0, fyne.KeyModifierControl)
+	assertSelected(editor.leftList)
+	if !editor.addButton.Disabled() {
+		t.Fatal("clearing the selection did not disable Add")
+	}
+	editor.loadDraft("")
+	if editor.leftSelection.anchor != "" || editor.rightSelection.anchor != "" {
+		t.Fatal("switching drafts retained range anchors")
+	}
+}
 
 func TestGroupCandidatesUseActualLogEntriesInWindow(t *testing.T) {
 	start := time.Date(2026, 10, 18, 2, 0, 0, 0, time.UTC)
@@ -168,6 +296,7 @@ func TestCharacterGroupEditorTransfersAndSessionEligibility(t *testing.T) {
 
 func TestCharacterGroupGroupingFilteringPersistenceAndDeletion(t *testing.T) {
 	application := test.NewTempApp(t)
+	application.Preferences().SetBool(graphAveragePreference, false)
 	application.Preferences().SetBool(graphInvulnerabilityPreference, true)
 	window := application.NewWindow("Character group filters")
 	defer window.Close()
@@ -215,9 +344,9 @@ func TestCharacterGroupGroupingFilteringPersistenceAndDeletion(t *testing.T) {
 		t.Fatalf("legend could not filter by group name: %v", got)
 	}
 	ui.characterSearch.SetText("")
-	ui.graphAverage10s, ui.graphLogarithmic = true, true
+	ui.graphAverage10s = true
 	ui.renderSelection()
-	if ui.outgoing.data.Series[0].Values[0] != 3 || math.Abs(ui.incoming.data.Series[0].Values[0]-.3) > 1e-10 || ui.tableSeries[0].TotalOutgoing != 30 {
+	if ui.outgoing.data.Series[0].Values[0] != 3 || math.Abs(ui.incoming.data.Series[0].Values[0]-.1) > 1e-10 || ui.tableSeries[0].TotalOutgoing != 30 {
 		t.Fatal("group averaging changed raw totals or combined rolling DPS incorrectly")
 	}
 	ui.groupSelect.SetSelected("Group: Scouts")
@@ -225,7 +354,7 @@ func TestCharacterGroupGroupingFilteringPersistenceAndDeletion(t *testing.T) {
 		t.Fatal("individual group filter included other characters or groups")
 	}
 	ui.selectRangeCharacters(false)
-	if ui.selected["B"] || !ui.selected["A"] || !ui.selected["C"] || len(ui.outgoing.data.Markers) != 0 || len(ui.outgoing.data.Series) != 0 || len(ui.tableSeries) != 1 {
+	if ui.selected["B"] || !ui.selected["A"] || !ui.selected["C"] || len(ui.outgoing.data.Markers) != 0 || len(ui.outgoing.data.Series) != 0 || len(ui.tableSeries) != 0 {
 		t.Fatal("group filter changed hidden selections or ignored marker/graph selection")
 	}
 	ui.selectRangeCharacters(true)

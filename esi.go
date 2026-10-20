@@ -17,19 +17,9 @@ import (
 )
 
 const shipScope = "esi-location.read_ship_type.v1"
+const locationScope = "esi-location.read_location.v1"
+const defaultESIClientID = "b680ade5175c4385a1e800b4bedb70bb"
 const defaultESICallbackPort = 8080
-const esiAuthPKCE = "pkce"
-const esiAuthClientSecret = "client_secret"
-
-func validateESIAuth(mode, secret string) error {
-	if mode != esiAuthPKCE && mode != esiAuthClientSecret {
-		return fmt.Errorf("select a supported EVE authentication method")
-	}
-	if mode == esiAuthClientSecret && strings.TrimSpace(secret) == "" {
-		return fmt.Errorf("enter the application's client secret for Client ID + secret authentication")
-	}
-	return nil
-}
 
 func esiCallbackURL(port int) string { return fmt.Sprintf("http://localhost:%d/callback", port) }
 
@@ -52,8 +42,9 @@ type shipRecord struct {
 	ClassError         string `json:"-"`
 	CheckedAt          time.Time
 	Error              string
-	TokenExpiresAt     time.Time `json:"-"`
-	CanRefresh         bool      `json:"-"`
+	TokenExpiresAt     time.Time      `json:"-"`
+	CanRefresh         bool           `json:"-"`
+	Location           locationRecord `json:"-"`
 }
 
 func characterKey(name string) string { return strings.ToLower(strings.TrimSpace(name)) }
@@ -80,18 +71,20 @@ type esiToken struct {
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token"`
 	ExpiresAt    time.Time `json:"expires_at"`
+	Scopes       []string  `json:"scopes,omitempty"`
 }
 type esiAccount struct {
-	Ship  shipRecord
-	Token esiToken
+	Ship     shipRecord
+	Location locationRecord
+	Token    esiToken
 }
 type esiConfig struct {
-	ClientID     string
-	AuthMode     string
-	ClientSecret string
-	CallbackPort int
-	Accounts     map[int64]*esiAccount
-	ShipHistory  shipHistory `json:",omitempty"`
+	ClientID        string
+	CallbackPort    int
+	Accounts        map[int64]*esiAccount
+	ShipHistory     shipHistory        `json:",omitempty"`
+	LocationHistory locationHistory    `json:",omitempty"`
+	LogLocations    logLocationHistory `json:",omitempty"`
 }
 
 // The ESI worker owns this service. UI snapshots contain ship data only.
@@ -104,12 +97,13 @@ type esiService struct {
 	metadataAt            time.Time
 	shipTypes             map[int64]shipTypeInfo
 	groupNames            map[int64]string
+	systemNames           map[int64]string
 	backoffUntil          time.Time
 	now                   func() time.Time
 }
 
 func newESIService(file string) *esiService {
-	return &esiService{file: file, config: esiConfig{AuthMode: esiAuthPKCE, CallbackPort: defaultESICallbackPort, Accounts: map[int64]*esiAccount{}}, http: &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}, baseURL: "https://esi.evetech.net/latest", discoveryURL: "https://login.eveonline.com/.well-known/oauth-authorization-server", shipTypes: map[int64]shipTypeInfo{}, groupNames: map[int64]string{}, now: time.Now}
+	return &esiService{file: file, config: esiConfig{ClientID: defaultESIClientID, CallbackPort: defaultESICallbackPort, Accounts: map[int64]*esiAccount{}}, http: &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}, baseURL: "https://esi.evetech.net/latest", discoveryURL: "https://login.eveonline.com/.well-known/oauth-authorization-server", shipTypes: map[int64]shipTypeInfo{}, groupNames: map[int64]string{}, now: time.Now}
 }
 
 type shipTypeInfo struct {
@@ -136,11 +130,8 @@ func (service *esiService) load() error {
 	if config.CallbackPort == 0 {
 		config.CallbackPort = defaultESICallbackPort
 	}
-	if config.AuthMode == "" {
-		config.AuthMode = esiAuthPKCE
-	}
-	if err := validateESIAuth(config.AuthMode, config.ClientSecret); err != nil {
-		return fmt.Errorf("read ESI settings: %w", err)
+	if strings.TrimSpace(config.ClientID) == "" {
+		config.ClientID = defaultESIClientID
 	}
 	if _, err := parseCallbackPort(strconv.Itoa(config.CallbackPort)); err != nil {
 		return fmt.Errorf("read ESI settings: %w", err)
@@ -162,6 +153,7 @@ func (service *esiService) load() error {
 			service.rememberShip(ship, false)
 		}
 		account.Ship.Error = "Waiting for ship refresh"
+		account.Location.Error = "Waiting for location refresh"
 	}
 	return nil
 }
@@ -197,6 +189,7 @@ func (service *esiService) records() []shipRecord {
 	var records []shipRecord
 	for _, account := range service.config.Accounts {
 		record := account.Ship
+		record.Location = account.Location
 		record.TokenExpiresAt, record.CanRefresh = account.Token.ExpiresAt, account.Token.RefreshToken != ""
 		records = append(records, record)
 	}
@@ -205,10 +198,6 @@ func (service *esiService) records() []shipRecord {
 }
 
 func (service *esiService) configure(clientID string, port int) error {
-	return service.configureApplication(clientID, port, service.config.AuthMode, service.config.ClientSecret)
-}
-
-func (service *esiService) configureApplication(clientID string, port int, mode, secret string) error {
 	clientID = strings.TrimSpace(clientID)
 	if clientID == "" {
 		return fmt.Errorf("enter your EVE application's public Client ID")
@@ -216,19 +205,11 @@ func (service *esiService) configureApplication(clientID string, port int, mode,
 	if _, err := parseCallbackPort(strconv.Itoa(port)); err != nil {
 		return err
 	}
-	secret = strings.TrimSpace(secret)
-	if err := validateESIAuth(mode, secret); err != nil {
-		return err
-	}
-	if mode == esiAuthPKCE {
-		secret = ""
-	}
 	if len(service.config.Accounts) > 0 && service.config.ClientID != clientID {
 		return fmt.Errorf("disconnect existing characters before changing the Client ID")
 	}
 	previous := service.config
 	service.config.ClientID, service.config.CallbackPort = clientID, port
-	service.config.AuthMode, service.config.ClientSecret = mode, secret
 	if err := service.save(); err != nil {
 		service.config = previous
 		return fmt.Errorf("save ESI settings: %w", err)
@@ -254,7 +235,7 @@ func (service *esiService) importTokens(ctx context.Context, access, refresh str
 		}
 	} else {
 		identity, err = service.validateToken(ctx, access)
-		token = esiToken{AccessToken: access, RefreshToken: refresh, ExpiresAt: identity.Expiry}
+		token = esiToken{AccessToken: access, RefreshToken: refresh, ExpiresAt: identity.Expiry, Scopes: identity.Scopes}
 		if err == nil && refresh != "" {
 			var renewedIdentity ssoIdentity
 			token, renewedIdentity, err = service.exchange(ctx, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refresh}, "client_id": {service.config.ClientID}})
@@ -305,11 +286,6 @@ func (service *esiService) requestJSON(ctx context.Context, method, endpoint, be
 	if form != nil {
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
-	// Application credentials go only to the discovered SSO token endpoint.
-	// The HTTP client rejects redirects, so a redirect cannot forward them.
-	if form != nil && method == http.MethodPost && service.metadata != nil && endpoint == service.metadata.Token && service.config.AuthMode == esiAuthClientSecret {
-		request.SetBasicAuth(service.config.ClientID, service.config.ClientSecret)
-	}
 	if bearer != "" {
 		request.Header.Set("Authorization", "Bearer "+bearer)
 	}
@@ -354,8 +330,19 @@ func (service *esiService) refreshShips(ctx context.Context) error {
 				issues = append(issues, account.Ship.CharacterName+": "+account.Ship.ClassError)
 			}
 		}
+		// Ship and location observations are independent: a failure in one must
+		// not discard a successful observation from the other endpoint.
+		if err := service.refreshLocation(ctx, account); err != nil {
+			account.Location.Error = err.Error()
+			issues = append(issues, account.Ship.CharacterName+": "+err.Error())
+		} else if account.Location.NameError != "" {
+			issues = append(issues, account.Ship.CharacterName+": "+account.Location.NameError)
+		}
 	}
 	if err := service.refreshShipHistoryMetadata(ctx); err != nil {
+		issues = append(issues, err.Error())
+	}
+	if err := service.refreshLocationHistoryMetadata(ctx); err != nil {
 		issues = append(issues, err.Error())
 	}
 	// Save even after failures: a refresh token may have rotated successfully

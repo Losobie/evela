@@ -4,37 +4,138 @@ import (
 	"fmt"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 type characterGroupRow struct {
 	widget.BaseWidget
-	label            *widget.Label
-	onSelect, onMove func()
+	label         *widget.Label
+	background    *canvas.Rectangle
+	mouseSelected bool
+	onSelect      func(fyne.KeyModifier)
+	onMove        func()
 }
 
 func newCharacterGroupRow() *characterGroupRow {
-	row := &characterGroupRow{label: widget.NewLabel("Character")}
+	row := &characterGroupRow{label: widget.NewLabel("Character"), background: canvas.NewRectangle(theme.Color(theme.ColorNameSelection))}
+	row.background.Hide()
 	row.label.Truncation = fyne.TextTruncateEllipsis
 	row.ExtendBaseWidget(row)
 	return row
 }
 
 func (row *characterGroupRow) CreateRenderer() fyne.WidgetRenderer {
-	return widget.NewSimpleRenderer(row.label)
+	return widget.NewSimpleRenderer(container.NewStack(row.background, row.label))
 }
+func (row *characterGroupRow) setSelected(selected bool) {
+	row.background.FillColor = row.Theme().Color(theme.ColorNameSelection, fyne.CurrentApp().Settings().ThemeVariant())
+	row.background.CornerRadius = row.Theme().Size(theme.SizeNameSelectionRadius)
+	if selected {
+		row.background.Show()
+	} else {
+		row.background.Hide()
+	}
+	row.background.Refresh()
+}
+func (row *characterGroupRow) MouseDown(event *desktop.MouseEvent) {
+	if event.Button == desktop.MouseButtonPrimary {
+		// Fyne delays Tapped on double-tappable widgets until the double-click
+		// timeout. Select immediately and consume that later tap so Ctrl-click
+		// does not toggle the same character twice.
+		row.mouseSelected = true
+		if row.onSelect != nil {
+			row.onSelect(event.Modifier)
+		}
+	}
+}
+func (row *characterGroupRow) MouseUp(*desktop.MouseEvent) {}
 func (row *characterGroupRow) Tapped(*fyne.PointEvent) {
+	if row.mouseSelected {
+		row.mouseSelected = false
+		return
+	}
 	if row.onSelect != nil {
-		row.onSelect()
+		row.onSelect(0)
 	}
 }
 func (row *characterGroupRow) DoubleTapped(*fyne.PointEvent) {
+	row.mouseSelected = false
 	if row.onMove != nil {
 		row.onMove()
 	}
+}
+
+type characterGroupSelection struct {
+	names  map[string]bool
+	anchor string
+}
+
+func (selection *characterGroupSelection) selectAt(names []string, index int, modifiers fyne.KeyModifier) {
+	if index < 0 || index >= len(names) {
+		return
+	}
+	control := modifiers&fyne.KeyModifierControl != 0
+	shift := modifiers&fyne.KeyModifierShift != 0
+	anchor := -1
+	for i, name := range names {
+		if name == selection.anchor {
+			anchor = i
+			break
+		}
+	}
+	if !control || selection.names == nil {
+		selection.names = map[string]bool{}
+	}
+	if shift && anchor >= 0 {
+		for i := min(anchor, index); i <= max(anchor, index); i++ {
+			selection.names[names[i]] = true
+		}
+		return
+	}
+	name := names[index]
+	if control && !shift && selection.names[name] {
+		delete(selection.names, name)
+	} else {
+		selection.names[name] = true
+	}
+	selection.anchor = name
+}
+
+func (selection *characterGroupSelection) retain(names []string) {
+	retained := map[string]bool{}
+	anchorPresent := false
+	for _, name := range names {
+		if selection.names[name] {
+			retained[name] = true
+		}
+		anchorPresent = anchorPresent || name == selection.anchor
+	}
+	selection.names = retained
+	if !anchorPresent {
+		selection.anchor = ""
+	}
+}
+
+func (selection *characterGroupSelection) selectedNames(names []string) []string {
+	var selected []string
+	for _, name := range names {
+		if selection.names[name] {
+			selected = append(selected, name)
+		}
+	}
+	return selected
+}
+
+func characterGroupKeyModifiers() fyne.KeyModifier {
+	if driver, ok := fyne.CurrentApp().Driver().(desktop.Driver); ok {
+		return driver.CurrentKeyModifiers()
+	}
+	return 0
 }
 
 type characterTransferLayout struct{}
@@ -55,18 +156,19 @@ func (characterTransferLayout) Layout(objects []fyne.CanvasObject, size fyne.Siz
 }
 
 type characterGroupEditor struct {
-	ui                              *analyzerUI
-	dialog                          *dialog.CustomDialog
-	choice                          *widget.Select
-	name                            *widget.Entry
-	status, leftTitle, rightTitle   *widget.Label
-	leftList, rightList             *widget.List
-	addButton, removeButton         *widget.Button
-	saveButton, deleteButton        *widget.Button
-	id, selectedLeft, selectedRight string
-	members, removed                map[string]string
-	available, included             []string
-	loading                         bool
+	ui                            *analyzerUI
+	dialog                        *dialog.CustomDialog
+	choice                        *widget.Select
+	name                          *widget.Entry
+	status, leftTitle, rightTitle *widget.Label
+	leftList, rightList           *widget.List
+	addButton, removeButton       *widget.Button
+	saveButton, deleteButton      *widget.Button
+	id                            string
+	leftSelection, rightSelection characterGroupSelection
+	members, removed              map[string]string
+	available, included           []string
+	loading                       bool
 }
 
 func (ui *analyzerUI) openCharacterGroupSettings() {
@@ -82,43 +184,33 @@ func (ui *analyzerUI) openCharacterGroupSettings() {
 	editor.status = widget.NewLabel("")
 	editor.status.Wrapping = fyne.TextWrapWord
 	editor.leftTitle, editor.rightTitle = widget.NewLabel(""), widget.NewLabel("")
-	editor.addButton = widget.NewButtonWithIcon("Add", theme.NavigateNextIcon(), func() { editor.add(editor.selectedLeft) })
-	editor.removeButton = widget.NewButtonWithIcon("Remove", theme.NavigateBackIcon(), func() { editor.remove(editor.selectedRight) })
+	editor.addButton = widget.NewButtonWithIcon("Add", theme.NavigateNextIcon(), func() { editor.add(editor.leftSelection.selectedNames(editor.available)...) })
+	editor.removeButton = widget.NewButtonWithIcon("Remove", theme.NavigateBackIcon(), func() { editor.remove(editor.rightSelection.selectedNames(editor.included)...) })
 	editor.saveButton = widget.NewButton("Save group", editor.save)
 	editor.deleteButton = widget.NewButton("Delete group", editor.delete)
 	editor.leftList = widget.NewList(func() int { return len(editor.available) }, func() fyne.CanvasObject { return newCharacterGroupRow() }, func(index widget.ListItemID, object fyne.CanvasObject) {
 		row := object.(*characterGroupRow)
 		name := editor.available[index]
 		row.label.SetText(name)
-		row.onSelect = func() { editor.leftList.Select(index) }
+		row.setSelected(editor.leftSelection.names[name])
+		row.onSelect = func(modifiers fyne.KeyModifier) { editor.selectCharacter(true, index, modifiers) }
 		row.onMove = func() { editor.add(name) }
 	})
 	editor.rightList = widget.NewList(func() int { return len(editor.included) }, func() fyne.CanvasObject { return newCharacterGroupRow() }, func(index widget.ListItemID, object fyne.CanvasObject) {
 		row := object.(*characterGroupRow)
 		name := editor.included[index]
 		row.label.SetText(name)
-		row.onSelect = func() { editor.rightList.Select(index) }
+		row.setSelected(editor.rightSelection.names[name])
+		row.onSelect = func(modifiers fyne.KeyModifier) { editor.selectCharacter(false, index, modifiers) }
 		row.onMove = func() { editor.remove(name) }
 	})
 	editor.leftList.OnSelected = func(index widget.ListItemID) {
-		if index >= 0 && index < len(editor.available) {
-			editor.selectedLeft = editor.available[index]
-			editor.addButton.Enable()
-		}
+		editor.leftList.UnselectAll()
+		editor.selectCharacter(true, index, characterGroupKeyModifiers())
 	}
 	editor.rightList.OnSelected = func(index widget.ListItemID) {
-		if index >= 0 && index < len(editor.included) {
-			editor.selectedRight = editor.included[index]
-			editor.removeButton.Enable()
-		}
-	}
-	editor.leftList.OnUnselected = func(widget.ListItemID) {
-		editor.selectedLeft = ""
-		editor.addButton.Disable()
-	}
-	editor.rightList.OnUnselected = func(widget.ListItemID) {
-		editor.selectedRight = ""
-		editor.removeButton.Disable()
+		editor.rightList.UnselectAll()
+		editor.selectCharacter(false, index, characterGroupKeyModifiers())
 	}
 	editor.choice = widget.NewSelect(nil, func(value string) {
 		if editor.loading {
@@ -133,7 +225,7 @@ func (ui *analyzerUI) openCharacterGroupSettings() {
 		editor.loadDraft(id)
 	})
 	editor.name.OnChanged = func(string) { editor.validateName() }
-	note := widget.NewLabel("Select a character and use the arrows, or double-click a character to move it. Available characters have a log entry in the current time window or were removed during this settings session. Existing members remain listed even outside the window.")
+	note := widget.NewLabel("Select characters and use the arrows. Ctrl-click toggles individual characters; Shift-click selects a range. Double-click a character to move it. Available characters have a log entry in the current time window or were removed during this settings session. Existing members remain listed even outside the window.")
 	note.Wrapping = fyne.TextWrapWord
 	top := container.NewVBox(editor.choice, widget.NewForm(widget.NewFormItem("Group name", editor.name)), note)
 	left := container.NewBorder(editor.leftTitle, nil, nil, nil, editor.leftList)
@@ -167,6 +259,7 @@ func (editor *characterGroupEditor) refreshChoice() {
 
 func (editor *characterGroupEditor) loadDraft(id string) {
 	editor.id, editor.members = id, map[string]string{}
+	editor.leftSelection, editor.rightSelection = characterGroupSelection{}, characterGroupSelection{}
 	name := ""
 	for _, group := range editor.ui.characterGroups {
 		if group.ID == id {
@@ -198,7 +291,6 @@ func (editor *characterGroupEditor) validateName() {
 }
 
 func (editor *characterGroupEditor) refreshLists() {
-	selectedLeft, selectedRight := editor.selectedLeft, editor.selectedRight
 	available := charactersWithLogEntries(editor.ui.snapshot, editor.ui.view.Start, editor.ui.view.End)
 	for key, name := range editor.removed {
 		available[key] = name
@@ -207,42 +299,60 @@ func (editor *characterGroupEditor) refreshLists() {
 		delete(available, key)
 	}
 	editor.available, editor.included = sortedCharacterNames(available), sortedCharacterNames(editor.members)
-	editor.selectedLeft, editor.selectedRight = "", ""
+	editor.leftSelection.retain(editor.available)
+	editor.rightSelection.retain(editor.included)
 	editor.leftList.UnselectAll()
 	editor.rightList.UnselectAll()
-	editor.addButton.Disable()
-	editor.removeButton.Disable()
+	editor.updateTransferButtons()
 	editor.leftTitle.SetText(fmt.Sprintf("Available characters (%d)", len(editor.available)))
 	editor.rightTitle.SetText(fmt.Sprintf("Group members (%d)", len(editor.included)))
 	editor.leftList.Refresh()
 	editor.rightList.Refresh()
-	for index, name := range editor.available {
-		if name == selectedLeft {
-			editor.leftList.Select(index)
-		}
+}
+
+func (editor *characterGroupEditor) selectCharacter(left bool, index int, modifiers fyne.KeyModifier) {
+	if left {
+		editor.leftSelection.selectAt(editor.available, index, modifiers)
+		editor.leftList.Refresh()
+	} else {
+		editor.rightSelection.selectAt(editor.included, index, modifiers)
+		editor.rightList.Refresh()
 	}
-	for index, name := range editor.included {
-		if name == selectedRight {
-			editor.rightList.Select(index)
-		}
+	editor.updateTransferButtons()
+}
+
+func (editor *characterGroupEditor) updateTransferButtons() {
+	if len(editor.leftSelection.names) > 0 {
+		editor.addButton.Enable()
+	} else {
+		editor.addButton.Disable()
+	}
+	if len(editor.rightSelection.names) > 0 {
+		editor.removeButton.Enable()
+	} else {
+		editor.removeButton.Disable()
 	}
 }
 
-func (editor *characterGroupEditor) add(name string) {
-	for _, available := range editor.available {
-		if characterKey(name) == characterKey(available) {
-			editor.members[characterKey(available)] = available
-			break
+func (editor *characterGroupEditor) add(names ...string) {
+	for _, name := range names {
+		for _, available := range editor.available {
+			if characterKey(name) == characterKey(available) {
+				editor.members[characterKey(available)] = available
+				break
+			}
 		}
 	}
 	editor.refreshLists()
 }
 
-func (editor *characterGroupEditor) remove(name string) {
-	key := characterKey(name)
-	if member, ok := editor.members[key]; ok {
-		editor.removed[key] = member
-		delete(editor.members, key)
+func (editor *characterGroupEditor) remove(names ...string) {
+	for _, name := range names {
+		key := characterKey(name)
+		if member, ok := editor.members[key]; ok {
+			editor.removed[key] = member
+			delete(editor.members, key)
+		}
 	}
 	editor.refreshLists()
 }

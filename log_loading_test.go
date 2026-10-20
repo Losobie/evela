@@ -6,6 +6,9 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -113,6 +116,8 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 	if ui.logLookbackDays != 30 {
 		t.Fatal("new users do not default to the last 30 days")
 	}
+	originalFolder := ui.path.Text
+	var folder *widget.Entry
 	open := func() (*widget.Entry, *widget.Check, *widget.Button) {
 		t.Helper()
 		for _, menu := range window.MainMenu().Items {
@@ -138,19 +143,26 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 		var days *widget.Entry
 		var all *widget.Check
 		var save *widget.Button
+		folder = nil
+		browseFound := false
 		walkFilterObjects(popup.Content, func(object fyne.CanvasObject) {
 			switch value := object.(type) {
 			case *widget.Form:
 				days = value.Items[0].Widget.(*widget.Entry)
 			case *widget.Check:
 				all = value
+			case *widget.Entry:
+				if value.MultiLine {
+					folder = value
+				}
 			case *widget.Button:
 				if value.Text == "Save and refresh" {
 					save = value
 				}
+				browseFound = browseFound || value.Text == "Add folder…"
 			}
 		})
-		if days == nil || all == nil || save == nil {
+		if days == nil || all == nil || save == nil || folder == nil || !browseFound {
 			t.Fatal("log loading settings are missing their controls")
 		}
 		return days, all, save
@@ -171,11 +183,20 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 		}
 	}
 	days.SetText("7")
-	ui.logLoadingDialog.Hide() // Cancel must not change the saved limit or request a load.
-	if ui.logLookbackDays != 30 || savedLogLookbackDays() != 30 || len(ui.loadRequests) != 0 {
+	folder.SetText(t.TempDir())
+	ui.logLoadingDialog.Hide() // Cancel must discard folder and limit changes.
+	if ui.logLookbackDays != 30 || savedLogLookbackDays() != 30 || len(ui.loadRequests) != 0 || ui.path.Text != originalFolder {
 		t.Fatal("cancelling changed settings or triggered loading")
 	}
 	days, all, save = open()
+	if folder.Text != originalFolder {
+		t.Fatal("reopening retained a cancelled folder edit")
+	}
+	folder.SetText("  ")
+	if !save.Disabled() {
+		t.Fatal("an empty folder can be applied")
+	}
+	folder.SetText(originalFolder)
 	for _, invalid := range []string{"", "0", "-1", "1.5", "forever", "36501"} {
 		days.SetText(invalid)
 		if !save.Disabled() {
@@ -183,13 +204,17 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 		}
 	}
 	days.SetText("7")
+	chosenFolder := t.TempDir()
+	folder.SetText("  " + chosenFolder + "  ")
 	test.Tap(save)
-	if ui.logLookbackDays != 7 || savedLogLookbackDays() != 7 || ui.logLoadingDialog != nil || len(ui.loadRequests) != 1 {
+	if ui.logLookbackDays != 7 || savedLogLookbackDays() != 7 || ui.logLoadingDialog != nil || len(ui.loadRequests) != 1 || ui.path.Text != chosenFolder {
 		t.Fatal("saving did not persist the day limit and request an immediate refresh")
 	}
-	<-ui.loadRequests
+	if got := <-ui.loadRequests; !slices.Equal(got, []string{chosenFolder}) {
+		t.Fatalf("load requested for %q, want %q", got, chosenFolder)
+	}
 	days, all, save = open()
-	if days.Text != "7" {
+	if days.Text != "7" || folder.Text != chosenFolder {
 		t.Fatal("reopening settings lost the saved value")
 	}
 	days.SetText("bad")
@@ -203,7 +228,84 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 	}
 	secondWindow := application.NewWindow("Restored settings")
 	defer secondWindow.Close()
-	if restored := newAnalyzerUI(secondWindow); restored.logLookbackDays != 0 {
+	if restored := newAnalyzerUI(secondWindow); restored.logLookbackDays != 0 || restored.path.Text != chosenFolder {
 		t.Fatal("new UI did not load persisted settings")
+	}
+}
+
+func TestMultipleLogFolderSettingsPersistCancelAndReplaceQueuedRefresh(t *testing.T) {
+	application := test.NewTempApp(t)
+	window := application.NewWindow("Multiple log folders")
+	defer window.Close()
+	ui := newAnalyzerUI(window)
+	window.SetContent(ui.content())
+	window.Resize(fyne.NewSize(1100, 800))
+	window.Show()
+	local := t.TempDir()
+	network := `\\fleet-pc\eve-logs\gamelogs`
+	if runtime.GOOS != "windows" {
+		network = t.TempDir()
+	}
+	ui.path.SetText(local)
+	ui.requestLoad() // A pending old selection must be replaced on save.
+	ui.openLogLoadingSettings()
+	content := func() fyne.CanvasObject {
+		t.Helper()
+		overlay := window.Canvas().Overlays().Top().(fyne.Widget)
+		for _, object := range test.WidgetRenderer(overlay).Objects() {
+			if popup, ok := object.(*widget.PopUp); ok {
+				return popup.Content
+			}
+		}
+		t.Fatal("missing log loading popup")
+		return nil
+	}
+	var folder *widget.Entry
+	var save *widget.Button
+	walkFilterObjects(content(), func(object fyne.CanvasObject) {
+		switch value := object.(type) {
+		case *widget.Entry:
+			if value.MultiLine {
+				folder = value
+			}
+		case *widget.Button:
+			if value.Text == "Save and refresh" {
+				save = value
+			}
+		}
+	})
+	if folder == nil || save == nil {
+		t.Fatal("missing multi-folder editor")
+	}
+	folder.SetText(local + "\n" + network + "\n" + local + "\n\n")
+	test.Tap(save)
+	want := []string{local, network}
+	if !slices.Equal(savedLogFolders(), want) || ui.path.Text != strings.Join(want, "\n") {
+		t.Fatalf("folders not persisted/normalized: %+v", savedLogFolders())
+	}
+	if got := <-ui.loadRequests; !slices.Equal(got, want) {
+		t.Fatalf("queued old folders instead of latest settings: %+v", got)
+	}
+	ui.openLogLoadingSettings()
+	walkFilterObjects(content(), func(object fyne.CanvasObject) {
+		if entry, ok := object.(*widget.Entry); ok && entry.MultiLine {
+			entry.SetText(local)
+		}
+	})
+	ui.logLoadingDialog.Hide()
+	if !slices.Equal(savedLogFolders(), want) || len(ui.loadRequests) != 0 {
+		t.Fatal("cancel modified saved folders or requested a reload")
+	}
+	other := application.NewWindow("Restored folder list")
+	defer other.Close()
+	restored := newAnalyzerUI(other)
+	if restored.path.Text != strings.Join(want, "\n") {
+		t.Fatal("folder list did not survive restart")
+	}
+	for _, invalid := range []string{"not json", `[]`, `[""]`} {
+		application.Preferences().SetString(logFoldersPreference, invalid)
+		if !slices.Equal(savedLogFolders(), []string{defaultLogDirectory()}) {
+			t.Fatal("invalid saved folders did not fall back to the local default")
+		}
 	}
 }

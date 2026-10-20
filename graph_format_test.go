@@ -14,9 +14,9 @@ import (
 	"fyne.io/fyne/v2/theme"
 )
 
-func TestLogarithmicDamageScale(t *testing.T) {
-	data := plotData{Maximum: 999, Logarithmic: true}
-	for _, point := range []struct{ value, fraction float64 }{{0, 0}, {9, 1.0 / 3}, {99, 2.0 / 3}, {999, 1}} {
+func TestLinearDamageScale(t *testing.T) {
+	data := plotData{Maximum: 999}
+	for _, point := range []struct{ value, fraction float64 }{{0, 0}, {249.75, .25}, {499.5, .5}, {999, 1}} {
 		if got := data.fraction(point.value); math.Abs(got-point.fraction) > 1e-10 {
 			t.Fatalf("%g DPS appears at %g of the plot, want %g", point.value, got, point.fraction)
 		}
@@ -27,16 +27,15 @@ func TestLogarithmicDamageScale(t *testing.T) {
 	if data.fraction(-1) != 0 || data.fraction(2000) != 1 || data.valueAt(-1) != 0 || math.Abs(data.valueAt(2)-999) > 1e-10 {
 		t.Fatal("out-of-range values were not clamped to the plot")
 	}
-	data.Logarithmic = false
 	if data.fraction(9) != 9.0/999 || data.valueAt(0.5) != 499.5 {
 		t.Fatal("linear scale changed")
 	}
-	if got := (plotData{Logarithmic: true}).fraction(0); got != 0 || math.IsNaN(got) {
-		t.Fatal("empty chart has an invalid logarithmic coordinate")
+	if got := (plotData{}).fraction(0); got != 0 || math.IsNaN(got) {
+		t.Fatal("empty chart has an invalid coordinate")
 	}
 }
 
-func TestLogarithmicScaleChangesRasterButKeepsDPS(t *testing.T) {
+func TestLinearScaleRasterAndDPS(t *testing.T) {
 	application := test.NewTempApp(t)
 	chart := newDamageChart()
 	window := application.NewWindow("Scale raster")
@@ -52,16 +51,10 @@ func TestLogarithmicScaleChangesRasterButKeepsDPS(t *testing.T) {
 	if linear.At(50, 119) != (color.RGBA{255, 0, 0, 255}) {
 		t.Fatal("linear data did not render near the baseline")
 	}
-	chart.data.Logarithmic = true
-	logarithmic := chart.renderPlot(101, 121)
-	// 9 DPS is one third of log10(1+999), while the stored value remains 9.
-	if logarithmic.At(50, 80) != (color.RGBA{255, 0, 0, 255}) || chart.data.Series[0].Values[0] != 9 {
-		t.Fatal("logarithmic mode did not move the trace or changed raw DPS")
-	}
 	renderer := test.WidgetRenderer(chart).(*chartRenderer)
 	renderer.Refresh()
 	if renderer.yLabels[0].Text != "999" || renderer.yLabels[4].Text != "0" {
-		t.Fatal("logarithmic axis labels are not in DPS")
+		t.Fatal("axis labels are not in DPS")
 	}
 	chart.MouseMoved(testMouseEvent(chartPlotLeft+50, 80, 0))
 	if !strings.Contains(chart.hoverReadings[0].Text, "Pilot: 9 DPS") {
@@ -69,8 +62,33 @@ func TestLogarithmicScaleChangesRasterButKeepsDPS(t *testing.T) {
 	}
 }
 
+func TestLegacyLogarithmicPreferencesUseLinearGraphs(t *testing.T) {
+	application := test.NewTempApp(t)
+	application.Preferences().SetBool("graph.format.logarithmic", true)
+	window := application.NewWindow("Legacy scale settings")
+	defer window.Close()
+	ui := newAnalyzerUI(window)
+	window.SetContent(ui.content())
+	start := time.Date(2026, 10, 19, 2, 0, 0, 0, time.UTC)
+	ui.snapshot = &logSnapshot{Characters: []string{"Pilot"}, Logs: []*parsedLog{{Character: "Pilot", Points: []damagePoint{{Second: start.Unix(), Outgoing: 100, Incoming: 50}}}}}
+	ui.selected["Pilot"] = true
+	ui.applyGraphRange(start, start.Add(time.Minute))
+	charts := []*damageChart{ui.outgoing, ui.incoming}
+	for _, chart := range charts {
+		if math.Abs(chart.data.fraction(chart.data.Maximum/4)-.25) > 1e-10 || math.Abs(chart.data.valueAt(.5)-chart.data.Maximum/2) > 1e-10 {
+			t.Fatal("an older logarithmic preference overrode linear scaling")
+		}
+	}
+	for _, item := range ui.graphFormatMenu().Items {
+		if item.Label == "Linear" || strings.Contains(strings.ToLower(item.Label), "logarithmic") {
+			t.Fatal("format menu still offers a scale choice")
+		}
+	}
+}
+
 func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 	application := test.NewTempApp(t)
+	application.Preferences().SetBool(graphAveragePreference, false)
 	application.Settings().SetTheme(theme.DarkTheme())
 	window := application.NewWindow("Graph format preview")
 	defer window.Close()
@@ -89,7 +107,7 @@ func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 	window.Show()
 	choose := func(label string) {
 		t.Helper()
-		for _, item := range ui.graphFormatMenu().Items {
+		for _, item := range append(ui.graphFormatMenu().Items, ui.graphOptionsMenu().Items...) {
 			if item.Label == label {
 				item.Action()
 				return
@@ -98,27 +116,23 @@ func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 		t.Fatalf("missing format option %q", label)
 	}
 	checked := func(label string) bool {
-		for _, item := range ui.graphFormatMenu().Items {
+		for _, item := range append(ui.graphFormatMenu().Items, ui.graphOptionsMenu().Items...) {
 			if item.Label == label {
 				return item.Checked
 			}
 		}
 		return false
 	}
-	if !checked("Linear") || !checked("Per character") || len(ui.outgoing.data.Series) != 2 {
+	if !checked("Character") || len(ui.outgoing.data.Series) != 2 {
 		t.Fatal("default format should be linear with separate characters")
 	}
 	beforeSize, beforePosition := ui.outgoing.Size(), application.Driver().AbsolutePositionForObject(ui.outgoing)
 	summary := ui.summary.Text
-	choose("Logarithmic (DPS + 1)")
-	if !ui.outgoing.data.Logarithmic || !ui.incoming.data.Logarithmic || !checked("Logarithmic (DPS + 1)") || checked("Linear") || ui.summary.Text != summary {
-		t.Fatal("scale option did not update both graphs or changed damage totals")
-	}
-	choose("By ship type (ship history)")
-	if !ui.shipGrouping() || len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Values[10] != 28 || ui.incoming.data.Series[0].Values[10] != 7 || ui.tableSeries[0].TotalOutgoing != 3324 {
+	choose("Ship type (ship history)")
+	if !ui.shipGrouping() || len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Values[10] != 28 || len(ui.incoming.data.Series) != 2 || ui.incoming.data.Series[0].Values[10] != 3 || ui.tableSeries[0].TotalOutgoing != 3324 || ui.summary.Text != summary {
 		t.Fatal("ship format did not combine damage correctly")
 	}
-	if !strings.Contains(ui.graphFormatLabel.Text, "Logarithmic") || !strings.Contains(ui.graphFormatLabel.Text, "ship type") {
+	if !strings.Contains(ui.graphFormatLabel.Text, "Linear") || !strings.Contains(ui.graphFormatLabel.Text, "ship type") {
 		t.Fatal("active format was not displayed")
 	}
 	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+float32(10.5/60)*(ui.outgoing.Size().Width-chartPlotLeft-chartPlotRight), 80, 0))
@@ -127,7 +141,7 @@ func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 	}
 	ui.selected["Pilot B"] = false
 	ui.updateRange() // Automatic log refresh.
-	if !ui.outgoing.data.Logarithmic || !ui.incoming.data.Logarithmic || ui.outgoing.data.Series[0].Values[10] != 9 || !checked("By ship type (ship history)") {
+	if ui.outgoing.data.Series[0].Values[10] != 9 || !checked("Ship type (ship history)") {
 		t.Fatal("refresh lost graph format or selection")
 	}
 	if label := ui.outgoing.hoverReadings[0]; !strings.Contains(label.Text, "Loki: 9 DPS") {
@@ -135,12 +149,12 @@ func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 	}
 	ui.applyGraphRange(start.Add(5*time.Second), start.Add(45*time.Second))
 	historyLength := len(ui.graphUndo)
-	choose("Per character")
+	choose("Character")
 	if ui.shipGrouping() || len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Name != "Pilot A" || len(ui.graphUndo) != historyLength {
 		t.Fatal("switching format lost character selection or drag history")
 	}
 	ui.undoGraphRange()
-	if !ui.outgoing.data.Logarithmic || !ui.view.Start.Equal(start) || !ui.view.End.Equal(start.Add(time.Minute)) {
+	if !ui.view.Start.Equal(start) || !ui.view.End.Equal(start.Add(time.Minute)) {
 		t.Fatal("range undo changed formatting or failed after a format change")
 	}
 	window.Canvas().Capture()
@@ -148,28 +162,23 @@ func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 		t.Fatal("changing graph format moved or resized the graph")
 	}
 	ui.groupSelect.SetSelected("Ship history")
-	if !checked("By ship type (ship history)") {
+	if !checked("Ship type (ship history)") {
 		t.Fatal("sidebar grouping and format menu disagree")
 	}
-	choose("Linear")
-	if ui.outgoing.data.Logarithmic || ui.incoming.data.Logarithmic || !checked("Linear") {
-		t.Fatal("linear mode could not be restored")
-	}
-	choose("Logarithmic (DPS + 1)")
 	beforeAverage := ui.summary.Text
 	historyLength = len(ui.graphUndo)
 	choose("10-second DPS average")
 	if !checked("10-second DPS average") || ui.outgoing.data.AverageWindow != 10*time.Second || ui.incoming.data.AverageWindow != 10*time.Second || math.Abs(ui.outgoing.data.Series[0].Values[10]-0.9) > 1e-10 || math.Abs(ui.incoming.data.Series[0].Values[10]-0.3) > 1e-10 {
 		t.Fatal("average option did not update both graphs with the correct rolling rates")
 	}
-	if ui.summary.Text != beforeAverage || len(ui.graphUndo) != historyLength || !strings.Contains(ui.graphFormatLabel.Text, "10-second average") || !ui.outgoing.data.Logarithmic {
-		t.Fatal("averaging changed totals, zoom history or logarithmic formatting")
+	if ui.summary.Text != beforeAverage || len(ui.graphUndo) != historyLength || !strings.Contains(ui.graphFormatLabel.Text, "10-second average") {
+		t.Fatal("averaging changed totals, zoom history or formatting")
 	}
 	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+float32(10.5/60)*(ui.outgoing.Size().Width-chartPlotLeft-chartPlotRight), 80, 0))
 	if !strings.Contains(ui.outgoing.hoverReadings[0].Text, "0.9 DPS (10s avg)") {
 		t.Fatalf("hover did not identify the fractional averaged rate: %s", ui.outgoing.hoverReadings[0].Text)
 	}
-	choose("Per character")
+	choose("Character")
 	if ui.outgoing.data.Series[0].Name != "Pilot A" || math.Abs(ui.outgoing.data.Series[0].Values[10]-0.9) > 1e-10 {
 		t.Fatal("per-character mode lost averaging")
 	}
@@ -208,7 +217,7 @@ func TestGraphFormatPreferencesRestoreBeforeLoadingLogs(t *testing.T) {
 	}
 	choose := func(ui *analyzerUI, label string) {
 		t.Helper()
-		for _, item := range ui.graphFormatMenu().Items {
+		for _, item := range append(ui.graphFormatMenu().Items, ui.graphOptionsMenu().Items...) {
 			if item.Label == label {
 				item.Action()
 				return
@@ -217,21 +226,22 @@ func TestGraphFormatPreferencesRestoreBeforeLoadingLogs(t *testing.T) {
 		t.Fatalf("missing format option %q", label)
 	}
 	first := newUI()
-	choose(first, "Logarithmic (DPS + 1)")
-	choose(first, "10-second DPS average")
-	choose(first, "By ship class (ship history)")
+	if !first.graphAverage10s || first.outgoing.data.AverageWindow != dpsAverageWindow || first.incoming.data.AverageWindow != dpsAverageWindow {
+		t.Fatal("new users did not get averaged DPS on both graphs by default")
+	}
+	choose(first, "Ship class (ship history)")
 	// A new UI reads the same saved user preferences, as on the next launch.
 	restored := newUI()
-	if !restored.graphLogarithmic || !restored.graphAverage10s || !restored.shipClassGrouping() || !strings.Contains(restored.graphFormatLabel.Text, "By ship class") || !strings.Contains(restored.graphFormatLabel.Text, "10-second average") {
-		t.Fatal("startup lost the saved scale, grouping, average or format label")
+	if !restored.graphAverage10s || !restored.shipClassGrouping() || !strings.Contains(restored.graphFormatLabel.Text, "By ship class") || !strings.Contains(restored.graphFormatLabel.Text, "10-second average") {
+		t.Fatal("startup lost the saved grouping, average or format label")
 	}
 	for _, chart := range []*damageChart{restored.outgoing, restored.incoming} {
-		if !chart.data.Logarithmic || chart.data.AverageWindow != 10*time.Second {
+		if chart.data.AverageWindow != 10*time.Second {
 			t.Fatal("saved format was not applied to both graphs before loading logs")
 		}
 	}
-	for _, item := range restored.graphFormatMenu().Items {
-		want := item.Label == "Logarithmic (DPS + 1)" || item.Label == "10-second DPS average" || item.Label == "By ship class (ship history)"
+	for _, item := range append(restored.graphFormatMenu().Items, restored.graphOptionsMenu().Items...) {
+		want := item.Label == "10-second DPS average" || item.Label == "Ship class (ship history)"
 		if item.Checked != want {
 			t.Fatalf("restored menu checkmark for %q = %v, want %v", item.Label, item.Checked, want)
 		}
@@ -247,14 +257,13 @@ func TestGraphFormatPreferencesRestoreBeforeLoadingLogs(t *testing.T) {
 		{CharacterName: "A", TypeID: 1, TypeName: "Loki", ClassName: "Strategic Cruiser", CheckedAt: time.Now()},
 		{CharacterName: "B", TypeID: 2, TypeName: "Tengu", ClassName: "Strategic Cruiser", CheckedAt: time.Now()},
 	})
-	if len(restored.outgoing.data.Series) != 1 || restored.outgoing.data.Series[0].Name != "Strategic Cruiser" || restored.outgoing.data.Series[0].Values[0] != 3 || math.Abs(restored.incoming.data.Series[0].Values[0]-.6) > 1e-10 {
+	if len(restored.outgoing.data.Series) != 1 || restored.outgoing.data.Series[0].Name != "Strategic Cruiser" || restored.outgoing.data.Series[0].Values[0] != 3 || len(restored.incoming.data.Series) != 2 || math.Abs(restored.incoming.data.Series[0].Values[0]-.2) > 1e-10 {
 		t.Fatal("first loaded data did not use the restored class grouping and average")
 	}
-	choose(restored, "Linear")
 	choose(restored, "10-second DPS average")
-	choose(restored, "Per character")
+	choose(restored, "Character")
 	reset := newUI()
-	if reset.graphLogarithmic || reset.graphAverage10s || reset.shipGrouping() {
+	if reset.graphAverage10s || reset.shipGrouping() {
 		t.Fatal("turning format options off was not saved")
 	}
 	reset.groupSelect.SetSelected("Ship history")

@@ -24,16 +24,7 @@ func (view damageView) historicalShipSeries(snapshot *logSnapshot, history shipH
 	}
 	// Index by log name once, avoiding a scan of every connected character for
 	// every damage point. Keep IDs separate so ambiguous names remain unknown.
-	byName := map[string]shipHistory{}
-	for id, periods := range history {
-		for _, period := range periods {
-			key := characterKey(period.CharacterName)
-			if byName[key] == nil {
-				byName[key] = shipHistory{}
-			}
-			byName[key][id] = append(byName[key][id], period)
-		}
-	}
+	byName := history.indexByName()
 	type groupData struct {
 		series  characterSeries
 		members map[string]bool

@@ -23,7 +23,7 @@ func shipHistoryContent(history shipHistory) fyne.CanvasObject {
 		observations += period.Observations
 	}
 	summary := widget.NewLabel(fmt.Sprintf("%d characters · %d observed periods · %d observations", len(history), len(periods), observations))
-	note := widget.NewLabel("Recorded from successful ESI ship queries. Consecutive sightings of the same ship are combined; failures, gaps over 90 seconds and restarts begin a new period. Graphs match each damage event's UTC timestamp to these periods. Events outside them stay unknown. Close and reopen to see newer observations.")
+	note := widget.NewLabel("Recorded from successful ESI ship queries. Consecutive sightings of the same ship are combined; failures, gaps over 90 seconds and restarts begin a new period. Graphs assume the last observed ship for up to 45 seconds after its last sighting, until a newer ship is observed. Listed timestamps remain actual observations. Close and reopen to see newer observations.")
 	note.Wrapping = fyne.TextWrapWord
 	top := container.NewVBox(summary, note, widget.NewSeparator())
 	if len(periods) == 0 {
@@ -41,7 +41,7 @@ func shipHistoryContent(history shipHistory) fyne.CanvasObject {
 			label := object.(*widget.Label)
 			label.TextStyle.Bold = id.Row == 0
 			if id.Row == 0 {
-				label.SetText([]string{"Character", "Ship type", "Ship name", "Ship item ID", "First seen · UTC", "Last seen · UTC", "Samples"}[id.Col])
+				label.SetText([]string{"Character", "Ship type", "Ship name", "Ship item ID", "First seen · EVE time", "Last seen · EVE time", "Samples"}[id.Col])
 				return
 			}
 			period := periods[id.Row-1]

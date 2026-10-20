@@ -6,9 +6,11 @@ import (
 )
 
 const shipHistoryMaxGap = 90 * time.Second
+const shipHistoryAssumptionWindow = 45 * time.Second
 
 // A period represents sampled observations, not exact boarding/unboarding times.
-// FirstSeen and LastSeen bound the evidence; neither end is extrapolated.
+// FirstSeen and LastSeen retain the actual observations. Lookups may assume
+// the same ship for a short interval after LastSeen without changing this data.
 type shipPeriod struct {
 	CharacterID   int64
 	CharacterName string
@@ -26,6 +28,20 @@ type shipPeriod struct {
 // History is independent of saved sign-ins, so disconnecting or replacing tokens
 // retains the observations needed to correlate older damage records.
 type shipHistory map[int64][]shipPeriod
+
+func (history shipHistory) indexByName() map[string]shipHistory {
+	byName := map[string]shipHistory{}
+	for id, periods := range history {
+		for _, period := range periods {
+			key := characterKey(period.CharacterName)
+			if byName[key] == nil {
+				byName[key] = shipHistory{}
+			}
+			byName[key][id] = append(byName[key][id], period)
+		}
+	}
+	return byName
+}
 
 func (service *esiService) rememberShip(ship shipRecord, continuous bool) {
 	if ship.CharacterID <= 0 || characterKey(ship.CharacterName) == "" || ship.TypeID <= 0 || ship.CheckedAt.IsZero() || ship.Error != "" {
@@ -66,11 +82,12 @@ func (service *esiService) rememberShip(ship shipRecord, continuous bool) {
 }
 
 // Look up a character at the original damage timestamp.
-// Missing coverage (including transitions and polling gaps) stays unknown.
+// Keep the last observed ship for up to 45 seconds after its last sighting.
+// A newer period takes precedence as soon as it begins; never extend backwards.
 func (history shipHistory) at(characterID int64, at time.Time) (shipPeriod, bool) {
 	periods := history[characterID]
 	index := sort.Search(len(periods), func(index int) bool { return periods[index].FirstSeen.After(at) }) - 1
-	if index < 0 || at.After(periods[index].LastSeen) {
+	if index < 0 || at.After(periods[index].LastSeen.Add(shipHistoryAssumptionWindow)) {
 		return shipPeriod{}, false
 	}
 	return periods[index], true

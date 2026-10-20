@@ -51,14 +51,14 @@ func TestChartHoverColorsFollowSortedSeries(t *testing.T) {
 			t.Fatalf("resorted reading %d lost its color", index)
 		}
 	}
-	if chart.hover.Color != muted || chart.hover.Text != "Oct 17 02:00:01 UTC" {
+	if chart.hover.Color != muted || chart.hover.Text != "Oct 17 02:00:01 EVE time" {
 		t.Fatal("timestamp changed color or reports the wrong bucket")
 	}
-	data.Logarithmic, data.AverageWindow = true, 10*time.Second
+	data.AverageWindow = 10 * time.Second
 	chart.setData(data)
 	chart.MouseMoved(testMouseEvent(chartPlotLeft+width, 80, 0))
 	if label := chart.hoverReadings[0]; label.Color != green || !strings.Contains(label.Text, "100.0 DPS (10s avg)") {
-		t.Fatal("logarithmic/averaged hover lost its color or DPS formatting")
+		t.Fatal("averaged hover lost its color or DPS formatting")
 	}
 }
 
@@ -127,11 +127,11 @@ func TestChartRefreshUpdatesStationaryHover(t *testing.T) {
 	// Change the values, ranking, time axis, bucket size and formatting without
 	// sending another mouse event, as happens during an automatic log refresh.
 	data.Start, data.End = start.Add(time.Second), start.Add(5*time.Second)
-	data.Bucket, data.AverageWindow, data.Logarithmic = 2*time.Second, 10*time.Second, true
+	data.Bucket, data.AverageWindow = 2*time.Second, 10*time.Second
 	data.Series[0].Values = []float64{50, 60}
 	data.Series[1].Values = []float64{70, 80}
 	chart.setData(data)
-	if chart.hover.Text != "Oct 17 02:00:03 UTC" || !chart.cursor.Visible() || chart.cursor.Position1 != cursorPosition {
+	if chart.hover.Text != "Oct 17 02:00:03 EVE time" || !chart.cursor.Visible() || chart.cursor.Position1 != cursorPosition {
 		t.Fatalf("refresh lost the pointer or selected time: %q", chart.hover.Text)
 	}
 	for index, want := range []struct {
@@ -144,7 +144,7 @@ func TestChartRefreshUpdatesStationaryHover(t *testing.T) {
 		}
 	}
 	chart.Refresh()
-	if !chart.cursor.Visible() || chart.hover.Text != "Oct 17 02:00:03 UTC" {
+	if !chart.cursor.Visible() || chart.hover.Text != "Oct 17 02:00:03 EVE time" {
 		t.Fatal("ordinary redraw cleared the hover")
 	}
 

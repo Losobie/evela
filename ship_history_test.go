@@ -42,7 +42,7 @@ func TestShipHistoryPeriodsAndTimestampCorrelation(t *testing.T) {
 	if len(history[123]) != 6 {
 		t.Fatalf("ship changes or gaps were merged: %+v", history[123])
 	}
-	for _, offset := range []time.Duration{-time.Second, 40 * time.Second, 50 * time.Second, 80 * time.Second, 2 * time.Minute, 6 * time.Minute} {
+	for _, offset := range []time.Duration{-time.Second, 136 * time.Second, 6 * time.Minute} {
 		if _, ok := history.at(123, start.Add(offset)); ok {
 			t.Fatalf("unobserved timestamp %s was assigned a ship", offset)
 		}
@@ -77,6 +77,40 @@ func TestShipHistoryPeriodsAndTimestampCorrelation(t *testing.T) {
 	service.rememberShip(ship, false)
 	if _, ok := history.atName("Test Pilot", ship.CheckedAt); ok {
 		t.Fatal("ambiguous character names should stay unknown")
+	}
+}
+
+func TestShipHistoryAssumesLastObservedShipFor45Seconds(t *testing.T) {
+	start := time.Date(2026, 10, 18, 2, 0, 0, 0, time.UTC)
+	history := shipHistory{123: {
+		{CharacterID: 123, CharacterName: "Pilot", ShipID: 1, FirstSeen: start, LastSeen: start.Add(30 * time.Second)},
+		{CharacterID: 123, CharacterName: "Pilot", ShipID: 2, FirstSeen: start.Add(time.Minute), LastSeen: start.Add(time.Minute)},
+		{CharacterID: 123, CharacterName: "Pilot", ShipID: 3, FirstSeen: start.Add(3 * time.Minute), LastSeen: start.Add(200 * time.Second)},
+	}}
+	for _, item := range []struct {
+		offset time.Duration
+		shipID int64
+	}{
+		{-time.Nanosecond, 0}, // No assumption before the first observation.
+		{0, 1},
+		{30 * time.Second, 1},
+		{59 * time.Second, 1},
+		{time.Minute, 2}, // The new ship immediately supersedes the old ship.
+		{75 * time.Second, 2},
+		{105 * time.Second, 2}, // Inclusive 45-second limit after a single sighting.
+		{105*time.Second + time.Nanosecond, 0},
+		{150 * time.Second, 0}, // Long gaps remain unknown.
+		{3 * time.Minute, 3},
+		{245 * time.Second, 3},
+		{245*time.Second + time.Nanosecond, 0},
+	} {
+		period, ok := history.atName(" PILOT ", start.Add(item.offset))
+		if ok != (item.shipID != 0) || period.ShipID != item.shipID {
+			t.Fatalf("at %s: got ship %d / %v, want %d", item.offset, period.ShipID, ok, item.shipID)
+		}
+	}
+	if !history[123][2].LastSeen.Equal(start.Add(200 * time.Second)) {
+		t.Fatal("correlation changed the recorded observation timestamp")
 	}
 }
 

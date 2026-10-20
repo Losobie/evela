@@ -50,6 +50,7 @@ func TestESIShipClassesCachePersistAndRetry(t *testing.T) {
 
 func TestShipClassFormatSynchronizesGraphsLegendAndTotals(t *testing.T) {
 	application := test.NewTempApp(t)
+	application.Preferences().SetBool(graphAveragePreference, false)
 	window := application.NewWindow("Ship class format")
 	defer window.Close()
 	ui := newAnalyzerUI(window)
@@ -70,24 +71,26 @@ func TestShipClassFormatSynchronizesGraphsLegendAndTotals(t *testing.T) {
 	window.Resize(fyne.NewSize(1440, 960))
 	window.Show()
 	for _, item := range ui.graphFormatMenu().Items {
-		if item.Label == "By ship class (ship history)" {
+		if item.Label == "Ship class (ship history)" {
 			item.Action()
 		}
 	}
-	if !ui.shipClassGrouping() || len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Name != "Supercarrier" || ui.outgoing.data.Series[0].Values[0] != 300 || ui.incoming.data.Series[0].Values[0] != 30 {
-		t.Fatal("class format did not combine both graphs")
+	if !ui.shipClassGrouping() || len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Name != "Supercarrier" || ui.outgoing.data.Series[0].Values[0] != 300 || len(ui.incoming.data.Series) != 2 || ui.incoming.data.Series[0].Values[0] != 10 {
+		t.Fatal("outgoing class format changed incoming grouping or failed to combine outgoing damage")
 	}
 	if len(ui.tableSeries) != 1 || ui.tableSeries[0].TotalOutgoing != 300 || len(ui.tableSeries[0].Members) != 2 || !strings.Contains(ui.graphFormatLabel.Text, "By ship class") {
 		t.Fatal("class format did not update the totals or active format label")
 	}
-	for _, chart := range []*damageChart{ui.outgoing, ui.incoming} {
-		chart.MouseMoved(testMouseEvent(chartPlotLeft+1, 80, 0))
-		if label := chart.hoverReadings[0]; !strings.Contains(label.Text, "Supercarrier (2):") || label.Color != characterColor("Supercarrier") {
-			t.Fatalf("ship-class hover lost its member count or color: %s", label.Text)
-		}
+	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+1, 80, 0))
+	if label := ui.outgoing.hoverReadings[0]; !strings.Contains(label.Text, "Supercarrier (2):") || label.Color != characterColor("Supercarrier") {
+		t.Fatalf("ship-class hover lost its member count or color: %s", label.Text)
+	}
+	ui.incoming.MouseMoved(testMouseEvent(chartPlotLeft+1, 80, 0))
+	if label := ui.incoming.hoverReadings[0]; !strings.Contains(label.Text, "B: 20 DPS") || label.Color != characterColor("B") {
+		t.Fatalf("incoming hover lost its independent character grouping: %s", label.Text)
 	}
 	for _, item := range ui.graphFormatMenu().Items {
-		if (item.Label == "By ship class (ship history)" && !item.Checked) || ((item.Label == "By ship type (ship history)" || item.Label == "Per character") && item.Checked) {
+		if (item.Label == "Ship class (ship history)" && !item.Checked) || ((item.Label == "Ship type (ship history)" || item.Label == "Character") && item.Checked) {
 			t.Fatal("grouping format checkmarks disagree")
 		}
 	}
@@ -106,10 +109,10 @@ func TestShipClassFormatSynchronizesGraphsLegendAndTotals(t *testing.T) {
 	}
 	ui.characterSearch.SetText("")
 	ui.selected["B"] = false
-	ui.graphAverage10s, ui.graphLogarithmic = true, true
+	ui.graphAverage10s = true
 	ui.updateRange()
 	applyTestShipRecords(ui, records)
-	if !ui.shipClassGrouping() || !ui.outgoing.data.Logarithmic || ui.outgoing.data.Series[0].Values[0] != 10 || ui.incoming.data.Series[0].Values[0] != 1 || ui.tableSeries[0].TotalOutgoing != 300 {
+	if !ui.shipClassGrouping() || ui.outgoing.data.Series[0].Values[0] != 10 || ui.incoming.data.Series[0].Values[0] != 1 || ui.tableSeries[0].TotalOutgoing != 100 {
 		t.Fatal("refresh lost class grouping, averaging or character selection")
 	}
 	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+1, 80, 0))

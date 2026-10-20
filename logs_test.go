@@ -130,17 +130,11 @@ func TestRangesUseLatestLogAndUTC(t *testing.T) {
 	first := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	last := time.Date(2026, 10, 17, 2, 0, 0, 0, time.UTC)
 	snapshot := &logSnapshot{First: first, Last: last}
-	start, end := presetRange("Latest combat day", snapshot)
-	if start.Day() != 17 || start.Hour() != 0 || end.Sub(start) != 24*time.Hour || start.Location() != time.UTC {
-		t.Fatalf("incorrect UTC day: %s — %s", start, end)
-	}
+	var start, end time.Time
 	for _, preset := range []struct {
 		name     string
 		duration time.Duration
 	}{
-		{"Last 30 seconds", 30 * time.Second},
-		{"Last 1 minute", time.Minute},
-		{"Last 5 minutes", 5 * time.Minute},
 		{"Last 10 minutes", 10 * time.Minute},
 		{"Last 30 minutes", 30 * time.Minute},
 		{"Last hour", time.Hour},
@@ -179,7 +173,7 @@ func TestLocalLogs(t *testing.T) {
 	if len(snapshot.Characters) == 0 || snapshot.Last.IsZero() {
 		t.Fatal("no characters or damage found in real logs")
 	}
-	start, end := presetRange("Latest combat day", snapshot)
+	start, end := presetRange("Last 24 hours", snapshot)
 	view := buildView(snapshot, start, end, 0)
 	var incoming, outgoing float64
 	var active int

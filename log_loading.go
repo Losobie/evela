@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -59,6 +60,21 @@ func (ui *analyzerUI) openLogLoadingSettings() {
 	}
 	note := widget.NewLabel("Load recent logs to reduce startup time and memory use. Dates come from filenames: 20261018_025902_2123143905.txt is October 18, 2026. File modification times and damage timestamps do not control this limit.")
 	note.Wrapping = fyne.TextWrapWord
+	folder := widget.NewMultiLineEntry()
+	folder.SetPlaceHolder("One log folder per line, including local folders or \\\\computer\\share\\gamelogs")
+	folder.SetMinRowsVisible(4)
+	folder.SetText(ui.path.Text)
+	browse := widget.NewButtonWithIcon("Add folder…", theme.FolderOpenIcon(), func() {
+		dialog.NewFolderOpen(func(selected fyne.ListableURI, err error) {
+			if err != nil {
+				dialog.ShowError(err, ui.window)
+				return
+			}
+			if selected != nil {
+				folder.SetText(strings.TrimSpace(folder.Text) + "\n" + selected.Path())
+			}
+		}, ui.window).Show()
+	})
 	days := widget.NewEntry()
 	days.SetText(strconv.Itoa(ui.logLookbackDays))
 	if ui.logLookbackDays == 0 {
@@ -69,7 +85,11 @@ func (ui *analyzerUI) openLogLoadingSettings() {
 	all.SetChecked(ui.logLookbackDays == 0)
 	preview := widget.NewLabel("")
 	preview.Wrapping = fyne.TextWrapWord
-	save := widget.NewButton("Save and refresh", func() {
+	apply := func() {
+		folders, err := parseLogFolders(folder.Text)
+		if err != nil {
+			return
+		}
 		limit := 0
 		if !all.Checked {
 			var err error
@@ -79,33 +99,48 @@ func (ui *analyzerUI) openLogLoadingSettings() {
 			}
 		}
 		ui.logLookbackDays = limit
+		ui.path.SetText(strings.Join(folders, "\n"))
+		saveLogFolders(folders)
 		fyne.CurrentApp().Preferences().SetInt(logLookbackPreference, limit)
 		ui.logLoadingDialog.Hide()
 		ui.requestLoad()
-	})
+	}
+	save := widget.NewButton("Save and refresh", apply)
 	update := func() {
+		valid := true
 		if all.Checked {
 			days.Disable()
 			preview.SetText("Load every .txt log, including files without a recognized filename date.")
-			save.Enable()
-			return
+		} else {
+			days.Enable()
+			limit, err := parseLogLookbackDays(days.Text)
+			if err != nil {
+				preview.SetText(err.Error())
+				valid = false
+			} else {
+				preview.SetText("Load files dated " + logLoadingCutoff(time.Now(), limit).Format("January 2, 2006") + " or later (EVE time), including newer dates. Older files and files without a valid YYYYMMDD_ prefix are skipped before opening. This does not delete any logs.")
+			}
 		}
-		days.Enable()
-		limit, err := parseLogLookbackDays(days.Text)
-		if err != nil {
+		if _, err := parseLogFolders(folder.Text); err != nil {
 			preview.SetText(err.Error())
-			save.Disable()
-			return
+			valid = false
 		}
-		preview.SetText("Load files dated " + logLoadingCutoff(time.Now(), limit).Format("January 2, 2006") + " or later (UTC), including newer dates. Older files and files without a valid YYYYMMDD_ prefix are skipped before opening. This does not delete any logs.")
-		save.Enable()
+		if valid {
+			save.Enable()
+		} else {
+			save.Disable()
+		}
 	}
 	all.OnChanged = func(bool) { update() }
 	days.OnChanged = func(string) { update() }
+	folder.OnChanged = func(string) { update() }
 	update()
-	content := container.NewVBox(note, widget.NewForm(widget.NewFormItem("Look back (days)", days)), all, preview, save)
+	folderNote := widget.NewLabel("Watch every listed folder together. Add a local folder and a network share, for example \\\\computer\\share\\gamelogs. Edit or delete a line to change or remove a folder. Unavailable folders are retried automatically; their last loaded data stays available. Duplicate exports across folders are counted once.")
+	folderNote.Wrapping = fyne.TextWrapWord
+	pathRow := container.NewBorder(nil, nil, widget.NewLabel("Log folders"), browse)
+	content := container.NewVBox(pathRow, folder, folderNote, widget.NewSeparator(), note, widget.NewForm(widget.NewFormItem("Look back (days)", days)), all, preview, save)
 	ui.logLoadingDialog = dialog.NewCustom("Log loading", "Cancel", content, ui.window)
 	ui.logLoadingDialog.SetOnClosed(func() { ui.logLoadingDialog = nil })
-	ui.logLoadingDialog.Resize(fyne.NewSize(620, 360))
+	ui.logLoadingDialog.Resize(fyne.NewSize(860, 640))
 	ui.logLoadingDialog.Show()
 }

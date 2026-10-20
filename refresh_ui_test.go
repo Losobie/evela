@@ -48,8 +48,8 @@ func TestRefreshStatusKeepsLayoutStable(t *testing.T) {
 		ui.progress.Hide()
 		objects := []fyne.CanvasObject{ui.outgoing, ui.incoming, ui.characterSearch, ui.refresh, ui.summary}
 		before := measure(objects...)
-		if before[0].position.Y <= application.Driver().AbsolutePositionForObject(ui.status).Y {
-			t.Fatal("log status should be above the graphs, near the refresh controls")
+		if before[0].position.Y <= application.Driver().AbsolutePositionForObject(ui.refresh).Y {
+			t.Fatal("refresh controls should stay above the graphs")
 		}
 		ui.refresh.Disable()
 		ui.progress.Show()
@@ -63,11 +63,11 @@ func TestRefreshStatusKeepsLayoutStable(t *testing.T) {
 		ui.summary.SetText(strings.Repeat("Very large damage totals ", 20))
 		assertSame(before, objects...)
 		if ui.status.Text != longError {
-			t.Fatal("full diagnostics were lost when truncating the inline status")
+			t.Fatal("full diagnostics for the Details dialog were lost")
 		}
 	}
 
-	ui.tabs.SelectIndex(2)
+	ui.tabs.SelectIndex(3)
 	ui.setESIStatus("Ships updated")
 	objects := []fyne.CanvasObject{ui.esiConnections, ui.shipRefresh, ui.esiStatus}
 	before := measure(objects...)
@@ -102,6 +102,7 @@ func TestRefreshPreservesListScrollPositions(t *testing.T) {
 		ui.snapshot.Logs = append(ui.snapshot.Logs, &parsedLog{Character: name, Points: []damagePoint{{Second: start.Unix(), Outgoing: 100}}})
 		records = append(records, shipRecord{CharacterID: int64(index + 1), CharacterName: name, TypeID: 1, TypeName: "Loki", CheckedAt: time.Now()})
 	}
+	ui.rangeSelect.SetSelected("All history")
 	ui.updateRange()
 	applyTestShipRecords(ui, records)
 	characters := container.NewVScroll(ui.characters)
@@ -119,7 +120,7 @@ func TestRefreshPreservesListScrollPositions(t *testing.T) {
 				t.Fatal("fixture did not provide enough scrollable content")
 			}
 		}
-		ui.updateRange()             // Log refresh.
+		ui.updateRange()                  // Log refresh.
 		applyTestShipRecords(ui, records) // ESI refresh.
 		window.Canvas().Capture()
 		for _, scroll := range []*container.Scroll{characters, ships, tokens} {

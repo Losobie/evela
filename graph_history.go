@@ -43,7 +43,11 @@ func (ui *analyzerUI) navigateGraphRange(redo bool) {
 func (ui *analyzerUI) graphRangeShortcutsAvailable() bool {
 	// Text entries keep their own undo/redo. Dialogs and popup menus should
 	// not change the graphs behind them when these keys are pressed.
-	_, editing := ui.window.Canvas().Focused().(*widget.Entry)
+	editing := false
+	switch ui.window.Canvas().Focused().(type) {
+	case *widget.Entry, *dateTimePicker:
+		editing = true
+	}
 	return !editing && ui.window.Canvas().Overlays().Top() == nil
 }
 
@@ -86,7 +90,7 @@ func (ui *analyzerUI) applyGraphRangeAction(start, end time.Time, wheel bool, at
 		return
 	}
 	before := graphRangeState{Start: ui.view.Start, End: ui.view.End, Preset: ui.rangeSelect.Selected}
-	after := graphRangeState{Start: start, End: end, Preset: "Custom UTC range"}
+	after := graphRangeState{Start: start, End: end, Preset: "Custom"}
 	if before.End.After(before.Start) {
 		merged := false
 		if wheel && len(ui.graphUndo) > 0 && len(ui.graphRedo) == 0 {
@@ -117,6 +121,7 @@ func (ui *analyzerUI) restoreGraphRange(state graphRangeState) {
 	ui.start.SetText(state.Start.UTC().Format("2006-01-02 15:04:05"))
 	ui.end.SetText(state.End.UTC().Format("2006-01-02 15:04:05"))
 	ui.settingRange = false
+	ui.end.Validate()
 	ui.rangeSelect.Selected = state.Preset
 	ui.rangeSelect.Refresh()
 	// Restore the exact previous bounds. A restored relative preset resumes

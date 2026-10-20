@@ -27,7 +27,7 @@ func graphPanButtons(root fyne.CanvasObject) []*graphPanButton {
 func TestGraphPanButtonsSynchronizeAndShareUndoHistory(t *testing.T) {
 	ui, _ := newGraphHistoryTestUI(t)
 	initial := graphHistoryState(ui)
-	ui.graphLogarithmic, ui.graphAverage10s = true, true
+	ui.graphAverage10s = true
 	ui.renderSelection()
 	buttons := graphPanButtons(ui.tabs.Items[0].Content)
 	if len(buttons) != 4 {
@@ -45,13 +45,13 @@ func TestGraphPanButtonsSynchronizeAndShareUndoHistory(t *testing.T) {
 		}
 	}
 	test.Tap(buttons[1]) // Outgoing graph: forward a quarter of one hour.
-	first := graphRangeState{Start: initial.Start.Add(15 * time.Minute), End: initial.End.Add(15 * time.Minute), Preset: "Custom UTC range"}
+	first := graphRangeState{Start: initial.Start.Add(15 * time.Minute), End: initial.End.Add(15 * time.Minute), Preset: "Custom"}
 	assertGraphHistoryState(t, ui, first, 180)
-	if len(ui.graphUndo) != 1 || ui.graphUndo[0].Before.Preset != "Last hour" || ui.tableSeries[0].TotalOutgoing != 480 {
+	if len(ui.graphUndo) != 1 || ui.graphUndo[0].Before.Preset != "Last hour" || ui.tableSeries[0].TotalOutgoing != 180 {
 		t.Fatal("pan did not record the previous preset or update damage totals")
 	}
 	test.Tap(buttons[2]) // Incoming graph: move both graphs back to the original bounds.
-	returned := graphRangeState{Start: initial.Start, End: initial.End, Preset: "Custom UTC range"}
+	returned := graphRangeState{Start: initial.Start, End: initial.End, Preset: "Custom"}
 	assertGraphHistoryState(t, ui, returned, 1180)
 	if len(ui.graphUndo) != 2 {
 		t.Fatal("each pan should add exactly one history entry")
@@ -70,7 +70,7 @@ func TestGraphPanButtonsSynchronizeAndShareUndoHistory(t *testing.T) {
 	assertGraphHistoryState(t, ui, returned, 1180)
 	sendGraphShortcut(ui, &fyne.ShortcutRedo{})
 	assertGraphHistoryState(t, ui, zoom, 30)
-	if !ui.graphAverage10s || !ui.outgoing.data.Logarithmic || ui.incoming.data.AverageWindow != 10*time.Second {
+	if !ui.graphAverage10s || ui.incoming.data.AverageWindow != 10*time.Second {
 		t.Fatal("panning or undo changed graph formatting")
 	}
 	ui.updateRange()

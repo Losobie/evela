@@ -1,23 +1,28 @@
 package main
 
 import (
+	"slices"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 const (
-	graphLogarithmicPreference     = "graph.format.logarithmic"
 	graphAveragePreference         = "graph.format.average-10s"
 	graphGroupingPreference        = "graph.format.grouping"
 	graphInvulnerabilityPreference = "graph.format.invulnerability-markers"
+	incomingGroupingPreference     = "graph.incoming.grouping"
 )
 
 func (ui *analyzerUI) initGraphFormat() {
 	preferences := fyne.CurrentApp().Preferences()
-	ui.graphLogarithmic = preferences.Bool(graphLogarithmicPreference)
-	ui.graphAverage10s = preferences.Bool(graphAveragePreference)
+	ui.graphAverage10s = preferences.BoolWithFallback(graphAveragePreference, true)
 	ui.graphInvulnerabilityMarkers = preferences.Bool(graphInvulnerabilityPreference)
+	ui.incomingGrouping = preferences.String(incomingGroupingPreference)
+	if !slices.Contains(incomingGroupingModes, ui.incomingGrouping) {
+		ui.incomingGrouping = incomingByCharacter
+	}
 	// Restore before the first view is built. Assigning directly avoids firing
 	// grouping callbacks while the totals table is still being constructed.
 	switch preferences.String(graphGroupingPreference) {
@@ -38,17 +43,36 @@ func (ui *analyzerUI) initGraphFormat() {
 	ui.graphFormatLabel = widget.NewLabel("")
 	ui.graphFormatLabel.Wrapping = fyne.TextWrapWord
 	ui.graphFormatLabel.Truncation = fyne.TextTruncateEllipsis
-	ui.graphFormatButton = widget.NewButtonWithIcon("Format options", theme.MenuDropDownIcon(), func() {
-		menu := widget.NewPopUpMenu(ui.graphFormatMenu(), ui.window.Canvas())
-		menu.ShowAtRelativePosition(fyne.NewPos(ui.graphFormatButton.Size().Width-menu.MinSize().Width,
-			ui.graphFormatButton.Size().Height), ui.graphFormatButton)
-	})
+	ui.graphFormatButton = ui.graphMenuButton("Group By", ui.graphFormatMenu)
+	ui.graphOptionsButton = ui.graphMenuButton("Options", ui.graphOptionsMenu)
+	ui.incomingGroupButton = ui.graphMenuButton("Group By", ui.incomingGroupingMenu)
 	ui.updateGraphFormatLabel()
+}
+
+func (ui *analyzerUI) graphMenuButton(label string, items func() *fyne.Menu) *widget.Button {
+	var button *widget.Button
+	button = widget.NewButtonWithIcon(label, theme.MenuDropDownIcon(), func() {
+		if ui.graphMenuPopup != nil {
+			ui.graphMenuPopup.Hide()
+		}
+		menu := widget.NewPopUpMenu(items(), ui.window.Canvas())
+		ui.graphMenuPopup = menu
+		position := fyne.CurrentApp().Driver().AbsolutePositionForObject(button)
+		size, bounds := menu.MinSize(), ui.window.Canvas().Size()
+		position.X += button.Size().Width - size.Width
+		position.Y += button.Size().Height
+		if position.Y+size.Height > bounds.Height && position.Y-button.Size().Height >= size.Height {
+			position.Y -= button.Size().Height + size.Height
+		}
+		position.X = max(0, min(position.X, bounds.Width-size.Width))
+		position.Y = max(0, min(position.Y, bounds.Height-size.Height))
+		menu.ShowAtPosition(position)
+	})
+	return button
 }
 
 func (ui *analyzerUI) saveGraphFormatPreferences() {
 	preferences := fyne.CurrentApp().Preferences()
-	preferences.SetBool(graphLogarithmicPreference, ui.graphLogarithmic)
 	preferences.SetBool(graphAveragePreference, ui.graphAverage10s)
 	preferences.SetBool(graphInvulnerabilityPreference, ui.graphInvulnerabilityMarkers)
 	grouping := "characters"
@@ -62,39 +86,22 @@ func (ui *analyzerUI) saveGraphFormatPreferences() {
 		grouping = "character-groups"
 	}
 	preferences.SetString(graphGroupingPreference, grouping)
+	preferences.SetString(incomingGroupingPreference, ui.incomingGrouping)
 }
 
 func (ui *analyzerUI) graphFormatMenu() *fyne.Menu {
-	linear := fyne.NewMenuItem("Linear", func() {
-		ui.graphLogarithmic = false
-		ui.saveGraphFormatPreferences()
-		ui.renderSelection()
-	})
-	linear.Checked = !ui.graphLogarithmic
-	logarithmic := fyne.NewMenuItem("Logarithmic (DPS + 1)", func() {
-		ui.graphLogarithmic = true
-		ui.saveGraphFormatPreferences()
-		ui.renderSelection()
-	})
-	logarithmic.Checked = ui.graphLogarithmic
-	characters := fyne.NewMenuItem("Per character", func() { ui.groupSelect.SetSelected("Characters") })
+	characters := fyne.NewMenuItem("Character", func() { ui.groupSelect.SetSelected("Characters") })
 	characters.Checked = !ui.anyGrouping()
-	ships := fyne.NewMenuItem("By ship type (ship history)", func() { ui.groupSelect.SetSelected("Ship history") })
+	ships := fyne.NewMenuItem("Ship type (ship history)", func() { ui.groupSelect.SetSelected("Ship history") })
 	ships.Checked = ui.shipGrouping() && !ui.shipClassGrouping()
-	classes := fyne.NewMenuItem("By ship class (ship history)", func() { ui.groupSelect.SetSelected("Ship class history") })
+	classes := fyne.NewMenuItem("Ship class (ship history)", func() { ui.groupSelect.SetSelected("Ship class history") })
 	classes.Checked = ui.shipClassGrouping()
-	groups := fyne.NewMenuItem("By character group", func() { ui.groupSelect.SetSelected(characterGroupsMode) })
+	groups := fyne.NewMenuItem("Character Group", func() { ui.groupSelect.SetSelected(characterGroupsMode) })
 	groups.Checked = ui.groupSelect.Selected == characterGroupsMode
-	filters := fyne.NewMenuItem("Character group filters", nil)
-	var groupFilters []*fyne.MenuItem
-	for _, group := range ui.characterGroups {
-		option := "Group: " + group.Name
-		item := fyne.NewMenuItem(group.Name, func() { ui.groupSelect.SetSelected(option) })
-		item.Checked = ui.groupSelect.Selected == option
-		groupFilters = append(groupFilters, item)
-	}
-	filters.ChildMenu = fyne.NewMenu("Character groups", groupFilters...)
-	filters.Disabled = len(groupFilters) == 0
+	return fyne.NewMenu("Group By", characters, ships, classes, groups)
+}
+
+func (ui *analyzerUI) graphOptionsMenu() *fyne.Menu {
 	average := fyne.NewMenuItem("10-second DPS average", func() {
 		ui.graphAverage10s = !ui.graphAverage10s
 		ui.saveGraphFormatPreferences()
@@ -108,17 +115,14 @@ func (ui *analyzerUI) graphFormatMenu() *fyne.Menu {
 		ui.renderSelection()
 	})
 	invulnerability.Checked = ui.graphInvulnerabilityMarkers
-	return fyne.NewMenu("Format options", linear, logarithmic, fyne.NewMenuItemSeparator(), characters, ships, classes, groups, filters, fyne.NewMenuItemSeparator(), average, invulnerability)
+	return fyne.NewMenu("Options", average, invulnerability)
 }
 
 func (ui *analyzerUI) updateGraphFormatLabel() {
 	if ui.graphFormatLabel == nil {
 		return
 	}
-	scale, grouping := "Linear", "Per character"
-	if ui.graphLogarithmic {
-		scale = "Logarithmic (DPS + 1)"
-	}
+	grouping := "By character"
 	if ui.shipGrouping() {
 		grouping = "By ship type · history at event time"
 	}
@@ -131,10 +135,9 @@ func (ui *analyzerUI) updateGraphFormatLabel() {
 			grouping = ui.groupSelect.Selected
 		}
 	}
-	text := scale + " · " + grouping
+	text := "Linear · " + grouping
 	if ui.graphAverage10s {
 		text += " · 10-second average"
 	}
 	ui.graphFormatLabel.SetText(text)
-	ui.updateGroupingNote()
 }

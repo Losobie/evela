@@ -116,7 +116,7 @@ func TestGraphWheelZoomDirectionAnchorAndLimits(t *testing.T) {
 func TestGraphWheelGroupsOneGestureAndSeparatesPauseUndoRedo(t *testing.T) {
 	ui, _ := newGraphHistoryTestUI(t)
 	initial := graphHistoryState(ui)
-	ui.graphLogarithmic, ui.graphAverage10s = true, true
+	ui.graphAverage10s = true
 	ui.renderSelection()
 	at := time.Date(2026, 10, 17, 3, 0, 0, 0, time.UTC)
 	for _, chart := range []*damageChart{ui.outgoing, ui.incoming} {
@@ -156,7 +156,7 @@ func TestGraphWheelGroupsOneGestureAndSeparatesPauseUndoRedo(t *testing.T) {
 	assertGraphHistoryState(t, ui, second, 1180)
 	sendGraphShortcut(ui, &fyne.ShortcutRedo{})
 	assertGraphHistoryState(t, ui, third, 1180)
-	if !ui.graphAverage10s || !ui.outgoing.data.Logarithmic || ui.incoming.data.AverageWindow != 10*time.Second {
+	if !ui.graphAverage10s || ui.incoming.data.AverageWindow != 10*time.Second {
 		t.Fatal("wheel zoom changed graph formatting")
 	}
 }

@@ -31,6 +31,14 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 	if ui.esiDialog == nil || ui.callbackPort.Text != "8080" || ui.callbackURL.Text != "http://localhost:8080/callback" {
 		t.Fatal("menu did not open default ESI settings dialog")
 	}
+	if ui.clientID.Text != defaultESIClientID || ui.esiSettingsDirty {
+		t.Fatal("default application ID was not filled in cleanly")
+	}
+	ui.requestESIConfiguration("connect")
+	defaultAction := <-ui.esiActions
+	if defaultAction.ClientID != defaultESIClientID || defaultAction.CallbackPort != defaultESICallbackPort || defaultAction.Kind != "connect" {
+		t.Fatal("default sign-in did not use the built-in application")
+	}
 	first := ui.esiDialog
 	ui.openESISettings()
 	if ui.esiDialog != first {
@@ -52,20 +60,12 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 		t.Fatal("invalid callback port queued a login")
 	}
 	ui.callbackPort.SetText("8080")
-	if !ui.clientSecret.Password || !ui.clientSecret.Disabled() {
-		t.Fatal("client secret should start masked and disabled for PKCE")
-	}
-	ui.esiAuthMode.SetSelected("Client ID + secret")
+	ui.clientID.SetText("")
 	ui.requestESIConfiguration("configure")
-	if len(ui.esiActions) != 0 || ui.clientSecret.Disabled() {
-		t.Fatal("missing client secret accepted or entry not enabled")
+	if len(ui.esiActions) != 0 {
+		t.Fatal("an empty application ID was accepted")
 	}
-	ui.clientSecret.SetText("fake-client-secret")
-	ui.requestESIConfiguration("configure")
-	action = <-ui.esiActions
-	if action.AuthMode != esiAuthClientSecret || action.ClientSecret != "fake-client-secret" {
-		t.Fatal("client authentication settings were not queued")
-	}
+	ui.clientID.SetText("example-client")
 	ui.accessToken.SetText("fake-access-token")
 	ui.refreshToken.SetText("fake-refresh-token")
 	ui.requestESIConfiguration("import")

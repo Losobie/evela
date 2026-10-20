@@ -21,22 +21,23 @@ type esiAction struct {
 	CharacterID               int64
 	CallbackPort              int
 	AccessToken, RefreshToken string
-	AuthMode, ClientSecret    string
 }
 
 func (ui *analyzerUI) initESI() {
 	ui.ships = map[string]shipRecord{}
 	ui.esiActions = make(chan esiAction, 8)
+	ui.logLocationUpdates = make(chan logLocationHistory, 1)
 	ui.clientID = widget.NewEntry()
 	ui.clientID.SetPlaceHolder("Public EVE application client ID")
+	ui.clientID.SetText(defaultESIClientID)
 	ui.initESISettings()
 	ui.esiStatus = widget.NewLabel("Set up EVE SSO to look up current ships.")
 	ui.esiStatus.Wrapping = fyne.TextWrapWord
 	ui.esiStatus.Truncation = fyne.TextTruncateEllipsis
 	ui.esiConnections = container.NewVBox()
-	ui.shipAuto = widget.NewCheck("Refresh ships every 30 seconds", nil)
+	ui.shipAuto = widget.NewCheck("Refresh every 30 seconds", nil)
 	ui.shipAuto.SetChecked(true)
-	ui.shipRefresh = widget.NewButton("Refresh ships", func() { ui.requestESI(esiAction{Kind: "refresh"}) })
+	ui.shipRefresh = widget.NewButton("Refresh ships & locations", func() { ui.requestESI(esiAction{Kind: "refresh"}) })
 	ui.connect = widget.NewButton("Sign in with EVE Online", func() { ui.requestESIConfiguration("connect") })
 	ui.cancelLogin = widget.NewButton("Cancel sign-in", func() {
 		if ui.cancelESILogin != nil {
@@ -55,10 +56,12 @@ func (ui *analyzerUI) initESI() {
 func (ui *analyzerUI) esiContent() fyne.CanvasObject {
 	intro := widget.NewLabel("Connect characters through Settings → ESI configuration. Sign in with EVE Online or import existing tokens for your application. Matching log characters are linked automatically by name.")
 	intro.Wrapping = fyne.TextWrapWord
-	controls := container.NewBorder(nil, nil, nil, widget.NewButton("Ship history…", ui.openShipHistory), container.NewHBox(widget.NewButton("Configure ESI…", ui.openESISettings), ui.shipRefresh, ui.shipAuto))
-	settings := container.NewVBox(intro, controls, ui.esiStatusRow(ui.esiStatus), widget.NewSeparator(), widget.NewLabel("CONNECTED CHARACTERS / CURRENT SHIPS"))
-	note := widget.NewLabel("Graph and totals grouping uses ship history at each damage event's UTC time. Events outside observed periods appear under Unknown ship / Unknown ship class. A character can appear in several groups after changing ships. Ship classes come from ESI groups. View recorded periods in Ship history. Saved sign-ins and history are encrypted for your Windows user.")
+	controls := container.NewBorder(nil, nil, nil, container.NewHBox(widget.NewButton("Ship history…", ui.openShipHistory), widget.NewButton("Location history…", ui.openLocationHistory)), container.NewHBox(widget.NewButton("Configure ESI…", ui.openESISettings), ui.shipRefresh, ui.shipAuto))
+	settings := container.NewVBox(intro, controls, ui.esiStatusRow(ui.esiStatus), widget.NewSeparator(), widget.NewLabel("CONNECTED CHARACTERS / CURRENT SHIPS & LOCATIONS"))
+	note := widget.NewLabel("Graph and totals grouping uses ship history at each damage event's EVE time time, assuming the last observed ship for up to 45 seconds after its last sighting. Events outside that coverage appear under Unknown ship / Unknown ship class. A character can appear in several groups after changing ships. Ship classes come from ESI groups. View recorded periods in Ship history. Saved sign-ins and history are encrypted for your Windows user.")
 	note.Wrapping = fyne.TextWrapWord
+	note.SetText(note.Text + " Location history uses the same observation rules. The System filter matches the recorded location at each event; uncovered events appear under Unknown system. Existing ship-only sign-ins need location access: enable esi-location.read_location.v1 in your EVE application and sign in again.")
+	note.SetText(note.Text + " Jump and Conduit Field messages also establish locations without ESI sign-in. Log locations take priority over ESI within their session coverage. Inspect both sources in Location history.")
 	return container.NewPadded(container.NewBorder(settings, note, nil, nil, container.NewVScroll(ui.esiConnections)))
 }
 
@@ -84,12 +87,6 @@ func (ui *analyzerUI) watchESI() {
 		if !ui.esiSettingsDirty {
 			ui.settingESI = true
 			ui.clientID.SetText(service.config.ClientID)
-			ui.clientSecret.SetText(service.config.ClientSecret)
-			mode := "Native / desktop (PKCE)"
-			if service.config.AuthMode == esiAuthClientSecret {
-				mode = "Client ID + secret"
-			}
-			ui.esiAuthMode.SetSelected(mode)
 			ui.callbackPort.SetText(strconv.Itoa(service.config.CallbackPort))
 			ui.settingESI = false
 		}
@@ -106,8 +103,15 @@ func (ui *analyzerUI) watchESI() {
 	publish := func(message string) {
 		records := service.records()
 		history := service.config.ShipHistory.clone()
+		locations := service.config.LocationHistory.clone()
+		logLocations := service.config.LogLocations.clone()
 		fyne.DoAndWait(func() {
 			ui.shipHistory = history
+			ui.locationHistory = locations
+			if ui.logLocations == nil {
+				ui.logLocations = logLocationHistory{}
+			}
+			ui.logLocations.merge(logLocations)
 			ui.applyShipRecords(records)
 			ui.setESIStatus(message)
 		})
@@ -118,34 +122,55 @@ func (ui *analyzerUI) watchESI() {
 	}
 	publish(message)
 	refresh := func() {
-		if len(service.config.Accounts) == 0 && len(service.config.ShipHistory) == 0 {
+		if len(service.config.Accounts) == 0 && len(service.config.ShipHistory) == 0 && len(service.config.LocationHistory) == 0 {
 			publish("No characters connected. Sign in with EVE Online first.")
 			return
 		}
-		fyne.Do(func() { ui.shipRefresh.Disable(); ui.setESIStatus("Querying current ships from ESI…") })
+		fyne.Do(func() { ui.shipRefresh.Disable(); ui.setESIStatus("Querying current ships and locations from ESI…") })
 		refreshCtx, finish := context.WithTimeout(ctx, 25*time.Second)
 		err := service.refreshShips(refreshCtx)
 		finish()
 		if ctx.Err() != nil {
 			return
 		}
-		message := "Ships updated " + time.Now().Format("15:04:05") + " · " + strconv.Itoa(len(service.config.Accounts)) + " connected characters."
+		message := "Ships and locations updated " + time.Now().Format("15:04:05") + " · " + strconv.Itoa(len(service.config.Accounts)) + " connected characters."
 		if err != nil {
 			message = err.Error()
 		}
 		publish(message)
 		fyne.Do(func() { ui.shipRefresh.Enable() })
 	}
-	if len(service.config.Accounts) > 0 || len(service.config.ShipHistory) > 0 {
+	if len(service.config.Accounts) > 0 || len(service.config.ShipHistory) > 0 || len(service.config.LocationHistory) > 0 {
 		refresh()
 	}
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
+	logHistoryDirty := false
+	saveLogLocations := func() {
+		if !logHistoryDirty {
+			return
+		}
+		if err := service.save(); err != nil {
+			publish("Save log location history: " + err.Error())
+		} else {
+			logHistoryDirty = false
+			publish("Log location history saved.")
+		}
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case locations := <-ui.logLocationUpdates:
+			if service.config.LogLocations == nil {
+				service.config.LogLocations = logLocationHistory{}
+			}
+			if service.config.LogLocations.merge(locations) {
+				logHistoryDirty = true
+			}
+			saveLogLocations()
 		case <-ticker.C:
+			saveLogLocations()
 			enabled := false
 			fyne.DoAndWait(func() { enabled = ui.shipAuto.Checked })
 			if enabled && len(service.config.Accounts) > 0 {
@@ -157,7 +182,7 @@ func (ui *analyzerUI) watchESI() {
 		case action := <-ui.esiActions:
 			switch action.Kind {
 			case "configure", "connect", "import":
-				if err := service.configureApplication(action.ClientID, action.CallbackPort, action.AuthMode, action.ClientSecret); err != nil {
+				if err := service.configure(action.ClientID, action.CallbackPort); err != nil {
 					publish(err.Error())
 					continue
 				}
@@ -185,7 +210,7 @@ func (ui *analyzerUI) watchESI() {
 					ui.cancelESILogin = finish
 					ui.connect.Disable()
 					ui.cancelLogin.Show()
-					ui.setESIStatus("Complete EVE sign-in in your browser. Select a character and grant current-ship access.")
+					ui.setESIStatus("Complete EVE sign-in in your browser. Select a character and grant ship and location access.")
 				})
 				_, loginErr := service.authorize(loginCtx, func(address string) error {
 					parsed, err := url.Parse(address)
@@ -225,6 +250,7 @@ func (ui *analyzerUI) watchESI() {
 
 func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 	ui.ships = map[string]shipRecord{}
+	locations := ui.resolvedLocations()
 	var connections, tokens []fyne.CanvasObject
 	for _, record := range records {
 		ui.ships[characterKey(record.CharacterName)] = record
@@ -245,6 +271,14 @@ func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 		if record.ClassError != "" {
 			text += " · " + record.ClassError
 		}
+		locationText := locationLabel(record.Location)
+		if location, known := locations.atName(record.CharacterName, time.Now()); location.Source == "Game log" {
+			locationText = "Unknown system · conflicting game logs"
+			if known {
+				locationText = location.SystemName + " · game log"
+			}
+		}
+		text += "\n" + locationText
 		details := widget.NewLabel(text)
 		details.Wrapping = fyne.TextWrapWord
 		id := record.CharacterID
@@ -272,8 +306,7 @@ func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 	ui.esiConnections.Refresh()
 	ui.tokenConnections.Objects = tokens
 	ui.tokenConnections.Refresh()
-	ui.rebuildCharacters()
-	ui.renderSelection()
+	ui.rebuildView()
 }
 
 func (ui *analyzerUI) shipGrouping() bool {
@@ -285,7 +318,7 @@ func (ui *analyzerUI) shipClassGrouping() bool {
 }
 
 func (ui *analyzerUI) groupedShipSeries(selected map[string]bool, average bool) []characterSeries {
-	return ui.view.historicalShipSeries(ui.snapshot, ui.shipHistory, selected, ui.shipClassGrouping(), average)
+	return ui.view.historicalShipSeries(ui.analysisSnapshot(), ui.shipHistory, selected, ui.shipClassGrouping(), average)
 }
 
 func (ui *analyzerUI) characterRow(name, group, shipNames string) fyne.CanvasObject {
@@ -312,7 +345,7 @@ func (ui *analyzerUI) groupedCharacterList(query string) []fyne.CanvasObject {
 	if ui.characterGroupGrouping() {
 		series := ui.view.activeSeries()
 		if ui.graphAverage10s {
-			series = ui.view.tenSecondAverage(ui.snapshot)
+			series = ui.view.tenSecondAverage(ui.analysisSnapshot())
 		}
 		groups = ui.groupCustomCharacterSeries(series, nil)
 	} else {

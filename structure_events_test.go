@@ -126,7 +126,7 @@ func TestStructureEventExtendsLoadedTimelineAndRefreshes(t *testing.T) {
 	if after.Last.Sub(before.Last) != 2*time.Second || len(after.Logs[0].StructureEvents) != 1 || after.Logs[0].Points[0].Outgoing != 159 || after.Logs[0].Points[0].OutgoingHits != 1 {
 		t.Fatal("appended notification was missed, changed damage totals or failed to extend the timeline")
 	}
-	start, end := presetRange("Last 30 seconds", after)
+	start, end := presetRange("Last 10 minutes", after)
 	view := buildView(after, start, end, time.Second)
 	if len(view.structureMarkers(after, map[string]bool{"Pilot": true})) != 1 {
 		t.Fatal("relative range excluded a marker after the last damage hit")
@@ -154,7 +154,7 @@ func TestStructureMarkersOutgoingRenderingSelectionAndFormats(t *testing.T) {
 	window.Show()
 	indicatorOption := func() *fyne.MenuItem {
 		t.Helper()
-		for _, item := range ui.graphFormatMenu().Items {
+		for _, item := range ui.graphOptionsMenu().Items {
 			if item.Label == "Target invulnerability indicators" {
 				return item
 			}
@@ -178,7 +178,7 @@ func TestStructureMarkersOutgoingRenderingSelectionAndFormats(t *testing.T) {
 	red := color.RGBA{255, 70, 70, 255}
 	for _, grouping := range []string{"Characters", "Ship history", "Ship class history"} {
 		ui.groupSelect.SetSelected(grouping)
-		ui.graphAverage10s, ui.graphLogarithmic = true, true
+		ui.graphAverage10s = true
 		ui.renderSelection()
 		if len(ui.outgoing.data.Markers) != 1 || len(ui.incoming.data.Markers) != 0 {
 			t.Fatal("duplicate pilots produced multiple markers or marked the incoming graph")
@@ -191,7 +191,7 @@ func TestStructureMarkersOutgoingRenderingSelectionAndFormats(t *testing.T) {
 		}
 		width := ui.outgoing.Size().Width - chartPlotLeft - chartPlotRight
 		ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+width*.4, 80, 0))
-		if !strings.Contains(ui.outgoing.hover.Text, "Target invulnerable at 05:46:58 UTC") || !strings.Contains(ui.outgoing.hover.Text, "Metenox Moon Drill") {
+		if !strings.Contains(ui.outgoing.hover.Text, "Target invulnerable at 05:46:58 EVE time") || !strings.Contains(ui.outgoing.hover.Text, "Metenox Moon Drill") {
 			t.Fatalf("marker hover did not identify the event: %s", ui.outgoing.hover.Text)
 		}
 	}

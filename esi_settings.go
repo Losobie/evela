@@ -12,28 +12,6 @@ import (
 )
 
 func (ui *analyzerUI) initESISettings() {
-	ui.clientSecret = widget.NewPasswordEntry()
-	ui.clientSecret.SetPlaceHolder("Application client secret")
-	ui.clientSecret.Disable()
-	ui.clientSecret.OnChanged = func(string) {
-		if !ui.settingESI {
-			ui.esiSettingsDirty = true
-		}
-	}
-	ui.esiAuthMode = widget.NewSelect([]string{"Native / desktop (PKCE)", "Client ID + secret"}, func(mode string) {
-		if !ui.settingESI {
-			ui.esiSettingsDirty = true
-		}
-		if mode == "Client ID + secret" {
-			ui.clientSecret.Enable()
-		} else {
-			ui.clientSecret.Disable()
-		}
-		if ui.esiApplicationForm != nil {
-			ui.esiApplicationForm.Refresh()
-		}
-	})
-	ui.esiAuthMode.Selected = "Native / desktop (PKCE)"
 	ui.callbackPort = widget.NewEntry()
 	ui.callbackPort.SetText(strconv.Itoa(defaultESICallbackPort))
 	ui.callbackPort.Validator = func(value string) error { _, err := parseCallbackPort(value); return err }
@@ -81,19 +59,7 @@ func (ui *analyzerUI) requestESIConfiguration(kind string) {
 		ui.setESIStatus("Enter your EVE application's public Client ID.")
 		return
 	}
-	mode := esiAuthPKCE
-	if ui.esiAuthMode.Selected == "Client ID + secret" {
-		mode = esiAuthClientSecret
-	}
-	secret := strings.TrimSpace(ui.clientSecret.Text)
-	if err := validateESIAuth(mode, secret); err != nil {
-		ui.setESIStatus(err.Error())
-		return
-	}
-	if mode == esiAuthPKCE {
-		secret = ""
-	}
-	action := esiAction{Kind: kind, ClientID: clientID, CallbackPort: port, AuthMode: mode, ClientSecret: secret}
+	action := esiAction{Kind: kind, ClientID: clientID, CallbackPort: port}
 	if kind == "import" {
 		action.AccessToken, action.RefreshToken = strings.TrimSpace(ui.accessToken.Text), strings.TrimSpace(ui.refreshToken.Text)
 		if action.AccessToken == "" && action.RefreshToken == "" {
@@ -115,7 +81,7 @@ func (ui *analyzerUI) openESISettings() {
 		ui.esiDialog.Show()
 		return
 	}
-	intro := widget.NewLabel("Choose the authentication method for your EVE application. Native / desktop (PKCE) uses the Client ID. Client ID + secret uses your application's secret for sign-in and token renewal.")
+	intro := widget.NewLabel("Sign in with EVE Online using PKCE. The default application ID is filled in; you can enter your own native / desktop application's public Client ID.")
 	intro.Wrapping = fyne.TextWrapWord
 	callbackNote := widget.NewLabel("Register this exact callback URL in your EVE developer application. The hostname is localhost; the port defaults to 8080. Changing the port also changes the local sign-in listener.")
 	callbackNote.Wrapping = fyne.TextWrapWord
@@ -128,20 +94,20 @@ func (ui *analyzerUI) openESISettings() {
 		ui.window.Clipboard().SetContent(esiCallbackURL(port))
 	})
 	portal, _ := url.Parse("https://developers.eveonline.com/applications")
-	ui.esiApplicationForm = widget.NewForm(widget.NewFormItem("Authentication", ui.esiAuthMode), widget.NewFormItem("Client ID", ui.clientID), widget.NewFormItem("Client secret", ui.clientSecret), widget.NewFormItem("Callback port", ui.callbackPort))
+	applicationForm := widget.NewForm(widget.NewFormItem("Client ID", ui.clientID), widget.NewFormItem("Callback port", ui.callbackPort))
 	application := container.NewVScroll(container.NewVBox(intro,
-		ui.esiApplicationForm,
+		applicationForm,
 		callbackNote, ui.callbackURL, copyCallback,
-		widget.NewLabel("Minimum required scope: "+shipScope+" (additional scopes allowed)"), widget.NewHyperlink("Open EVE developer applications", portal),
+		widget.NewLabel("Ship scope: "+shipScope), widget.NewLabel("Location scope: "+locationScope), widget.NewHyperlink("Open EVE developer applications", portal),
 		widget.NewButton("Save application configuration", func() { ui.requestESIConfiguration("configure") })))
-	importNote := widget.NewLabel("Sign in for each character, or import tokens issued to the configured Client ID with ship access. Importing replaces that character's saved tokens. A refresh token alone can be imported; an access token alone works until it expires.")
+	importNote := widget.NewLabel("Sign in for each character, or import tokens issued to the configured Client ID with ship and location access. Ship-only tokens still work for ships; sign in again to grant location access. Importing replaces that character's saved tokens. A refresh token alone can be imported; an access token alone works until it expires.")
 	importNote.Wrapping = fyne.TextWrapWord
 	form := widget.NewForm(widget.NewFormItem("Access token", ui.accessToken), widget.NewFormItem("Refresh token", ui.refreshToken))
 	importControls := container.NewVBox(importNote, container.NewHBox(ui.connect, ui.cancelLogin), widget.NewSeparator(), form,
 		widget.NewButton("Validate and import tokens", func() { ui.requestESIConfiguration("import") }), widget.NewSeparator(), widget.NewLabel("SAVED CHARACTER TOKENS"))
 	tokens := container.NewBorder(importControls, nil, nil, nil, container.NewVScroll(ui.tokenConnections))
 	ui.esiSettingsTabs = container.NewAppTabs(container.NewTabItem("Application", application), container.NewTabItem("Character tokens", tokens))
-	security := widget.NewLabel("Application secrets and sign-ins are saved encrypted for your Windows user. Tokens are validated before import; existing token values are never displayed here.")
+	security := widget.NewLabel("Sign-ins are saved encrypted for your Windows user. Tokens are validated before import; existing token values are never displayed here.")
 	security.Wrapping = fyne.TextWrapWord
 	ui.esiDialogStatus.SetText(ui.esiStatus.Text)
 	content := container.NewBorder(nil, container.NewVBox(widget.NewSeparator(), ui.esiStatusRow(ui.esiDialogStatus), security), nil, nil, ui.esiSettingsTabs)

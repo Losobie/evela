@@ -38,8 +38,13 @@ type damagePoint struct {
 type parsedLog struct {
 	Character       string
 	Points          []damagePoint
+	Sources         []damageSource
+	IncomingSources []incomingSourcePoint
 	StructureEvents []structureEvent
 	EntrySeconds    []int64
+	Events          []logEvent
+	SessionStarted  time.Time
+	LocationEvents  []logLocationEvent
 	Hash            [32]byte
 }
 
@@ -56,6 +61,12 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 	scanner.Buffer(make([]byte, 4096), 4*1024*1024)
 	result := &parsedLog{}
 	seconds := make(map[int64]*damagePoint)
+	sourceIDs := make(map[string]int)
+	sourceNames := make(map[damageSource]int)
+	sourceSeconds := make(map[struct {
+		second int64
+		source int
+	}]*incomingSourcePoint)
 	entries := make(map[int64]bool)
 	var lastStructure structureEvent
 	structurePending := false
@@ -64,6 +75,10 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		if strings.HasPrefix(line, "Listener:") {
 			result.Character = strings.TrimSpace(strings.TrimPrefix(line, "Listener:"))
 			structurePending = false
+			continue
+		}
+		if strings.HasPrefix(line, "Session Started:") {
+			result.SessionStarted, _ = time.Parse(logTimeLayout, strings.TrimSpace(strings.TrimPrefix(line, "Session Started:")))
 			continue
 		}
 		if len(line) < 25 || line[0] != '[' {
@@ -79,15 +94,26 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		}
 		entries[at.Unix()] = true
 		message := strings.TrimSpace(line[closeBracket+1:])
+		message = strings.TrimSpace(html.UnescapeString(markup.ReplaceAllString(message, "")))
+		result.Events = append(result.Events, logEvent{Second: at.Unix(), Message: strings.Clone(message)})
 		channelEnd := strings.IndexByte(message, ')')
 		if !strings.HasPrefix(message, "(") || channelEnd < 0 {
 			continue
 		}
 		combat := message[:channelEnd+1] == "(combat)"
-		if !combat && !strings.Contains(message, "invulnerable") {
+		channel := message[:channelEnd+1]
+		locationChannel := channel == "(notify)" || channel == "(None)" || channel == "(info)"
+		if !combat && !locationChannel && !strings.Contains(message, "invulnerable") {
 			continue
 		}
-		message = strings.TrimSpace(html.UnescapeString(markup.ReplaceAllString(message[channelEnd+1:], "")))
+		message = strings.TrimSpace(message[channelEnd+1:])
+		if locationChannel {
+			if event, ok := parseLogLocation(message, at.Unix()); ok {
+				result.LocationEvents = append(result.LocationEvents, event)
+				structurePending = false // A target in the old system cannot carry over.
+				continue
+			}
+		}
 		if message == "Target is invulnerable." {
 			if structurePending && at.Unix() >= lastStructure.Second && at.Unix()-lastStructure.Second <= int64(structureInvulnerabilityWindow/time.Second) {
 				event := lastStructure
@@ -117,6 +143,29 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		if match[2] == "from" {
 			point.Incoming += amount
 			point.IncomingHits++
+			sourceID, exists := sourceIDs[match[3]]
+			if !exists {
+				source := incomingDamageSource(match[3])
+				// Different weapons and hit qualities still belong to one source.
+				sourceID, exists = sourceNames[source]
+				if !exists {
+					sourceID = len(result.Sources)
+					result.Sources = append(result.Sources, source)
+					sourceNames[source] = sourceID
+				}
+				sourceIDs[strings.Clone(match[3])] = sourceID
+			}
+			key := struct {
+				second int64
+				source int
+			}{second, sourceID}
+			contribution := sourceSeconds[key]
+			if contribution == nil {
+				contribution = &incomingSourcePoint{Second: second, Source: sourceID}
+				sourceSeconds[key] = contribution
+			}
+			contribution.Damage += amount
+			contribution.Hits++
 		} else {
 			point.Outgoing += amount
 			point.OutgoingHits++
@@ -135,10 +184,18 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		result.EntrySeconds = append(result.EntrySeconds, second)
 	}
 	sort.Slice(result.EntrySeconds, func(i, j int) bool { return result.EntrySeconds[i] < result.EntrySeconds[j] })
+	sort.SliceStable(result.Events, func(i, j int) bool { return result.Events[i].Second < result.Events[j].Second })
 	for _, point := range seconds {
 		result.Points = append(result.Points, *point)
 	}
 	sort.Slice(result.Points, func(i, j int) bool { return result.Points[i].Second < result.Points[j].Second })
+	for _, point := range sourceSeconds {
+		result.IncomingSources = append(result.IncomingSources, *point)
+	}
+	sort.Slice(result.IncomingSources, func(i, j int) bool {
+		a, b := result.IncomingSources[i], result.IncomingSources[j]
+		return a.Second < b.Second || (a.Second == b.Second && a.Source < b.Source)
+	})
 	sort.Slice(result.StructureEvents, func(i, j int) bool { return result.StructureEvents[i].Second < result.StructureEvents[j].Second })
 	return result, nil
 }
@@ -158,6 +215,8 @@ type logSnapshot struct {
 	Files, Unassigned, Duplicates int
 	SkippedOld, SkippedUndated    int
 	Warnings                      []string
+	LocationSessions              logLocationHistory
+	SourceFiles                   map[string]cachedLog
 }
 
 // refresh keeps immutable parsed results for unchanged files. A few workers keep
@@ -265,9 +324,23 @@ func (index *logIndex) refresh(ctx context.Context, directory string, cutoff tim
 		return nil, err
 	}
 	index.files = next
+	snapshot.SourceFiles = next
+	snapshot.populateLogs()
+	return snapshot, nil
+}
+
+func (snapshot *logSnapshot) populateLogs() {
 	characters := make(map[string]bool)
 	seen := make(map[[32]byte]bool)
-	for _, cached := range next {
+	// Deterministic source ordering also makes duplicate selection stable when
+	// the same export is present in a local folder and on a network share.
+	paths := make([]string, 0, len(snapshot.SourceFiles))
+	for path := range snapshot.SourceFiles {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	for _, path := range paths {
+		cached := snapshot.SourceFiles[path]
 		log := cached.Log
 		if log.Character == "" {
 			snapshot.Unassigned++
@@ -304,5 +377,5 @@ func (index *logIndex) refresh(ctx context.Context, directory string, cutoff tim
 		snapshot.Characters = append(snapshot.Characters, character)
 	}
 	sort.Strings(snapshot.Characters)
-	return snapshot, nil
+	snapshot.LocationSessions = snapshot.locationSessions()
 }

@@ -144,8 +144,7 @@ func (ui *analyzerUI) persistCharacterGroups(selectedID string) {
 	}
 	ui.groupSelect.Refresh()
 	ui.saveGraphFormatPreferences()
-	ui.rebuildCharacters()
-	ui.renderSelection()
+	ui.rebuildView()
 }
 
 func (ui *analyzerUI) characterGroupingOptions() []string {
@@ -186,17 +185,6 @@ func (ui *analyzerUI) characterMatchesGroupFilter(name string) bool {
 	return false
 }
 
-func (ui *analyzerUI) updateGroupingNote() {
-	if ui.groupingNote == nil {
-		return
-	}
-	if ui.characterGroupGrouping() {
-		ui.groupingNote.SetText("Manage named groups in Settings → Character groups. Shared members appear in each group; the summary counts each character once.")
-	} else {
-		ui.groupingNote.SetText("Ship groups use history at each damage event's UTC time. Unobserved times stay unknown.")
-	}
-}
-
 func (ui *analyzerUI) filteredCharacterSelection() map[string]bool {
 	id := ui.selectedCharacterGroupID()
 	if id == "" {
@@ -216,11 +204,17 @@ func (ui *analyzerUI) filteredCharacterSelection() map[string]bool {
 }
 
 func (ui *analyzerUI) groupCustomCharacterSeries(series []characterSeries, selected map[string]bool) []characterSeries {
+	return ui.groupCharacterSeriesFor(series, selected, ui.selectedCharacterGroupID())
+}
+
+func (ui *analyzerUI) groupCharacterSeriesFor(series []characterSeries, selected map[string]bool, filterID string) []characterSeries {
 	groups := map[string]*characterSeries{}
-	filterID := ui.selectedCharacterGroupID()
 	memberGroups := map[string][]string{}
 	for _, group := range ui.characterGroups {
 		if filterID != "" && filterID != group.ID {
+			continue
+		}
+		if !ui.damageFilters[filterCharacterGroup].selected("group:" + group.ID) {
 			continue
 		}
 		for _, name := range group.Members {
@@ -232,7 +226,7 @@ func (ui *analyzerUI) groupCustomCharacterSeries(series []characterSeries, selec
 			continue
 		}
 		names := memberGroups[characterKey(character.Name)]
-		if len(names) == 0 && filterID == "" {
+		if len(names) == 0 && filterID == "" && ui.damageFilters[filterCharacterGroup].selected(filterUngrouped) {
 			names = []string{ungroupedCharacters}
 		}
 		for _, name := range names {

@@ -129,9 +129,11 @@ func TestDamageTotalsSortSurvivesRefreshAndGrouping(t *testing.T) {
 	}
 	ui.selected["charlie"] = false
 	ui.renderSelection()
-	if ui.tableSeries[0].Name != "charlie" || len(ui.tableSeries) != 3 || len(ui.outgoing.data.Series) != 2 {
-		t.Fatal("table sorting changed the existing all-characters totals behavior")
+	if ui.tableSeries[0].Name != "Bravo" || len(ui.tableSeries) != 2 || len(ui.outgoing.data.Series) != 2 {
+		t.Fatal("character filtering did not update totals while preserving their sort")
 	}
+	ui.selected["charlie"] = true
+	ui.renderSelection()
 	ui.groupSelect.SetSelected("Ship history")
 	if !reflect.DeepEqual(totalsNames(ui), []string{"Rifter", "Caracal"}) {
 		t.Fatal("ship-type grouping did not preserve damage sorting")

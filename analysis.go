@@ -88,12 +88,6 @@ func presetRange(name string, snapshot *logSnapshot) (time.Time, time.Time) {
 	}
 	end := latest.Truncate(time.Second).Add(time.Second)
 	switch name {
-	case "Last 30 seconds":
-		return end.Add(-30 * time.Second), end
-	case "Last 1 minute":
-		return end.Add(-time.Minute), end
-	case "Last 5 minutes":
-		return end.Add(-5 * time.Minute), end
 	case "Last 10 minutes":
 		return end.Add(-10 * time.Minute), end
 	case "Last 30 minutes":
@@ -109,24 +103,24 @@ func presetRange(name string, snapshot *logSnapshot) (time.Time, time.Time) {
 			return snapshot.First, end
 		}
 	}
-	start := time.Date(latest.Year(), latest.Month(), latest.Day(), 0, 0, 0, 0, time.UTC)
-	return start, start.Add(24 * time.Hour)
+	return end.Add(-30 * time.Minute), end
+}
+
+func parseRangeTime(value string) (time.Time, error) {
+	for _, layout := range []string{"2006-01-02 15:04:05", "2006-01-02 15:04", "2006-01-02"} {
+		if at, err := time.Parse(layout, value); err == nil {
+			return at, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("use YYYY-MM-DD or YYYY-MM-DD HH:MM[:SS] (EVE time)")
 }
 
 func parseRange(startText, endText string) (time.Time, time.Time, error) {
-	parse := func(value string) (time.Time, error) {
-		for _, layout := range []string{"2006-01-02 15:04:05", "2006-01-02 15:04", "2006-01-02"} {
-			if at, err := time.Parse(layout, value); err == nil {
-				return at, nil
-			}
-		}
-		return time.Time{}, fmt.Errorf("use YYYY-MM-DD or YYYY-MM-DD HH:MM[:SS] (UTC)")
-	}
-	start, err := parse(startText)
+	start, err := parseRangeTime(startText)
 	if err != nil {
 		return start, time.Time{}, err
 	}
-	end, err := parse(endText)
+	end, err := parseRangeTime(endText)
 	if err != nil {
 		return start, end, err
 	}

@@ -13,6 +13,23 @@ import (
 	"fyne.io/fyne/v2/theme"
 )
 
+func captureWindowPreview(t *testing.T, window fyne.Window, path string) {
+	t.Helper()
+	if path == "" {
+		return
+	}
+	window.Canvas().Capture() // Settle wrapped-label heights before exporting.
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = png.Encode(file, window.Canvas().Capture())
+	file.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestUISelectionRangeAndRendering(t *testing.T) {
 	application := test.NewTempApp(t)
 	application.Settings().SetTheme(theme.DarkTheme())
@@ -49,7 +66,7 @@ func TestUISelectionRangeAndRendering(t *testing.T) {
 	}
 	ui.start.SetText("2026-10-17 02:00:00")
 	ui.end.SetText("2026-10-17 02:21:00")
-	if ui.rangeSelect.Selected != "Custom UTC range" {
+	if ui.rangeSelect.Selected != "Custom" {
 		t.Fatal("editing dates should preserve a custom range during refresh")
 	}
 	ui.updateRange()
@@ -75,13 +92,13 @@ func TestUISelectionRangeAndRendering(t *testing.T) {
 	}
 	ui.selected["Clento Loso"] = false
 	ui.renderSelection()
-	if len(ui.outgoing.data.Series) != 2 || len(ui.tableSeries[0].Members) != 2 {
-		t.Fatal("graph selection incorrectly changed all-character totals")
+	if len(ui.outgoing.data.Series) != 2 || len(ui.tableSeries[0].Members) != 1 {
+		t.Fatal("character filtering did not update graph and total memberships together")
 	}
 	ui.selected["Clento Loso"] = true
 	ui.renderSelection()
 	if path := os.Getenv("EVELA_UI_CAPTURE"); path != "" {
-		ui.status.SetText("Updated 19:30:00 · Logs stay on this computer. Latest combat: 2026-10-17 02:20:00 UTC.")
+		ui.status.SetText("Updated 19:30:00 · Logs stay on this computer. Latest combat: 2026-10-17 02:20:00 EVE time.")
 		ui.directoryInfo.SetText("32650 log files · 61 characters · 0 duplicate exports skipped · 0 files without a Listener header")
 		ui.setESIStatus("Ships updated 19:30:00 · 3 connected characters.")
 		for _, chart := range []*damageChart{ui.outgoing, ui.incoming} {
@@ -96,7 +113,7 @@ func TestUISelectionRangeAndRendering(t *testing.T) {
 		if err := png.Encode(file, window.Canvas().Capture()); err != nil {
 			t.Fatal(err)
 		}
-		ui.tabs.SelectIndex(2)
+		ui.tabs.SelectIndex(3)
 		esiFile, err := os.Create(path + ".esi.png")
 		if err != nil {
 			t.Fatal(err)

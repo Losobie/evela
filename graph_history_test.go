@@ -105,13 +105,13 @@ func TestGraphRangeUndoRedoShortcuts(t *testing.T) {
 	dragGraphFraction(ui.outgoing, .25, .9)
 	first := graphHistoryState(ui)
 	assertGraphHistoryState(t, ui, first, 90)
-	if ui.tableSeries[0].TotalOutgoing != 390 {
+	if ui.tableSeries[0].TotalOutgoing != 90 {
 		t.Fatal("ship totals did not follow first selection")
 	}
 	dragGraphFraction(ui.incoming, .1, .6)
 	second := graphHistoryState(ui)
 	assertGraphHistoryState(t, ui, second, 30)
-	if ui.tableSeries[0].TotalOutgoing != 330 {
+	if ui.tableSeries[0].TotalOutgoing != 30 {
 		t.Fatal("ship totals did not follow second selection")
 	}
 	ui.updateRange()
@@ -181,7 +181,7 @@ func TestGraphRangeShortcutsRespectTextAndDialogs(t *testing.T) {
 	initial := graphHistoryState(ui)
 	ui.applyGraphRange(start.Add(15*time.Minute), start.Add(54*time.Minute))
 	zoom := graphHistoryState(ui)
-	ui.window.Canvas().Focus(ui.characterSearch)
+	ui.window.Canvas().Focus(ui.start)
 	sendGraphShortcut(ui, &fyne.ShortcutUndo{})
 	assertGraphHistoryState(t, ui, zoom, 90)
 	ui.window.Canvas().Unfocus()

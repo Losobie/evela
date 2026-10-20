@@ -15,6 +15,8 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
+	"github.com/srwiley/rasterx"
+	"golang.org/x/image/math/fixed"
 )
 
 func characterColor(name string) color.NRGBA {
@@ -58,29 +60,21 @@ type plotData struct {
 	Bucket        time.Duration
 	Series        []plotSeries
 	Maximum       float64
-	Logarithmic   bool
 	AverageWindow time.Duration
 	Markers       []plotMarker
 }
 
-// Shift by one before taking the log so zero-DPS buckets retain their baseline.
-// The inverse is used for tick labels, keeping the axis and hover values in DPS.
+// Plot coordinates and axis labels always use a linear DPS scale.
 func (data plotData) fraction(value float64) float64 {
 	if data.Maximum <= 0 {
 		return 0
 	}
 	value = math.Max(0, math.Min(data.Maximum, value))
-	if data.Logarithmic {
-		return math.Log1p(value) / math.Log1p(data.Maximum)
-	}
 	return value / data.Maximum
 }
 
 func (data plotData) valueAt(fraction float64) float64 {
 	fraction = math.Max(0, math.Min(1, fraction))
-	if data.Logarithmic {
-		return math.Expm1(math.Log1p(data.Maximum) * fraction)
-	}
 	return data.Maximum * fraction
 }
 
@@ -113,7 +107,7 @@ const (
 	chartPlotRight     float32 = 14
 	chartPlotBottom    float32 = 27
 	chartDragThreshold float32 = 4
-	chartHint                  = "Wheel or drag to zoom · Undo: Ctrl+Z / Back · Redo: Ctrl+Y / Forward · UTC"
+	chartHint                  = "Wheel or drag to zoom · Undo: Ctrl+Z / Back · Redo: Ctrl+Y / Forward · EVE time"
 )
 
 var _ fyne.Draggable = (*damageChart)(nil)
@@ -218,7 +212,9 @@ func (r *chartRenderer) Layout(size fyne.Size) {
 		r.xLabels[i].Move(fyne.NewPos(x, h+28))
 	}
 }
-func (r *chartRenderer) MinSize() fyne.Size           { return fyne.NewSize(550, 175) }
+func (r *chartRenderer) MinSize() fyne.Size {
+	return fyne.NewSize(550, 175)
+}
 func (r *chartRenderer) Objects() []fyne.CanvasObject { return r.objects }
 func (r *chartRenderer) Destroy()                     {}
 func (r *chartRenderer) Refresh() {
@@ -286,21 +282,37 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 	if data.Maximum <= 0 || !data.End.After(data.Start) {
 		return img
 	}
+	// Stroke at subpixel coordinates so diagonals and joins have soft edges,
+	// while keeping every sample at its original time and DPS value.
+	scanner := rasterx.NewScannerGV(w, h, img, img.Bounds())
+	stroke := rasterx.NewStroker(w, h, scanner)
+	lineWidth := 1.25
+	if logicalWidth := chart.Size().Width - chartPlotLeft - chartPlotRight; logicalWidth > 0 {
+		lineWidth *= math.Max(1, float64(w)/float64(logicalWidth))
+	}
+	stroke.SetStroke(fixed.Int26_6(math.Round(lineWidth*64)), 4*64, rasterx.RoundCap, nil, rasterx.RoundGap, rasterx.Round)
+	duration := data.End.Sub(data.Start).Seconds()
 	for _, series := range data.Series {
-		lastX, lastY := 0, h-1
+		if len(series.Values) == 0 {
+			continue
+		}
+		stroke.Clear()
+		stroke.SetColor(series.Color)
+		var last fixed.Point26_6
 		for bin, value := range series.Values {
-			x := int(float64(bin) * data.Bucket.Seconds() / data.End.Sub(data.Start).Seconds() * float64(w-1))
-			y := h - 1 - int(data.fraction(value)*float64(h-1))
-			if bin > 0 {
-				drawLine(img, lastX, lastY, x, y, series.Color)
+			x := float64(bin)*data.Bucket.Seconds()/duration*float64(w-1) + 0.5
+			y := float64(h-1)*(1-data.fraction(value)) + 0.5
+			last = fixed.Point26_6{X: fixed.Int26_6(math.Round(x * 64)), Y: fixed.Int26_6(math.Round(y * 64))}
+			if bin == 0 {
+				stroke.Start(last)
+			} else {
+				stroke.Line(last)
 			}
-			// Keep one-bucket and very short bursts visible.
-			drawLine(img, x, y, x, y-1, series.Color)
-			lastX, lastY = x, y
 		}
-		if len(series.Values) > 0 {
-			drawLine(img, lastX, lastY, w-1, lastY, series.Color)
-		}
+		// Extend the final bucket, including a single-bucket burst, to the edge.
+		stroke.Line(fixed.Point26_6{X: fixed.Int26_6(w*64 - 32), Y: last.Y})
+		stroke.Stop(false)
+		stroke.Draw()
 	}
 	markerColor := color.NRGBA{255, 70, 70, 255}
 	for _, marker := range data.Markers {
@@ -392,11 +404,11 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 		}
 	}
 	sort.SliceStable(readings, func(i, j int) bool { return readings[i].value > readings[j].value })
-	chart.hover.Text = data.Start.Add(time.Duration(bin)*data.Bucket).Format("Jan 02 15:04:05") + " UTC"
+	chart.hover.Text = data.Start.Add(time.Duration(bin)*data.Bucket).Format("Jan 02 15:04:05") + " EVE time"
 	for _, marker := range data.Markers {
 		markerX := float64(marker.At.Sub(data.Start)) / float64(data.End.Sub(data.Start)) * float64(w)
 		if math.Abs(markerX-x) <= 4 {
-			chart.hover.Text += " · Target invulnerable at " + marker.At.UTC().Format("15:04:05") + " UTC: " + marker.Label
+			chart.hover.Text += " · Target invulnerable at " + marker.At.UTC().Format("15:04:05") + " EVE time: " + marker.Label
 			break
 		}
 	}
@@ -524,7 +536,7 @@ func (chart *damageChart) updateRangeSelection() {
 	chart.selection.Resize(fyne.NewSize(right-left, max(float32(1), chart.Size().Height-chartPlotTop-chartPlotBottom)))
 	chart.selection.Show()
 	start, end := drag.selectedRange()
-	chart.setHoverHint("Select " + start.UTC().Format("Jan 02 15:04:05") + " – " + end.UTC().Format("Jan 02 15:04:05") + " UTC · release to zoom")
+	chart.setHoverHint("Select " + start.UTC().Format("Jan 02 15:04:05") + " – " + end.UTC().Format("Jan 02 15:04:05") + " EVE time · release to zoom")
 }
 
 func (chart *damageChart) cancelRangeDrag() {

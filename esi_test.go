@@ -42,19 +42,23 @@ func signedTestToken(t *testing.T, key *rsa.PrivateKey, edit func(map[string]any
 }
 
 type esiFixture struct {
-	service                                   *esiService
-	key                                       *rsa.PrivateKey
-	ecKey                                     *ecdsa.PrivateKey
-	token                                     string
-	challenge                                 string
-	shipRequests, typeRequests, tokenRequests atomic.Int32
-	groupRequests, groupStatus                atomic.Int32
-	shipStatus                                atomic.Int32
-	onceUnauthorized                          atomic.Bool
-	shipType                                  atomic.Int64
-	shipItem                                  atomic.Int64
-	typeStatus                                atomic.Int32
-	server                                    *httptest.Server
+	service                                            *esiService
+	key                                                *rsa.PrivateKey
+	ecKey                                              *ecdsa.PrivateKey
+	token                                              string
+	challenge                                          string
+	shipRequests, typeRequests, tokenRequests          atomic.Int32
+	groupRequests, groupStatus                         atomic.Int32
+	shipStatus                                         atomic.Int32
+	onceUnauthorized                                   atomic.Bool
+	shipType                                           atomic.Int64
+	shipItem                                           atomic.Int64
+	typeStatus                                         atomic.Int32
+	locationRequests, systemRequests                   atomic.Int32
+	locationStatus, systemStatus                       atomic.Int32
+	locationSystem, locationStation, locationStructure atomic.Int64
+	locationUnauthorized                               atomic.Bool
+	server                                             *httptest.Server
 }
 
 func newESIFixture(t *testing.T) *esiFixture {
@@ -74,8 +78,8 @@ func newESIFixture(t *testing.T) *esiFixture {
 	f.shipItem.Store(1000000001)
 	f.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path != "/token" && strings.HasPrefix(r.Header.Get("Authorization"), "Basic ") {
-			t.Error("application credentials sent outside the token endpoint")
+		if strings.HasPrefix(r.Header.Get("Authorization"), "Basic ") {
+			t.Error("PKCE sent HTTP Basic authentication")
 		}
 		switch r.URL.Path {
 		case "/metadata":
@@ -91,24 +95,13 @@ func newESIFixture(t *testing.T) *esiFixture {
 			if r.Method != http.MethodPost {
 				t.Error("incorrect token request method")
 			}
-			if f.service.config.AuthMode == esiAuthClientSecret {
-				id, secret, ok := r.BasicAuth()
-				if !ok || id != "test-client" || secret != "fake-client-secret" {
-					t.Error("incorrect confidential client authentication")
-				}
-				if r.Form.Get("client_id") != "" || r.Form.Get("client_secret") != "" {
-					t.Error("client credentials included in the token form")
-				}
-			} else if r.Form.Get("client_id") != "test-client" || r.Header.Get("Authorization") != "" {
+			if r.Form.Get("client_id") != "test-client" || r.Header.Get("Authorization") != "" || r.Form.Get("client_secret") != "" {
 				t.Error("incorrect native token request")
 			}
 			if r.Form.Get("grant_type") == "authorization_code" {
 				hash := sha256.Sum256([]byte(r.Form.Get("code_verifier")))
-				if f.service.config.AuthMode == esiAuthPKCE && base64.RawURLEncoding.EncodeToString(hash[:]) != f.challenge {
+				if r.Form.Get("code_verifier") == "" || base64.RawURLEncoding.EncodeToString(hash[:]) != f.challenge {
 					t.Error("PKCE verification failed")
-				}
-				if f.service.config.AuthMode == esiAuthClientSecret && r.Form.Get("code_verifier") != "" {
-					t.Error("unexpected PKCE verifier for confidential flow")
 				}
 				if r.Form.Get("code") != "test-code" || r.Form.Get("redirect_uri") != esiCallbackURL(f.service.config.CallbackPort) {
 					t.Error("code or redirect verification failed")
@@ -162,6 +155,37 @@ func newESIFixture(t *testing.T) *esiFixture {
 				return
 			}
 			json.NewEncoder(w).Encode(map[string]any{"name": "Strategic Cruiser"})
+		case "/latest/characters/123/location/", "/latest/characters/456/location/":
+			f.locationRequests.Add(1)
+			if r.Header.Get("Authorization") != "Bearer "+f.token {
+				t.Error("missing location access token")
+			}
+			status := int(f.locationStatus.Load())
+			if f.locationUnauthorized.Swap(false) {
+				status = 401
+			}
+			if status != 0 {
+				if status == 429 {
+					w.Header().Set("Retry-After", "120")
+				}
+				w.WriteHeader(status)
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"solar_system_id": f.locationSystem.Load(), "station_id": f.locationStation.Load(), "structure_id": f.locationStructure.Load()})
+		case "/latest/universe/systems/30000142/", "/latest/universe/systems/30002187/":
+			f.systemRequests.Add(1)
+			if r.Header.Get("Authorization") != "" {
+				t.Error("private token sent to public system lookup")
+			}
+			if status := f.systemStatus.Load(); status != 0 {
+				w.WriteHeader(int(status))
+				return
+			}
+			name := "Jita"
+			if strings.Contains(r.URL.Path, "30002187") {
+				name = "Amarr"
+			}
+			json.NewEncoder(w).Encode(map[string]any{"name": name})
 		default:
 			http.NotFound(w, r)
 		}
@@ -172,83 +196,6 @@ func newESIFixture(t *testing.T) *esiFixture {
 	f.service.baseURL = f.server.URL + "/latest"
 	f.service.config.ClientID = "test-client"
 	return f
-}
-
-func TestESIClientSecretLoginRefreshAndStorage(t *testing.T) {
-	f := newESIFixture(t)
-	listener, err := net.Listen("tcp4", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
-	if err := f.service.configureApplication("test-client", port, esiAuthClientSecret, ""); err == nil {
-		t.Fatal("missing secret accepted")
-	}
-	if err := f.service.configureApplication("test-client", port, "unsupported", ""); err == nil {
-		t.Fatal("unknown authentication mode accepted")
-	}
-	if err := f.service.configureApplication("test-client", port, esiAuthClientSecret, "fake-client-secret"); err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	account, err := f.service.authorize(ctx, func(address string) error {
-		parsed, err := url.Parse(address)
-		if err != nil {
-			return err
-		}
-		query := parsed.Query()
-		if query.Get("code_challenge") != "" || query.Get("code_challenge_method") != "" || strings.Contains(address, "fake-client-secret") {
-			t.Error("confidential authorization URL contained unexpected credentials or PKCE parameters")
-		}
-		response, err := http.Get(query.Get("redirect_uri") + "?" + url.Values{"state": {query.Get("state")}, "code": {"test-code"}}.Encode())
-		if err != nil {
-			return err
-		}
-		defer response.Body.Close()
-		if response.StatusCode != http.StatusOK {
-			return fmt.Errorf("callback returned %d", response.StatusCode)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	account.Token.ExpiresAt = time.Now().Add(-time.Second)
-	account.Token.RefreshToken = "original-refresh"
-	if err := f.service.refreshShips(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if account.Token.RefreshToken != "rotated-refresh" || account.Ship.TypeName != "Loki" || f.tokenRequests.Load() != 2 {
-		t.Fatal("confidential flow failed login or token renewal")
-	}
-	if _, err := f.service.importTokens(ctx, "", "original-refresh"); err != nil {
-		t.Fatal(err)
-	}
-	if f.tokenRequests.Load() != 3 {
-		t.Fatal("refresh-token import did not use confidential authentication")
-	}
-	data, err := os.ReadFile(f.service.file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(data), "fake-client-secret") {
-		t.Fatal("application secret stored in plaintext")
-	}
-	loaded := newESIService(f.service.file)
-	if err := loaded.load(); err != nil {
-		t.Fatal(err)
-	}
-	if loaded.config.AuthMode != esiAuthClientSecret || loaded.config.ClientSecret != "fake-client-secret" || loaded.config.CallbackPort != port {
-		t.Fatal("application authentication settings did not round-trip")
-	}
-	if err := f.service.configureApplication("test-client", port, esiAuthPKCE, "unused-secret"); err != nil {
-		t.Fatal(err)
-	}
-	if f.service.config.ClientSecret != "" {
-		t.Fatal("PKCE configuration retained unused secret")
-	}
 }
 
 func TestESILoginPKCEAndEncryptedStorage(t *testing.T) {
@@ -268,7 +215,7 @@ func TestESILoginPKCEAndEncryptedStorage(t *testing.T) {
 		}
 		query := parsed.Query()
 		f.challenge = query.Get("code_challenge")
-		if query.Get("scope") != shipScope || query.Get("code_challenge_method") != "S256" || query.Get("client_id") != "test-client" {
+		if query.Get("scope") != shipScope+" "+locationScope || query.Get("code_challenge_method") != "S256" || query.Get("client_id") != "test-client" {
 			t.Error("incorrect authorization parameters")
 		}
 		if query.Get("redirect_uri") != esiCallbackURL(f.service.config.CallbackPort) {
@@ -308,6 +255,9 @@ func TestESILoginPKCEAndEncryptedStorage(t *testing.T) {
 
 func TestESICallbackConfiguration(t *testing.T) {
 	service := newESIService(filepath.Join(t.TempDir(), "esi.dat"))
+	if service.config.ClientID != defaultESIClientID {
+		t.Fatal("new ESI settings did not use the default application ID")
+	}
 	if service.config.CallbackPort != 8080 || esiCallbackURL(service.config.CallbackPort) != "http://localhost:8080/callback" {
 		t.Fatal("incorrect default localhost callback")
 	}
@@ -344,6 +294,53 @@ func TestESICallbackConfiguration(t *testing.T) {
 	}
 	if loaded.config.CallbackPort != 8080 {
 		t.Fatal("legacy configuration did not adopt default port")
+	}
+}
+
+func TestESILegacyApplicationSettingsUsePKCE(t *testing.T) {
+	for _, clientID := range []string{"", "  ", "saved-client"} {
+		t.Run("client ID "+clientID, func(t *testing.T) {
+			service := newESIService(filepath.Join(t.TempDir(), "esi.dat"))
+			account := &esiAccount{Ship: shipRecord{CharacterID: 123, CharacterName: "Test Pilot"}, Token: esiToken{RefreshToken: "saved-refresh"}}
+			data, err := json.Marshal(map[string]any{
+				"ClientID": clientID, "AuthMode": "client_secret", "ClientSecret": "legacy-secret",
+				"CallbackPort": 9123, "Accounts": map[int64]*esiAccount{123: account},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			sealed, err := sealESI(data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(service.file, sealed, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := service.load(); err != nil {
+				t.Fatal(err)
+			}
+			wantID := clientID
+			if strings.TrimSpace(wantID) == "" {
+				wantID = defaultESIClientID
+			}
+			if service.config.ClientID != wantID || service.config.CallbackPort != 9123 || service.config.Accounts[123].Token.RefreshToken != "saved-refresh" {
+				t.Fatal("migration lost application settings or saved characters")
+			}
+			if err := service.save(); err != nil {
+				t.Fatal(err)
+			}
+			sealed, err = os.ReadFile(service.file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err = unsealESI(sealed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(data), "ClientSecret") || strings.Contains(string(data), "AuthMode") || strings.Contains(string(data), "legacy-secret") {
+				t.Fatal("saved PKCE settings retained legacy client-secret configuration")
+			}
+		})
 	}
 }
 
@@ -477,43 +474,35 @@ func TestESISingleScopeStringToken(t *testing.T) {
 }
 
 func TestESIAdditionalGrantedScopes(t *testing.T) {
-	for _, mode := range []string{esiAuthPKCE, esiAuthClientSecret} {
-		t.Run(mode, func(t *testing.T) {
-			f := newESIFixture(t)
-			f.service.config.AuthMode = mode
-			if mode == esiAuthClientSecret {
-				f.service.config.ClientSecret = "fake-client-secret"
-			}
-			for _, testCase := range []struct {
-				name    string
-				scopes  []string
-				allowed bool
-			}{
-				{"exact application scopes", []string{"esi-location.read_location.v1", "esi-location.read_ship_type.v1", "esi-location.read_online.v1"}, true},
-				{"required scope last", []string{"esi-location.read_online.v1", "esi-location.read_location.v1", shipScope}, true},
-				{"minimum only", []string{shipScope}, true},
-				{"additional unknown scope", []string{shipScope, "future.optional.scope.v99"}, true},
-				{"duplicate scope", []string{shipScope, "esi-location.read_online.v1", shipScope}, true},
-				{"optional scopes only", []string{"esi-location.read_location.v1", "esi-location.read_online.v1"}, false},
-				{"similar name is insufficient", []string{"esi-location.read_location.v1", shipScope + ".extra", "esi-location.read_online.v1"}, false},
-				{"no granted scopes", []string{}, false},
-			} {
-				t.Run(testCase.name, func(t *testing.T) {
-					f.token = signedTestToken(t, f.key, func(claims map[string]any) { claims["scp"] = testCase.scopes })
-					// Login, refresh and refresh-token import all use this exchange
-					// path, including application authentication in both modes.
-					token, identity, err := f.service.exchange(context.Background(), url.Values{"grant_type": {"refresh_token"}, "refresh_token": {"original-refresh"}, "client_id": {"test-client"}})
-					if testCase.allowed {
-						if err != nil {
-							t.Fatalf("additional scopes broke authentication: %v", err)
-						}
-						if identity.ID != 123 || token.AccessToken != f.token {
-							t.Fatal("wrong character or token after exchange")
-						}
-					} else if err == nil || !strings.Contains(err.Error(), "missing required scope "+shipScope) {
-						t.Fatalf("missing minimum scope should be rejected, got %v", err)
-					}
-				})
+	f := newESIFixture(t)
+	for _, testCase := range []struct {
+		name    string
+		scopes  []string
+		allowed bool
+	}{
+		{"exact application scopes", []string{"esi-location.read_location.v1", "esi-location.read_ship_type.v1", "esi-location.read_online.v1"}, true},
+		{"required scope last", []string{"esi-location.read_online.v1", "esi-location.read_location.v1", shipScope}, true},
+		{"minimum only", []string{shipScope}, true},
+		{"additional unknown scope", []string{shipScope, "future.optional.scope.v99"}, true},
+		{"duplicate scope", []string{shipScope, "esi-location.read_online.v1", shipScope}, true},
+		{"optional scopes only", []string{"esi-location.read_location.v1", "esi-location.read_online.v1"}, false},
+		{"similar name is insufficient", []string{"esi-location.read_location.v1", shipScope + ".extra", "esi-location.read_online.v1"}, false},
+		{"no granted scopes", []string{}, false},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			f.token = signedTestToken(t, f.key, func(claims map[string]any) { claims["scp"] = testCase.scopes })
+			// Login, refresh and refresh-token import all use this exchange
+			// path with PKCE application authentication.
+			token, identity, err := f.service.exchange(context.Background(), url.Values{"grant_type": {"refresh_token"}, "refresh_token": {"original-refresh"}, "client_id": {"test-client"}})
+			if testCase.allowed {
+				if err != nil {
+					t.Fatalf("additional scopes broke authentication: %v", err)
+				}
+				if identity.ID != 123 || token.AccessToken != f.token {
+					t.Fatal("wrong character or token after exchange")
+				}
+			} else if err == nil || !strings.Contains(err.Error(), "missing required scope "+shipScope) {
+				t.Fatalf("missing minimum scope should be rejected, got %v", err)
 			}
 		})
 	}
