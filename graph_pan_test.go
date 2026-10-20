@@ -30,10 +30,10 @@ func TestGraphPanButtonsSynchronizeAndShareUndoHistory(t *testing.T) {
 	ui.graphAverage10s = true
 	ui.renderSelection()
 	buttons := graphPanButtons(ui.tabs.Items[0].Content)
-	if len(buttons) != 4 {
-		t.Fatalf("expected left/right buttons on both graphs, got %d", len(buttons))
+	if len(buttons) != 6 {
+		t.Fatalf("expected left/right buttons on all three graphs, got %d", len(buttons))
 	}
-	for index, chart := range []*damageChart{ui.outgoing, ui.incoming} {
+	for index, chart := range []*damageChart{ui.outgoing, ui.incoming, ui.ewar} {
 		back, forward := buttons[index*2], buttons[index*2+1]
 		if back.forward || !forward.forward || back.Size().Width > 32 || back.Size().Height != chart.Size().Height {
 			t.Fatal("pan controls are not narrow full-height buttons beside the graph")

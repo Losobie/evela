@@ -57,16 +57,18 @@ type plotSeries struct {
 	MemberCounts []int
 }
 type plotData struct {
-	Start, End     time.Time
-	Bucket         time.Duration
-	Series         []plotSeries
-	Maximum        float64
-	AverageWindow  time.Duration
-	Markers        []plotMarker
-	IndividualHits bool
+	Start, End        time.Time
+	Bucket            time.Duration
+	Series            []plotSeries
+	Maximum           float64
+	AverageWindow     time.Duration
+	Markers           []plotMarker
+	IndividualHits    bool
+	RateUnit, HitUnit string
+	EmptyText         string
 }
 
-// Plot coordinates and axis labels always use a linear DPS scale.
+// Plot coordinates and axis labels always use a linear scale.
 func (data plotData) fraction(value float64) float64 {
 	if data.Maximum <= 0 {
 		return 0
@@ -247,6 +249,11 @@ func (r *chartRenderer) Refresh() {
 	} else {
 		r.empty.Show()
 	}
+	r.empty.Text = "No damage in this range for the selected characters"
+	if data.EmptyText != "" {
+		r.empty.Text = data.EmptyText
+	}
+	r.empty.Refresh()
 	for i := 0; i < 5; i++ {
 		value := data.valueAt(float64(4-i) / 4)
 		r.yLabels[i].Text = shortNumber(value)
@@ -268,7 +275,14 @@ func (r *chartRenderer) Refresh() {
 	if data.AverageWindow > 0 {
 		hint += " · " + data.AverageWindow.String() + " avg"
 	} else if data.IndividualHits {
-		hint += " · individual hits · damage"
+		if data.HitUnit != "" {
+			hint += " · individual events · " + data.HitUnit
+		} else {
+			hint += " · individual hits · damage"
+		}
+	}
+	if data.AverageWindow > 0 && data.RateUnit != "" {
+		hint += " · " + data.RateUnit
 	}
 	r.chart.setHoverHint(hint)
 	if r.chart.drag != nil && r.chart.drag.Moved {
@@ -461,6 +475,9 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 					if hit.Character != "" && hit.Character != name {
 						name += " · " + hit.Character
 					}
+					if hit.Detail != "" {
+						name += " · " + hit.Detail
+					}
 					readings = append(readings, reading{name, hit.Damage, series.Color})
 				}
 			}
@@ -497,8 +514,14 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 			break
 		}
 		rate, unit := shortNumber(reading.value), "DPS"
+		if data.RateUnit != "" {
+			unit = data.RateUnit
+		}
 		if data.IndividualHits {
 			unit = "damage"
+			if data.HitUnit != "" {
+				unit = data.HitUnit
+			}
 			if reading.value < 1000 {
 				rate = fmt.Sprintf("%g", reading.value)
 			}
@@ -506,6 +529,9 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 		if data.AverageWindow > 0 {
 			if reading.value < 1000 {
 				rate = fmt.Sprintf("%.1f", reading.value)
+			}
+			if data.RateUnit != "" && reading.value > 0 && reading.value < 0.1 {
+				rate = fmt.Sprintf("%.3g", reading.value)
 			}
 			unit += " (" + data.AverageWindow.String() + " avg)"
 		}

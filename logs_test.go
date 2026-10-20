@@ -46,6 +46,9 @@ func TestParseLog(t *testing.T) {
 			if log.Character != "Test Pilot" || len(log.Points) != 2 {
 				t.Fatalf("unexpected result: %+v", log)
 			}
+			if len(log.EWar) != 1 || log.EWar[0].Amount != 241 {
+				t.Fatalf("missing encoded E-War record: %+v", log.EWar)
+			}
 			if point := log.Points[0]; point.Outgoing != 1250.5 || point.OutgoingHits != 2 || point.Incoming != 0 {
 				t.Fatalf("outgoing: %+v", point)
 			}

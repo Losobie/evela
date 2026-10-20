@@ -34,6 +34,8 @@ type analyzerUI struct {
 	characters                              *fyne.Container
 	characterSearch                         *widget.Entry
 	incoming, outgoing                      *damageChart
+	ewar                                    *damageChart
+	ewarMetric                              *widget.Select
 	totals                                  *widget.Table
 	events                                  *eventsViewer
 	loadRequests                            chan []string
@@ -151,6 +153,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.initESI()
 	ui.initGraphFormat()
 	ui.initDamageFilters()
+	ui.initEWar()
 	ui.totals = widget.NewTable(
 		func() (int, int) { return len(ui.tableSeries) + 1, 7 },
 		func() fyne.CanvasObject { return newTotalsCell() },
@@ -241,9 +244,10 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 		container.NewBorder(widget.NewLabel("Graph interval"), nil, nil, nil, ui.bucketSelect))
 	controls := container.NewVBox(heading, filters, widget.NewSeparator())
 	filterBar := ui.damageFilterBar()
-	charts := container.NewGridWithRows(2,
-		widget.NewCard("Outgoing", "Damage dealt by selected characters or ship groups", ui.graphPanContent(ui.outgoing)),
-		widget.NewCard("Incoming", "Damage received by selected characters", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))))
+	charts := container.NewGridWithRows(3,
+		widget.NewCard("Outgoing", "", ui.graphPanContent(ui.outgoing)),
+		widget.NewCard("Incoming", "", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))),
+		widget.NewCard("Incoming E-War", "", container.NewBorder(ui.ewarControls(), nil, nil, nil, ui.graphPanContent(ui.ewar))))
 	graphContent := container.NewBorder(filterBar, nil, nil, nil, charts)
 	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.")
 	totalsNote.Wrapping = fyne.TextWrapWord
@@ -347,7 +351,7 @@ func (ui *analyzerUI) watch() {
 					status += " No .txt game logs found in the configured folders."
 				}
 			} else if snapshot.Last.IsZero() {
-				status += " No supported English damage messages found."
+				status += " No supported English combat messages found."
 			} else {
 				status += " Latest combat: " + snapshot.Last.Format("2006-01-02 15:04:05") + " EVE time."
 			}
@@ -449,13 +453,14 @@ func (ui *analyzerUI) renderSelection() {
 		out.Markers = ui.view.structureMarkers(ui.analysisSnapshot(), selected)
 	}
 	var incoming, outgoing float64
-	var hitsIn, hitsOut, count int
+	var hitsIn, hitsOut int
+	contributing := map[string]bool{}
 	active := ui.view.activeSeries()
 	for _, series := range active {
 		if !selected[series.Name] {
 			continue
 		}
-		count++
+		contributing[series.Name] = true
 		incoming += series.TotalIncoming
 		outgoing += series.TotalOutgoing
 		hitsIn += series.IncomingHits
@@ -494,9 +499,28 @@ func (ui *analyzerUI) renderSelection() {
 	}
 	ui.incoming.setData(in)
 	ui.outgoing.setData(out)
+	ui.ewar.setData(ui.incomingEWarPlot(selected))
 	ui.sortDamageTotals()
 	ui.totals.Refresh()
-	ui.summary.SetText(fmt.Sprintf("%d selected   |   Outgoing %s damage / %d hits   |   Incoming %s damage / %d hits", count, shortNumber(outgoing), hitsOut, shortNumber(incoming), hitsIn))
+	var ewarCount int
+	var drained float64
+	for _, log := range ui.analysisSnapshot().Logs {
+		if !selected[log.Character] {
+			continue
+		}
+		for _, event := range log.EWar {
+			if event.Second >= ui.view.Start.Unix() && event.Second < ui.view.End.Unix() {
+				contributing[log.Character] = true
+				ewarCount++
+				drained += event.Amount
+			}
+		}
+	}
+	summary := fmt.Sprintf("%d selected   |   Outgoing %s damage / %d hits   |   Incoming %s damage / %d hits", len(contributing), shortNumber(outgoing), hitsOut, shortNumber(incoming), hitsIn)
+	if ewarCount > 0 {
+		summary += fmt.Sprintf("   |   Incoming E-War %d events / %s GJ", ewarCount, shortNumber(drained))
+	}
+	ui.summary.SetText(summary)
 	ui.updateGraphFormatLabel()
 	ui.refreshDamageFilterControls()
 }

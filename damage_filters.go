@@ -243,6 +243,12 @@ func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
 		copyLog.Points, copyLog.StructureEvents = nil, nil
 		copyLog.IncomingSources = nil
 		copyLog.Hits = nil
+		copyLog.EWar = nil
+		for _, event := range log.EWar {
+			if matches(event.Second) {
+				copyLog.EWar = append(copyLog.EWar, event)
+			}
+		}
 		// Rebuild incoming values from source contributions before bucketing and
 		// averaging. Outgoing values and structure markers use only shared filters.
 		incoming := map[int64]incomingSourcePoint{}
@@ -316,6 +322,23 @@ func (ui *analyzerUI) refreshDamageFilterOptions() {
 	locations := ui.locationLookup
 	first, end := ui.view.Start.Unix(), ui.view.End.Unix()
 	for _, log := range ui.snapshot.Logs {
+		registerCharacter := func(second int64) {
+			options[filterCharacters][log.Character] = log.Character
+			if _, exists := ui.selected[log.Character]; !exists {
+				ui.selected[log.Character] = ui.damageFilterSelected(filterCharacters, log.Character)
+			}
+			ship, known := byName[characterKey(log.Character)].atName(log.Character, time.Unix(second, 0))
+			hull, class := shipFilterOptions(ship, known)
+			options[filterShipType][hull.Key], options[filterShipClass][class.Key] = hull.Label, class.Label
+			location, known := locations.atName(log.Character, time.Unix(second, 0))
+			system := systemFilterOption(location, known)
+			options[filterSystem][system.Key] = system.Label
+		}
+		for _, event := range log.EWar {
+			if event.Second >= first && event.Second < end {
+				registerCharacter(event.Second)
+			}
+		}
 		for _, point := range log.IncomingSources {
 			if point.Second >= first && point.Second < end {
 				names, types := npcFilterOptions(log.Sources[point.Source])
@@ -326,20 +349,11 @@ func (ui *analyzerUI) refreshDamageFilterOptions() {
 			if point.Second < first || point.Second >= end || (point.Incoming == 0 && point.Outgoing == 0 && point.IncomingHits == 0 && point.OutgoingHits == 0) {
 				continue
 			}
-			options[filterCharacters][log.Character] = log.Character
+			registerCharacter(point.Second)
 			if len(log.IncomingSources) == 0 && (point.Incoming != 0 || point.IncomingHits != 0) {
 				names, types := npcFilterOptions(damageSource{})
 				options[filterNPCNames][names.Key], options[filterNPCTypes][types.Key] = names.Label, types.Label
 			}
-			if _, exists := ui.selected[log.Character]; !exists {
-				ui.selected[log.Character] = ui.damageFilterSelected(filterCharacters, log.Character)
-			}
-			ship, known := byName[characterKey(log.Character)].atName(log.Character, time.Unix(point.Second, 0))
-			hull, class := shipFilterOptions(ship, known)
-			options[filterShipType][hull.Key], options[filterShipClass][class.Key] = hull.Label, class.Label
-			location, known := locations.atName(log.Character, time.Unix(point.Second, 0))
-			system := systemFilterOption(location, known)
-			options[filterSystem][system.Key] = system.Label
 		}
 		// Markers can occur after the last damage hit in a system.
 		for _, event := range log.StructureEvents {

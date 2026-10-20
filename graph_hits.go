@@ -9,6 +9,7 @@ type plotHit struct {
 	Second    int64
 	Damage    float64
 	Character string
+	Detail    string
 }
 
 func (ui *analyzerUI) hitCharacterGroups(character, filterID string) []string {

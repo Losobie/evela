@@ -51,13 +51,14 @@ type parsedLog struct {
 	StructureEvents []structureEvent
 	EntrySeconds    []int64
 	Events          []logEvent
+	EWar            []ewarEvent
 	SessionStarted  time.Time
 	LocationEvents  []logLocationEvent
 	Hash            [32]byte
 }
 
 // parseLog accepts EVE's UTF-8 and BOM-marked UTF-16 exports. Rates use numeric
-// damage messages; structure invulnerability notifications are recorded separately.
+// damage messages; E-War and structure notifications are recorded separately.
 func parseLog(input io.Reader) (*parsedLog, error) {
 	hash := sha256.New()
 	raw := bufio.NewReader(io.TeeReader(input, hash))
@@ -115,6 +116,12 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 			continue
 		}
 		message = strings.TrimSpace(message[channelEnd+1:])
+		if combat || locationChannel {
+			if event, ok := parseIncomingEWar(message, at.Unix()); ok {
+				result.EWar = append(result.EWar, event)
+				continue
+			}
+		}
 		if locationChannel {
 			if event, ok := parseLogLocation(message, at.Unix()); ok {
 				result.LocationEvents = append(result.LocationEvents, event)
@@ -200,6 +207,7 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 	}
 	sort.Slice(result.Points, func(i, j int) bool { return result.Points[i].Second < result.Points[j].Second })
 	sort.SliceStable(result.Hits, func(i, j int) bool { return result.Hits[i].Second < result.Hits[j].Second })
+	sort.SliceStable(result.EWar, func(i, j int) bool { return result.EWar[i].Second < result.EWar[j].Second })
 	for _, point := range sourceSeconds {
 		result.IncomingSources = append(result.IncomingSources, *point)
 	}
@@ -369,6 +377,15 @@ func (snapshot *logSnapshot) populateLogs() {
 			first, last = time.Unix(log.Points[0].Second, 0).UTC(), time.Unix(log.Points[len(log.Points)-1].Second, 0).UTC()
 		}
 		for _, event := range log.StructureEvents {
+			at := time.Unix(event.Second, 0).UTC()
+			if first.IsZero() || at.Before(first) {
+				first = at
+			}
+			if last.IsZero() || at.After(last) {
+				last = at
+			}
+		}
+		for _, event := range log.EWar {
 			at := time.Unix(event.Second, 0).UTC()
 			if first.IsZero() || at.Before(first) {
 				first = at
