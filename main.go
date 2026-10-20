@@ -36,6 +36,11 @@ type analyzerUI struct {
 	incoming, outgoing                      *damageChart
 	ewar                                    *damageChart
 	ewarMetric                              *widget.Select
+	outgoingLogistics                       *damageChart
+	incomingLogistics                       *damageChart
+	outgoingLogisticsMetric                 *widget.Select
+	incomingLogisticsMetric                 *widget.Select
+	graphsScroll                            *container.Scroll
 	totals                                  *widget.Table
 	events                                  *eventsViewer
 	loadRequests                            chan []string
@@ -154,6 +159,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.initGraphFormat()
 	ui.initDamageFilters()
 	ui.initEWar()
+	ui.initLogistics()
 	ui.totals = widget.NewTable(
 		func() (int, int) { return len(ui.tableSeries) + 1, 7 },
 		func() fyne.CanvasObject { return newTotalsCell() },
@@ -244,11 +250,16 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 		container.NewBorder(widget.NewLabel("Graph interval"), nil, nil, nil, ui.bucketSelect))
 	controls := container.NewVBox(heading, filters, widget.NewSeparator())
 	filterBar := ui.damageFilterBar()
-	charts := container.NewGridWithRows(3,
+	charts := container.NewVBox(
 		widget.NewCard("Outgoing", "", ui.graphPanContent(ui.outgoing)),
+		widget.NewCard("Outgoing logistics", "", container.NewBorder(logisticsControls(ui.outgoingLogisticsMetric), nil, nil, nil, ui.graphPanContent(ui.outgoingLogistics))),
 		widget.NewCard("Incoming", "", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))),
+		widget.NewCard("Incoming logistics", "", container.NewBorder(logisticsControls(ui.incomingLogisticsMetric), nil, nil, nil, ui.graphPanContent(ui.incomingLogistics))),
 		widget.NewCard("Incoming E-War", "", container.NewBorder(ui.ewarControls(), nil, nil, nil, ui.graphPanContent(ui.ewar))))
-	graphContent := container.NewBorder(filterBar, nil, nil, nil, charts)
+	ui.graphsScroll = container.NewVScroll(charts)
+	scrollHint := widget.NewLabel("Use the scrollbar or wheel over graph headings to scroll · Wheel over a plot zooms all graphs")
+	scrollHint.Truncation = fyne.TextTruncateEllipsis
+	graphContent := container.NewBorder(container.NewVBox(filterBar, scrollHint), nil, nil, nil, ui.graphsScroll)
 	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.")
 	totalsNote.Wrapping = fyne.TextWrapWord
 	totals := container.NewBorder(totalsNote, nil, nil, nil, ui.totals)
@@ -500,6 +511,8 @@ func (ui *analyzerUI) renderSelection() {
 	ui.incoming.setData(in)
 	ui.outgoing.setData(out)
 	ui.ewar.setData(ui.incomingEWarPlot(selected))
+	ui.outgoingLogistics.setData(ui.logisticsPlot(selected, false))
+	ui.incomingLogistics.setData(ui.logisticsPlot(selected, true))
 	ui.sortDamageTotals()
 	ui.totals.Refresh()
 	var ewarCount int
@@ -513,6 +526,11 @@ func (ui *analyzerUI) renderSelection() {
 				contributing[log.Character] = true
 				ewarCount++
 				drained += event.Amount
+			}
+		}
+		for _, event := range log.Logistics {
+			if event.Second >= ui.view.Start.Unix() && event.Second < ui.view.End.Unix() {
+				contributing[log.Character] = true
 			}
 		}
 	}

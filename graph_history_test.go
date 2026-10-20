@@ -71,7 +71,7 @@ func assertGraphHistoryState(t *testing.T, ui *analyzerUI, want graphRangeState,
 	if ui.start.Text != want.Start.UTC().Format("2006-01-02 15:04:05") || ui.end.Text != want.End.UTC().Format("2006-01-02 15:04:05") {
 		t.Fatal("UTC fields did not follow undo/redo")
 	}
-	for _, chart := range []*damageChart{ui.incoming, ui.outgoing, ui.ewar} {
+	for _, chart := range []*damageChart{ui.incoming, ui.outgoing, ui.ewar, ui.incomingLogistics, ui.outgoingLogistics} {
 		if !chart.data.Start.Equal(want.Start) || !chart.data.End.Equal(want.End) {
 			t.Fatal("graph time axis did not follow undo/redo")
 		}

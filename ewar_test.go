@@ -227,10 +227,11 @@ func TestEWarGraphLayoutAndHover(t *testing.T) {
 		if chart.Size().Height < 120 {
 			t.Fatalf("graph too short at 1440x960: %v", chart.Size())
 		}
-		at := fyne.CurrentApp().Driver().AbsolutePositionForObject(chart)
-		if at.Y+chart.Size().Height > ui.window.Canvas().Size().Height {
-			t.Fatal("graph clipped below window")
-		}
+	}
+	ui.graphsScroll.ScrollToBottom()
+	at := fyne.CurrentApp().Driver().AbsolutePositionForObject(ui.ewar)
+	if at.Y+ui.ewar.Size().Height > ui.window.Canvas().Size().Height {
+		t.Fatal("E-War graph cannot be reached by scrolling")
 	}
 	ui.ewar.MouseMoved(testMouseEvent(chartPlotLeft, 60, 0))
 	if got := ui.ewar.hoverReadings[0].Text; !strings.Contains(got, "50 GJ") || !strings.Contains(got, "Pilot A") || !strings.Contains(got, "energy neutralized") || strings.Contains(got, "damage") {

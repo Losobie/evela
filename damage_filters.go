@@ -244,6 +244,12 @@ func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
 		copyLog.IncomingSources = nil
 		copyLog.Hits = nil
 		copyLog.EWar = nil
+		copyLog.Logistics = nil
+		for _, event := range log.Logistics {
+			if matches(event.Second) {
+				copyLog.Logistics = append(copyLog.Logistics, event)
+			}
+		}
 		for _, event := range log.EWar {
 			if matches(event.Second) {
 				copyLog.EWar = append(copyLog.EWar, event)
@@ -335,6 +341,11 @@ func (ui *analyzerUI) refreshDamageFilterOptions() {
 			options[filterSystem][system.Key] = system.Label
 		}
 		for _, event := range log.EWar {
+			if event.Second >= first && event.Second < end {
+				registerCharacter(event.Second)
+			}
+		}
+		for _, event := range log.Logistics {
 			if event.Second >= first && event.Second < end {
 				registerCharacter(event.Second)
 			}

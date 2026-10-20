@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 )
@@ -20,6 +21,8 @@ func graphPanButtons(root fyne.CanvasObject) []*graphPanButton {
 		}
 	case *widget.Card:
 		buttons = append(buttons, graphPanButtons(object.Content)...)
+	case *container.Scroll:
+		buttons = append(buttons, graphPanButtons(object.Content)...)
 	}
 	return buttons
 }
@@ -30,10 +33,10 @@ func TestGraphPanButtonsSynchronizeAndShareUndoHistory(t *testing.T) {
 	ui.graphAverage10s = true
 	ui.renderSelection()
 	buttons := graphPanButtons(ui.tabs.Items[0].Content)
-	if len(buttons) != 6 {
-		t.Fatalf("expected left/right buttons on all three graphs, got %d", len(buttons))
+	if len(buttons) != 10 {
+		t.Fatalf("expected left/right buttons on all five graphs, got %d", len(buttons))
 	}
-	for index, chart := range []*damageChart{ui.outgoing, ui.incoming, ui.ewar} {
+	for index, chart := range []*damageChart{ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar} {
 		back, forward := buttons[index*2], buttons[index*2+1]
 		if back.forward || !forward.forward || back.Size().Width > 32 || back.Size().Height != chart.Size().Height {
 			t.Fatal("pan controls are not narrow full-height buttons beside the graph")
@@ -50,7 +53,7 @@ func TestGraphPanButtonsSynchronizeAndShareUndoHistory(t *testing.T) {
 	if len(ui.graphUndo) != 1 || ui.graphUndo[0].Before.Preset != "Last hour" || ui.tableSeries[0].TotalOutgoing != 180 {
 		t.Fatal("pan did not record the previous preset or update damage totals")
 	}
-	test.Tap(buttons[2]) // Incoming graph: move both graphs back to the original bounds.
+	test.Tap(buttons[4]) // Incoming graph: move both graphs back to the original bounds.
 	returned := graphRangeState{Start: initial.Start, End: initial.End, Preset: "Custom"}
 	assertGraphHistoryState(t, ui, returned, 1180)
 	if len(ui.graphUndo) != 2 {
@@ -104,7 +107,7 @@ func TestGraphPanCanCrossEmptyRangesAndReplaceRedoBranch(t *testing.T) {
 	ui, start := newGraphHistoryTestUI(t)
 	buttons := graphPanButtons(ui.tabs.Items[0].Content)
 	for count := 0; count < 4; count++ {
-		test.Tap(buttons[3])
+		test.Tap(buttons[5])
 	}
 	if !ui.view.Start.Equal(start.Add(time.Hour)) || ui.view.End.Sub(ui.view.Start) != time.Hour || len(ui.outgoing.data.Series) != 0 || len(ui.tableSeries) != 0 {
 		t.Fatal("panning into an empty range clamped the window or retained old data")

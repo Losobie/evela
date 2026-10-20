@@ -52,13 +52,14 @@ type parsedLog struct {
 	EntrySeconds    []int64
 	Events          []logEvent
 	EWar            []ewarEvent
+	Logistics       []logisticsEvent
 	SessionStarted  time.Time
 	LocationEvents  []logLocationEvent
 	Hash            [32]byte
 }
 
 // parseLog accepts EVE's UTF-8 and BOM-marked UTF-16 exports. Rates use numeric
-// damage messages; E-War and structure notifications are recorded separately.
+// damage messages; logistics, E-War and structure notifications are separate.
 func parseLog(input io.Reader) (*parsedLog, error) {
 	hash := sha256.New()
 	raw := bufio.NewReader(io.TeeReader(input, hash))
@@ -117,6 +118,12 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		}
 		message = strings.TrimSpace(message[channelEnd+1:])
 		if combat || locationChannel {
+			if combat {
+				if event, ok := parseLogistics(message, at.Unix()); ok {
+					result.Logistics = append(result.Logistics, event)
+					continue
+				}
+			}
 			if event, ok := parseIncomingEWar(message, at.Unix()); ok {
 				result.EWar = append(result.EWar, event)
 				continue
@@ -208,6 +215,7 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 	sort.Slice(result.Points, func(i, j int) bool { return result.Points[i].Second < result.Points[j].Second })
 	sort.SliceStable(result.Hits, func(i, j int) bool { return result.Hits[i].Second < result.Hits[j].Second })
 	sort.SliceStable(result.EWar, func(i, j int) bool { return result.EWar[i].Second < result.EWar[j].Second })
+	sort.SliceStable(result.Logistics, func(i, j int) bool { return result.Logistics[i].Second < result.Logistics[j].Second })
 	for _, point := range sourceSeconds {
 		result.IncomingSources = append(result.IncomingSources, *point)
 	}
@@ -386,6 +394,15 @@ func (snapshot *logSnapshot) populateLogs() {
 			}
 		}
 		for _, event := range log.EWar {
+			at := time.Unix(event.Second, 0).UTC()
+			if first.IsZero() || at.Before(first) {
+				first = at
+			}
+			if last.IsZero() || at.After(last) {
+				last = at
+			}
+		}
+		for _, event := range log.Logistics {
 			at := time.Unix(event.Second, 0).UTC()
 			if first.IsZero() || at.Before(first) {
 				first = at
