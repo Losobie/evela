@@ -9,18 +9,17 @@ import (
 )
 
 const (
-	incomingByCharacter          = "Character"
-	incomingByCharacterGroup     = "Character Group"
-	incomingByAttackingCharacter = "Attacking Character"
-	incomingByAttackingShip      = "Attacking Ship"
-	incomingByAttackingShipType  = "Attacking Ship Type"
-	incomingByNPC                = "NPC"
-	incomingByNPCType            = "NPC Type"
+	incomingByCharacter      = "Character"
+	incomingByCharacterGroup = "Character Group"
+	incomingByAttacker       = "Attacker"
+	incomingByShip           = "Ship"
+	incomingByNPC            = "NPC"
+	incomingByNPCType        = "NPC Type"
 )
 
 var incomingGroupingModes = []string{
-	incomingByCharacter, incomingByCharacterGroup, incomingByAttackingCharacter,
-	incomingByAttackingShip, incomingByAttackingShipType, incomingByNPC, incomingByNPCType,
+	incomingByCharacter, incomingByCharacterGroup,
+	incomingByAttacker, incomingByShip, incomingByNPC, incomingByNPCType,
 }
 
 func (ui *analyzerUI) incomingGroupingMenu() *fyne.Menu {
@@ -61,15 +60,11 @@ func (ui *analyzerUI) incomingGraphSeries(selected map[string]bool) []characterS
 func incomingSourceGroup(source damageSource, mode string) damageFilterOption {
 	other := damageFilterOption{Key: "other", Label: "Other / unresolved"}
 	switch mode {
-	case incomingByAttackingCharacter:
-		if source.Character != "" {
-			return damageFilterOption{Key: "character:" + characterKey(source.Character), Label: source.Character}
-		}
-	case incomingByAttackingShip:
+	case incomingByAttacker:
 		if source.Hull != "" {
 			return damageFilterOption{Key: "ship:" + characterKey(source.Name), Label: source.Name}
 		}
-	case incomingByAttackingShipType:
+	case incomingByShip:
 		if source.Hull != "" {
 			return damageFilterOption{Key: "hull:" + characterKey(source.Hull), Label: source.Hull}
 		}

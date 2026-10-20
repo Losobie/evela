@@ -20,6 +20,12 @@ func (ui *analyzerUI) initGraphFormat() {
 	ui.graphAverage10s = preferences.BoolWithFallback(graphAveragePreference, true)
 	ui.graphInvulnerabilityMarkers = preferences.Bool(graphInvulnerabilityPreference)
 	ui.incomingGrouping = preferences.String(incomingGroupingPreference)
+	switch ui.incomingGrouping {
+	case "Attacking Ship":
+		ui.incomingGrouping = incomingByAttacker
+	case "Attacking Ship Type":
+		ui.incomingGrouping = incomingByShip
+	}
 	if !slices.Contains(incomingGroupingModes, ui.incomingGrouping) {
 		ui.incomingGrouping = incomingByCharacter
 	}

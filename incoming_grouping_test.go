@@ -72,9 +72,8 @@ func TestIncomingGroupingModesAreIndependentAndPreserveDamage(t *testing.T) {
 	}{
 		{incomingByCharacter, map[string]float64{"Pilot A": 270, "Pilot B": 30}},
 		{incomingByCharacterGroup, map[string]float64{"Fleet": 300, "Scouts": 270}},
-		{incomingByAttackingCharacter, map[string]float64{"Alpha": 60, "Bravo": 40, "Other / unresolved": 200}},
-		{incomingByAttackingShip, map[string]float64{"Alpha[ONE](Raven)": 30, "Alpha[ONE](Drake)": 30, "Bravo[TWO](Raven)": 40, "Other / unresolved": 200}},
-		{incomingByAttackingShipType, map[string]float64{"Raven": 70, "Drake": 30, "Other / unresolved": 200}},
+		{incomingByAttacker, map[string]float64{"Alpha[ONE](Raven)": 30, "Alpha[ONE](Drake)": 30, "Bravo[TWO](Raven)": 40, "Other / unresolved": 200}},
+		{incomingByShip, map[string]float64{"Raven": 70, "Drake": 30, "Other / unresolved": 200}},
 		{incomingByNPC, map[string]float64{"Amarr Sentry Gun": 70, "Guristas Blackbird": 60, "Other / unresolved": 170}},
 		{incomingByNPCType, map[string]float64{"Sentry Gun": 70, "Irregular Frigate": 60, "Other / unresolved": 170}},
 	} {
@@ -96,14 +95,14 @@ func TestIncomingGroupingModesAreIndependentAndPreserveDamage(t *testing.T) {
 
 func TestIncomingSourceGroupingFiltersAverageAndRangeHistory(t *testing.T) {
 	ui, start := newIncomingGroupingTestUI(t)
-	chooseGraphMenuItem(t, ui.incomingGroupingMenu(), incomingByAttackingCharacter)
+	chooseGraphMenuItem(t, ui.incomingGroupingMenu(), incomingByAttacker)
 	chooseGraphMenuItem(t, ui.graphOptionsMenu(), "10-second DPS average")
-	if got := incomingRates(ui, 0); !reflect.DeepEqual(got, map[string]float64{"Alpha": 16, "Bravo": 4, "Other / unresolved": 20}) {
+	if got := incomingRates(ui, 0); !reflect.DeepEqual(got, map[string]float64{"Alpha[ONE](Raven)": 13, "Alpha[ONE](Drake)": 3, "Bravo[TWO](Raven)": 4, "Other / unresolved": 20}) {
 		t.Fatalf("averaging lost event attribution/lookback: %v", got)
 	}
 	ui.applyGraphRange(start, start.Add(6*time.Second))
 	ui.bucketSelect.SetSelected("5 seconds")
-	if got := incomingRates(ui, 0); math.Abs(got["Alpha"]-16) > 1e-10 {
+	if got := incomingRates(ui, 0); math.Abs(got["Alpha[ONE](Raven)"]-13) > 1e-10 {
 		t.Fatalf("coarse bucket average: %v", got)
 	}
 	ui.setAllDamageFilterOptions(filterNPCNames, false)
@@ -149,7 +148,7 @@ func TestIncomingGroupingMenusAndPreferences(t *testing.T) {
 	for _, item := range ui.incomingGroupingMenu().Items {
 		labels = append(labels, item.Label)
 	}
-	if !reflect.DeepEqual(labels, incomingGroupingModes) {
+	if !reflect.DeepEqual(labels, []string{"Character", "Character Group", "Attacker", "Ship", "NPC", "NPC Type"}) {
 		t.Fatalf("incoming choices: %v", labels)
 	}
 	if len(ui.graphOptionsMenu().Items) != 2 {
@@ -185,11 +184,23 @@ func TestIncomingGroupingMenusAndPreferences(t *testing.T) {
 			t.Fatal("incoming menu checkmark disagrees with saved grouping")
 		}
 	}
-	fyne.CurrentApp().Preferences().SetString(incomingGroupingPreference, "obsolete")
-	other := fyne.CurrentApp().NewWindow("Unknown incoming preference")
-	defer other.Close()
-	if fallback := newAnalyzerUI(other); fallback.incomingGrouping != incomingByCharacter {
-		t.Fatal("unknown preference did not fall back to Character")
+	for _, tc := range []struct {
+		saved string
+		want  string
+	}{
+		{"obsolete", incomingByCharacter},
+		{"Attacking Character", incomingByCharacter},
+		{"Attacking Ship", incomingByAttacker},
+		{"Attacking Ship Type", incomingByShip},
+	} {
+		t.Run(tc.saved, func(t *testing.T) {
+			fyne.CurrentApp().Preferences().SetString(incomingGroupingPreference, tc.saved)
+			other := fyne.CurrentApp().NewWindow("Restored incoming preference")
+			defer other.Close()
+			if restored := newAnalyzerUI(other); restored.incomingGrouping != tc.want {
+				t.Fatalf("restored grouping=%q, want %q", restored.incomingGrouping, tc.want)
+			}
+		})
 	}
 }
 
