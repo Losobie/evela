@@ -242,8 +242,8 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	controls := container.NewVBox(heading, filters, widget.NewSeparator())
 	filterBar := ui.damageFilterBar()
 	charts := container.NewGridWithRows(2,
-		widget.NewCard("Outgoing damage", "DPS dealt by selected characters or ship groups", ui.graphPanContent(ui.outgoing)),
-		widget.NewCard("Incoming damage", "DPS received by selected characters", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))))
+		widget.NewCard("Outgoing", "DPS dealt by selected characters or ship groups", ui.graphPanContent(ui.outgoing)),
+		widget.NewCard("Incoming", "DPS received by selected characters", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))))
 	graphContent := container.NewBorder(filterBar, nil, nil, nil, charts)
 	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.")
 	totalsNote.Wrapping = fyne.TextWrapWord
