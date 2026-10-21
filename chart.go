@@ -114,6 +114,7 @@ type damageChart struct {
 	hoverClip       *container.Scroll
 	hoverPosition   fyne.Position
 	hovered         bool
+	hoverGroup      *chartHoverGroup
 	cursor          *canvas.Line
 	selection       *canvas.Rectangle
 	drag            *chartRangeDrag
@@ -265,6 +266,9 @@ func (r *chartRenderer) Layout(size fyne.Size) {
 		}
 		r.xLabels[i].Move(fyne.NewPos(x, h+28))
 	}
+	if r.chart.hoverGroup != nil {
+		r.chart.hoverGroup.refresh()
+	}
 }
 func (r *chartRenderer) MinSize() fyne.Size {
 	return fyne.NewSize(550, 175)
@@ -362,6 +366,9 @@ func (r *chartRenderer) Refresh() {
 		if r.chart.hovered && r.chart.drag == nil {
 			r.chart.updateHover(r.chart.hoverPosition)
 		}
+	}
+	if r.chart.hoverGroup != nil {
+		r.chart.hoverGroup.refresh()
 	}
 	r.plot.Refresh()
 }
@@ -482,6 +489,10 @@ func drawLine(img *image.RGBA, x0, y0, x1, y1 int, ink color.NRGBA) {
 func (chart *damageChart) MouseIn(event *desktop.MouseEvent) { chart.MouseMoved(event) }
 func (chart *damageChart) MouseOut() {
 	chart.hovered = false
+	if chart.hoverGroup != nil {
+		chart.hoverGroup.leave(chart)
+		return
+	}
 	if chart.cursor != nil {
 		chart.cursor.Hide()
 	}
@@ -492,6 +503,10 @@ func (chart *damageChart) MouseMoved(event *desktop.MouseEvent) {
 		return
 	}
 	chart.updateHover(event.Position)
+	if chart.hoverGroup != nil {
+		chart.hoverGroup.source = chart
+		chart.hoverGroup.refresh()
+	}
 }
 
 // Recompute from the pointer position so refreshes inspect the new data and
@@ -651,6 +666,9 @@ func (chart *damageChart) beginRangeDrag(position fyne.Position) bool {
 	}
 	x := position.X - chartPlotLeft
 	chart.drag = &chartRangeDrag{Start: start, End: end, Width: width, Anchor: x, Current: x}
+	if chart.hoverGroup != nil {
+		chart.hoverGroup.leave(chart)
+	}
 	return true
 }
 

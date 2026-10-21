@@ -164,6 +164,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.initDamageFilters()
 	ui.initEWar()
 	ui.initLogistics()
+	linkChartHovers(ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar)
 	ui.initEventGraphGrouping()
 	ui.totals = widget.NewTable(
 		func() (int, int) { return len(ui.tableSeries) + 1, 7 },
