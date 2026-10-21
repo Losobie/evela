@@ -1,0 +1,70 @@
+package main
+
+import (
+	"slices"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/widget"
+)
+
+const (
+	eventByType      = "Type"
+	eventByCharacter = "Character"
+	eventByGroup     = "Character Group"
+	eventByShip      = "Ship type (ship history)"
+	eventByClass     = "Ship class (ship history)"
+)
+
+var eventGroupingModes = []string{eventByType, eventByCharacter, eventByGroup, eventByShip, eventByClass}
+
+func (ui *analyzerUI) initEventGraphGrouping() {
+	ui.eventGraphGroupings = map[string]string{}
+	for _, id := range []string{graphOutgoingLogistics, graphIncomingLogistics, graphIncomingEWar} {
+		mode := fyne.CurrentApp().Preferences().StringWithFallback("graph.grouping."+id, eventByType)
+		if !slices.Contains(eventGroupingModes, mode) {
+			mode = eventByType
+		}
+		ui.eventGraphGroupings[id] = mode
+	}
+}
+
+func (ui *analyzerUI) eventGroupingMenu(id string) *fyne.Menu {
+	menu := fyne.NewMenu("Group By")
+	for _, mode := range eventGroupingModes {
+		grouping := mode
+		item := fyne.NewMenuItem(grouping, func() {
+			ui.eventGraphGroupings[id] = grouping
+			fyne.CurrentApp().Preferences().SetString("graph.grouping."+id, grouping)
+			ui.renderSelection()
+		})
+		item.Checked = ui.eventGraphGroupings[id] == grouping
+		menu.Items = append(menu.Items, item)
+	}
+	return menu
+}
+
+func (ui *analyzerUI) eventGroupButton(id string) *widget.Button {
+	return ui.graphMenuButton("Group By", func() *fyne.Menu { return ui.eventGroupingMenu(id) })
+}
+
+// Group the log character at the event timestamp, before rolling averages.
+// Event graphs keep independent grouping choices and never read outgoing's
+// groupSelect; overlapping saved groups retain their existing semantics.
+func (ui *analyzerUI) eventGroupingNames(id, character, kind string, second int64, ships map[string]shipHistory) []string {
+	switch ui.eventGraphGroupings[id] {
+	case eventByCharacter:
+		return []string{character}
+	case eventByGroup:
+		return ui.hitCharacterGroups(character, "")
+	case eventByShip, eventByClass:
+		ship, known := ships[characterKey(character)].atName(character, time.Unix(second, 0))
+		hull, class := shipFilterOptions(ship, known)
+		if ui.eventGraphGroupings[id] == eventByClass {
+			return []string{class.Label}
+		}
+		return []string{hull.Label}
+	default:
+		return []string{kind}
+	}
+}

@@ -38,8 +38,9 @@ type analyzerUI struct {
 	ewarMetric                              *widget.Select
 	outgoingLogistics                       *damageChart
 	incomingLogistics                       *damageChart
-	outgoingLogisticsMetric                 *widget.Select
-	incomingLogisticsMetric                 *widget.Select
+	logisticsTypes                          map[string]*damageFilterSelection
+	logisticsTypeButtons                    map[string]*widget.Button
+	eventGraphGroupings                     map[string]string
 	graphsScroll                            *container.Scroll
 	graphStack                              *fyne.Container
 	graphCards                              map[string]*widget.Card
@@ -163,6 +164,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.initDamageFilters()
 	ui.initEWar()
 	ui.initLogistics()
+	ui.initEventGraphGrouping()
 	ui.totals = widget.NewTable(
 		func() (int, int) { return len(ui.tableSeries) + 1, 7 },
 		func() fyne.CanvasObject { return newTotalsCell() },
@@ -255,10 +257,10 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	filterBar := ui.damageFilterBar()
 	ui.graphCards = map[string]*widget.Card{}
 	ui.graphStack = container.NewVBox(
-		ui.newGraphCard(graphOutgoing, "Outgoing", ui.graphPanContent(ui.outgoing)),
-		ui.newGraphCard(graphOutgoingLogistics, "Outgoing logistics", container.NewBorder(logisticsControls(ui.outgoingLogisticsMetric), nil, nil, nil, ui.graphPanContent(ui.outgoingLogistics))),
+		ui.newGraphCard(graphOutgoing, "Outgoing", container.NewBorder(container.NewBorder(nil, nil, nil, ui.graphFormatButton, ui.graphFormatLabel), nil, nil, nil, ui.graphPanContent(ui.outgoing))),
+		ui.newGraphCard(graphOutgoingLogistics, "Outgoing logistics", container.NewBorder(ui.logisticsControls(graphOutgoingLogistics), nil, nil, nil, ui.graphPanContent(ui.outgoingLogistics))),
 		ui.newGraphCard(graphIncoming, "Incoming", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))),
-		ui.newGraphCard(graphIncomingLogistics, "Incoming logistics", container.NewBorder(logisticsControls(ui.incomingLogisticsMetric), nil, nil, nil, ui.graphPanContent(ui.incomingLogistics))),
+		ui.newGraphCard(graphIncomingLogistics, "Incoming logistics", container.NewBorder(ui.logisticsControls(graphIncomingLogistics), nil, nil, nil, ui.graphPanContent(ui.incomingLogistics))),
 		ui.newGraphCard(graphIncomingEWar, "Incoming E-War", container.NewBorder(ui.ewarControls(), nil, nil, nil, ui.graphPanContent(ui.ewar))))
 	ui.graphsScroll = container.NewVScroll(ui.graphStack)
 	ui.graphsEmpty = newGraphsEmptyState()
@@ -547,4 +549,5 @@ func (ui *analyzerUI) renderSelection() {
 	ui.summary.SetText(summary)
 	ui.updateGraphFormatLabel()
 	ui.refreshDamageFilterControls()
+	ui.refreshLogisticsTypeControls()
 }

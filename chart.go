@@ -50,6 +50,7 @@ func characterColor(name string) color.NRGBA {
 
 type plotSeries struct {
 	Name         string
+	Unit         string
 	Color        color.NRGBA
 	Values       []float64
 	Hits         []plotHit
@@ -66,6 +67,28 @@ type plotData struct {
 	IndividualHits    bool
 	RateUnit, HitUnit string
 	EmptyText         string
+	SecondaryUnit     string
+	SecondaryMaximum  float64
+}
+
+func (data plotData) plotRight() float32 {
+	if data.SecondaryUnit != "" {
+		return 66
+	}
+	return chartPlotRight
+}
+
+func (chart *damageChart) plotRight() float32 {
+	chart.mu.RLock()
+	defer chart.mu.RUnlock()
+	return chart.data.plotRight()
+}
+
+func (data plotData) seriesFraction(series plotSeries, value float64) float64 {
+	if data.SecondaryUnit != "" && series.Unit == data.SecondaryUnit {
+		data.Maximum = data.SecondaryMaximum
+	}
+	return data.fraction(value)
 }
 
 // Plot coordinates and axis labels always use a linear scale.
@@ -131,14 +154,18 @@ func (chart *damageChart) setData(data plotData) {
 		chart.dragBlocked = true
 	}
 	for _, series := range data.Series {
+		maximum := &data.Maximum
+		if data.SecondaryUnit != "" && series.Unit == data.SecondaryUnit {
+			maximum = &data.SecondaryMaximum
+		}
 		if data.IndividualHits {
 			for _, hit := range series.Hits {
-				data.Maximum = math.Max(data.Maximum, hit.Damage)
+				*maximum = math.Max(*maximum, hit.Damage)
 			}
 		} else {
 			for _, value := range series.Values {
-				if value > data.Maximum {
-					data.Maximum = value
+				if value > *maximum {
+					*maximum = value
 				}
 			}
 		}
@@ -147,6 +174,11 @@ func (chart *damageChart) setData(data plotData) {
 		data.Maximum = 1
 	} else {
 		data.Maximum *= 1.08
+	}
+	if data.SecondaryMaximum <= 0 {
+		data.SecondaryMaximum = 1
+	} else {
+		data.SecondaryMaximum *= 1.08
 	}
 	chart.mu.Lock()
 	chart.data = data
@@ -186,21 +218,30 @@ func (chart *damageChart) CreateRenderer() fyne.WidgetRenderer {
 		r.yLabels = append(r.yLabels, y)
 		r.xLabels = append(r.xLabels, x)
 		r.objects = append(r.objects, y, x)
+		right := canvas.NewText("", muted)
+		right.TextSize = 11
+		r.rightLabels = append(r.rightLabels, right)
+		r.objects = append(r.objects, right)
 	}
+	r.leftUnit, r.rightUnit = canvas.NewText("", muted), canvas.NewText("", muted)
+	r.leftUnit.TextSize, r.rightUnit.TextSize = 11, 11
+	r.objects = append(r.objects, r.leftUnit, r.rightUnit)
 	r.Refresh()
 	return r
 }
 
 type chartRenderer struct {
-	chart            *damageChart
-	plot             *canvas.Raster
-	empty            *canvas.Text
-	yLabels, xLabels []*canvas.Text
-	objects          []fyne.CanvasObject
+	chart               *damageChart
+	plot                *canvas.Raster
+	empty               *canvas.Text
+	yLabels, xLabels    []*canvas.Text
+	objects             []fyne.CanvasObject
+	rightLabels         []*canvas.Text
+	leftUnit, rightUnit *canvas.Text
 }
 
 func (r *chartRenderer) Layout(size fyne.Size) {
-	w, h := fyne.Max(size.Width-chartPlotLeft-chartPlotRight, 1), fyne.Max(size.Height-chartPlotTop-chartPlotBottom, 1)
+	w, h := fyne.Max(size.Width-chartPlotLeft-r.chart.plotRight(), 1), fyne.Max(size.Height-chartPlotTop-chartPlotBottom, 1)
 	if r.chart.drag != nil && r.chart.drag.Width != w {
 		r.chart.cancelRangeDrag()
 		r.chart.dragBlocked = true
@@ -210,9 +251,12 @@ func (r *chartRenderer) Layout(size fyne.Size) {
 	r.chart.hoverClip.Move(fyne.NewPos(chartPlotLeft, 0))
 	r.chart.hoverClip.Resize(fyne.NewSize(w, chartPlotTop))
 	r.empty.Move(fyne.NewPos(80, 32))
+	r.leftUnit.Move(fyne.NewPos(2, 0))
+	r.rightUnit.Move(fyne.NewPos(chartPlotLeft+w+6, 0))
 	for i := 0; i < 5; i++ {
 		y := float32(i)*h/4 + 19
 		r.yLabels[i].Move(fyne.NewPos(2, y))
+		r.rightLabels[i].Move(fyne.NewPos(chartPlotLeft+w+6, y))
 		x := chartPlotLeft + float32(i)*w/4
 		if i == 4 {
 			x -= r.xLabels[i].MinSize().Width
@@ -254,6 +298,19 @@ func (r *chartRenderer) Refresh() {
 		r.empty.Text = data.EmptyText
 	}
 	r.empty.Refresh()
+	r.leftUnit.Hide()
+	r.rightUnit.Hide()
+	if data.SecondaryUnit != "" {
+		r.leftUnit.Text, r.rightUnit.Text = data.HitUnit, data.SecondaryUnit
+		if !data.IndividualHits {
+			r.leftUnit.Text += "/s"
+			r.rightUnit.Text += "/s"
+		}
+		r.leftUnit.Show()
+		r.rightUnit.Show()
+		r.leftUnit.Refresh()
+		r.rightUnit.Refresh()
+	}
 	for i := 0; i < 5; i++ {
 		value := data.valueAt(float64(4-i) / 4)
 		r.yLabels[i].Text = shortNumber(value)
@@ -261,6 +318,16 @@ func (r *chartRenderer) Refresh() {
 			r.yLabels[i].Text = fmt.Sprintf("%.2g", value)
 		}
 		r.yLabels[i].Refresh()
+		r.rightLabels[i].Hide()
+		if data.SecondaryUnit != "" {
+			value := data.SecondaryMaximum * float64(4-i) / 4
+			r.rightLabels[i].Text = shortNumber(value)
+			if value > 0 && value < 1 {
+				r.rightLabels[i].Text = fmt.Sprintf("%.2g", value)
+			}
+			r.rightLabels[i].Show()
+			r.rightLabels[i].Refresh()
+		}
 		at := data.Start.Add(time.Duration(float64(data.End.Sub(data.Start)) * float64(i) / 4))
 		layout := "15:04:05"
 		if data.End.Sub(data.Start) > 24*time.Hour {
@@ -283,6 +350,9 @@ func (r *chartRenderer) Refresh() {
 	}
 	if data.AverageWindow > 0 && data.RateUnit != "" {
 		hint += " · " + data.RateUnit
+	}
+	if data.SecondaryUnit != "" {
+		hint += " · " + data.SecondaryUnit + " on right axis"
 	}
 	r.chart.setHoverHint(hint)
 	if r.chart.drag != nil && r.chart.drag.Moved {
@@ -315,7 +385,7 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 	scanner := rasterx.NewScannerGV(w, h, img, img.Bounds())
 	stroke := rasterx.NewStroker(w, h, scanner)
 	lineWidth := 1.25
-	if logicalWidth := chart.Size().Width - chartPlotLeft - chartPlotRight; logicalWidth > 0 {
+	if logicalWidth := chart.Size().Width - chartPlotLeft - data.plotRight(); logicalWidth > 0 {
 		lineWidth *= math.Max(1, float64(w)/float64(logicalWidth))
 	}
 	stroke.SetStroke(fixed.Int26_6(math.Round(lineWidth*64)), 4*64, rasterx.RoundCap, nil, rasterx.RoundGap, rasterx.Round)
@@ -327,7 +397,7 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 					continue
 				}
 				x := float64(hit.Second-data.Start.Unix()) / duration * float64(w-1)
-				y := float64(h-1) * (1 - data.fraction(hit.Damage))
+				y := float64(h-1) * (1 - data.seriesFraction(series, hit.Damage))
 				drawHitPoint(img, x+0.5, y+0.5, 2.5*lineWidth/1.25, series.Color)
 			}
 			continue
@@ -340,7 +410,7 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 		var last fixed.Point26_6
 		for bin, value := range series.Values {
 			x := float64(bin)*data.Bucket.Seconds()/duration*float64(w-1) + 0.5
-			y := float64(h-1)*(1-data.fraction(value)) + 0.5
+			y := float64(h-1)*(1-data.seriesFraction(series, value)) + 0.5
 			last = fixed.Point26_6{X: fixed.Int26_6(math.Round(x * 64)), Y: fixed.Int26_6(math.Round(y * 64))}
 			if bin == 0 {
 				stroke.Start(last)
@@ -433,7 +503,7 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 	if (len(data.Series) == 0 && len(data.Markers) == 0) || data.Bucket <= 0 || !data.End.After(data.Start) || chart.hover == nil {
 		return
 	}
-	w := chart.Size().Width - chartPlotLeft - chartPlotRight
+	w := chart.Size().Width - chartPlotLeft - data.plotRight()
 	if w <= 0 {
 		return
 	}
@@ -445,6 +515,7 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 		name  string
 		value float64
 		color color.NRGBA
+		unit  string
 	}
 	var readings []reading
 	hoverTime := data.Start.Add(time.Duration(bin) * data.Bucket)
@@ -478,7 +549,7 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 					if hit.Detail != "" {
 						name += " · " + hit.Detail
 					}
-					readings = append(readings, reading{name, hit.Damage, series.Color})
+					readings = append(readings, reading{name, hit.Damage, series.Color, series.Unit})
 				}
 			}
 		}
@@ -493,7 +564,7 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 				if count > 1 {
 					name = fmt.Sprintf("%s (%d)", name, count)
 				}
-				readings = append(readings, reading{name, series.Values[bin], series.Color})
+				readings = append(readings, reading{name, series.Values[bin], series.Color, series.Unit})
 			}
 		}
 	}
@@ -535,6 +606,15 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 			}
 			unit += " (" + data.AverageWindow.String() + " avg)"
 		}
+		if reading.unit != "" {
+			unit = reading.unit
+			if !data.IndividualHits {
+				unit += "/s"
+			}
+			if data.AverageWindow > 0 {
+				unit += " (" + data.AverageWindow.String() + " avg)"
+			}
+		}
 		label := chart.hoverReadings[i]
 		label.Text = fmt.Sprintf("· %s: %s %s", reading.name, rate, unit)
 		label.Color = reading.color
@@ -559,7 +639,7 @@ func (chart *damageChart) setHoverHint(text string) {
 }
 
 func (chart *damageChart) beginRangeDrag(position fyne.Position) bool {
-	width := chart.Size().Width - chartPlotLeft - chartPlotRight
+	width := chart.Size().Width - chartPlotLeft - chart.plotRight()
 	if width <= 0 || position.X < chartPlotLeft || position.X > chartPlotLeft+width || position.Y < chartPlotTop || position.Y > chart.Size().Height-chartPlotBottom {
 		return false
 	}

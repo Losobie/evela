@@ -102,10 +102,10 @@ func (ui *analyzerUI) initEWar() {
 }
 
 func (ui *analyzerUI) ewarControls() fyne.CanvasObject {
-	note := widget.NewLabel("By effect type · averages: events/s or GJ/s · unlogged effects unavailable")
+	note := widget.NewLabel("Averages: events/s or GJ/s · unlogged effects unavailable")
 	note.Truncation = fyne.TextTruncateEllipsis
 	metric := container.NewGridWrap(fyne.NewSize(250, ui.ewarMetric.MinSize().Height), ui.ewarMetric)
-	return container.NewBorder(nil, nil, nil, metric, note)
+	return container.NewBorder(nil, nil, nil, container.NewHBox(metric, ui.eventGroupButton(graphIncomingEWar)), note)
 }
 
 func (ui *analyzerUI) incomingEWarPlot(selected map[string]bool) plotData {
@@ -128,6 +128,7 @@ func (ui *analyzerUI) incomingEWarPlot(selected map[string]bool) plotData {
 	first, end, bucket := data.Start.Unix(), data.End.Unix(), int64(data.Bucket/time.Second)
 	n := int(math.Ceil(data.End.Sub(data.Start).Seconds() / data.Bucket.Seconds()))
 	groups := map[string]*plotSeries{}
+	ships := ui.shipHistory.indexByName()
 	for _, log := range ui.analysisSnapshot().Logs {
 		if !selected[log.Character] {
 			continue
@@ -140,22 +141,24 @@ func (ui *analyzerUI) incomingEWarPlot(selected map[string]bool) plotData {
 			if left >= right {
 				continue
 			}
-			series := groups[event.Effect]
-			if series == nil {
-				series = &plotSeries{Name: event.Effect, Color: characterColor(event.Effect), Values: make([]float64, n)}
-				groups[event.Effect] = series
-			}
-			value := float64(1)
-			if capacitor {
-				value = event.Amount
-			}
-			if event.Second >= first {
-				series.Hits = append(series.Hits, plotHit{Second: event.Second, Damage: value, Character: log.Character, Detail: event.Message})
-			}
-			for bin := int((left - first) / bucket); bin <= int((right-1-first)/bucket); bin++ {
-				binStart, binEnd := first+int64(bin)*bucket, min(end, first+int64(bin+1)*bucket)
-				overlap := min(right, binEnd) - max(left, binStart)
-				series.Values[bin] += value * float64(overlap) / float64(window) / float64(binEnd-binStart)
+			for _, name := range ui.eventGroupingNames(graphIncomingEWar, log.Character, event.Effect, event.Second, ships) {
+				series := groups[name]
+				if series == nil {
+					series = &plotSeries{Name: name, Color: characterColor(name), Values: make([]float64, n)}
+					groups[name] = series
+				}
+				value := float64(1)
+				if capacitor {
+					value = event.Amount
+				}
+				if event.Second >= first {
+					series.Hits = append(series.Hits, plotHit{Second: event.Second, Damage: value, Character: log.Character, Detail: event.Message})
+				}
+				for bin := int((left - first) / bucket); bin <= int((right-1-first)/bucket); bin++ {
+					binStart, binEnd := first+int64(bin)*bucket, min(end, first+int64(bin+1)*bucket)
+					overlap := min(right, binEnd) - max(left, binStart)
+					series.Values[bin] += value * float64(overlap) / float64(window) / float64(binEnd-binStart)
+				}
 			}
 		}
 	}

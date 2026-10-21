@@ -18,7 +18,7 @@ func (chart *damageChart) Scrolled(event *fyne.ScrollEvent) {
 	if delta == 0 || math.IsNaN(delta) || math.IsInf(delta, 0) {
 		return
 	}
-	width := chart.Size().Width - chartPlotLeft - chartPlotRight
+	width := chart.Size().Width - chartPlotLeft - chart.plotRight()
 	position := event.Position
 	if event.AbsolutePosition != (fyne.Position{}) {
 		// Resolve the window pointer against this chart on every wheel event,

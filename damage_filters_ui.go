@@ -11,15 +11,18 @@ import (
 )
 
 type damageFilterPopup struct {
-	ui      *analyzerUI
-	kind    string
-	popup   *damageFilterPopUp
-	search  *widget.Entry
-	all     *widget.Check
-	list    *widget.List
-	status  *widget.Label
-	done    *widget.Button
-	visible []damageFilterOption
+	ui          *analyzerUI
+	kind        string
+	popup       *damageFilterPopUp
+	search      *widget.Entry
+	all         *widget.Check
+	list        *widget.List
+	status      *widget.Label
+	done        *widget.Button
+	visible     []damageFilterOption
+	options     func() []damageFilterOption
+	selected    func(string) bool
+	setSelected func(string, bool)
 }
 
 // Refit whenever Fyne lays out the overlay, including while the window resizes.
@@ -69,10 +72,9 @@ func (ui *analyzerUI) damageFilterBar() fyne.CanvasObject {
 	for _, kind := range sharedDamageFilterKinds {
 		buttons.Add(ui.damageFilterButton(kind))
 	}
-	buttons.Add(ui.graphFormatButton)
 	buttons.Add(ui.graphOptionsButton)
 	ui.refreshDamageFilterControls()
-	return container.NewBorder(nil, nil, nil, buttons, ui.graphFormatLabel)
+	return container.NewBorder(nil, nil, nil, buttons, widget.NewLabel("Shared filters"))
 }
 
 func (ui *analyzerUI) damageFilterButton(kind string) fyne.CanvasObject {
@@ -118,22 +120,29 @@ func (ui *analyzerUI) refreshDamageFilterControls() {
 }
 
 func (ui *analyzerUI) openDamageFilter(kind string) {
+	ui.openSelectionFilter(kind, ui.filterButtons[kind], func() []damageFilterOption { return ui.filterOptions[kind] },
+		func(key string) bool { return ui.damageFilterSelected(kind, key) },
+		func(key string, checked bool) { ui.setDamageFilterOption(kind, key, checked) },
+		func(checked bool) { ui.setAllDamageFilterOptions(kind, checked) })
+}
+
+func (ui *analyzerUI) openSelectionFilter(kind string, anchor fyne.CanvasObject, options func() []damageFilterOption, selected func(string) bool, setSelected func(string, bool), setAll func(bool)) {
 	if previous := ui.filterPopup; previous != nil {
 		previous.popup.Hide()
 	}
-	filter := &damageFilterPopup{ui: ui, kind: kind, search: widget.NewEntry(), status: widget.NewLabel("")}
+	filter := &damageFilterPopup{ui: ui, kind: kind, search: widget.NewEntry(), status: widget.NewLabel(""), options: options, selected: selected, setSelected: setSelected}
 	filter.status.Truncation = fyne.TextTruncateEllipsis
 	ui.filterPopup = filter
 	filter.search.SetPlaceHolder("Search " + strings.ToLower(kind) + "…")
 	filter.search.OnChanged = func(string) { filter.refresh() }
-	filter.all = widget.NewCheck("All", func(checked bool) { ui.setAllDamageFilterOptions(kind, checked) })
+	filter.all = widget.NewCheck("All", setAll)
 	filter.list = widget.NewList(func() int { return len(filter.visible) }, func() fyne.CanvasObject { return newDamageFilterRow() }, func(index widget.ListItemID, object fyne.CanvasObject) {
 		row := object.(*damageFilterRow)
 		option := filter.visible[index]
 		row.label.SetText(option.Label)
 		row.check.OnChanged = nil
-		row.check.SetChecked(ui.damageFilterSelected(kind, option.Key))
-		row.check.OnChanged = func(checked bool) { ui.setDamageFilterOption(kind, option.Key, checked) }
+		row.check.SetChecked(filter.selected(option.Key))
+		row.check.OnChanged = func(checked bool) { filter.setSelected(option.Key, checked) }
 	})
 	filter.done = widget.NewButton("Done", func() { filter.popup.Hide() })
 	footer := container.NewBorder(nil, nil, nil, filter.done, filter.status)
@@ -146,7 +155,7 @@ func (ui *analyzerUI) openDamageFilter(kind string) {
 	}
 	filter.popup = &damageFilterPopUp{
 		PopUp:  widget.PopUp{Content: container.NewBorder(header, footer, nil, nil, filter.list), Canvas: ui.window.Canvas()},
-		anchor: ui.filterButtons[kind], preferred: fyne.NewSize(width, height),
+		anchor: anchor, preferred: fyne.NewSize(width, height),
 	}
 	filter.popup.ExtendBaseWidget(filter.popup)
 	filter.popup.Resize(filter.popup.preferred)
@@ -157,12 +166,16 @@ func (ui *analyzerUI) openDamageFilter(kind string) {
 func (filter *damageFilterPopup) refresh() {
 	query := strings.ToLower(strings.TrimSpace(filter.search.Text))
 	filter.visible = nil
-	for _, option := range filter.ui.filterOptions[filter.kind] {
+	options := filter.options()
+	selected, total := 0, len(options)
+	for _, option := range options {
+		if filter.selected(option.Key) {
+			selected++
+		}
 		if strings.Contains(strings.ToLower(option.Label), query) {
 			filter.visible = append(filter.visible, option)
 		}
 	}
-	selected, total := filter.ui.damageFilterCounts(filter.kind)
 	filter.all.Checked = selected == total && total > 0
 	filter.all.Partial = selected > 0 && selected < total
 	if total == 0 {

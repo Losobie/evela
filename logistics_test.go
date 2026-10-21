@@ -85,6 +85,10 @@ func newLogisticsTestUI(t *testing.T) (*analyzerUI, time.Time) {
 	window := application.NewWindow("Logistics graphs preview")
 	t.Cleanup(window.Close)
 	ui := newAnalyzerUI(window)
+	// Keep the original repair-specific assertions focused on HP; the new
+	// mixed-Type and default-All behavior is covered separately.
+	ui.logisticsTypes[graphOutgoingLogistics].set("Capacitor transfer", false)
+	ui.logisticsTypes[graphIncomingLogistics].set("Capacitor transfer", false)
 	log, err := parseLog(strings.NewReader(logisticsTestLog))
 	if err != nil {
 		t.Fatal(err)
@@ -99,6 +103,14 @@ func newLogisticsTestUI(t *testing.T) (*analyzerUI, time.Time) {
 	window.Resize(fyne.NewSize(1440, 960))
 	window.Show()
 	return ui, start
+}
+
+func selectLogisticsTestTypes(ui *analyzerUI, id string, kinds ...string) {
+	ui.logisticsTypes[id].Default, ui.logisticsTypes[id].Values = false, map[string]bool{}
+	for _, kind := range kinds {
+		ui.logisticsTypes[id].set(kind, true)
+	}
+	ui.saveLogisticsTypes(id)
 }
 
 func findLogisticsSeries(t *testing.T, chart *damageChart, name string) plotSeries {
@@ -123,16 +135,16 @@ func TestLogisticsPlotsKeepDirectionsUnitsAndAveragesSeparate(t *testing.T) {
 	if hits := findLogisticsSeries(t, ui.incomingLogistics, "Shield repair").Hits; len(hits) != 1 || hits[0].Damage != 127 {
 		t.Fatalf("raw incoming shield: %+v", hits)
 	}
-	ui.outgoingLogisticsMetric.SetSelected(logisticsCapacitor)
-	if ui.incomingLogisticsMetric.Selected != logisticsRepairs || ui.outgoingLogistics.data.HitUnit != "GJ" || findLogisticsSeries(t, ui.outgoingLogistics, "Capacitor transfer").Hits[0].Damage != 311 {
+	selectLogisticsTestTypes(ui, graphOutgoingLogistics, "Capacitor transfer")
+	if ui.logisticsTypes[graphIncomingLogistics].selected("Capacitor transfer") || ui.outgoingLogistics.data.HitUnit != "GJ" || findLogisticsSeries(t, ui.outgoingLogistics, "Capacitor transfer").Hits[0].Damage != 311 {
 		t.Fatal("metric changed wrong graph or mixed HP and GJ")
 	}
-	ui.incomingLogisticsMetric.SetSelected(logisticsCapacitor)
+	selectLogisticsTestTypes(ui, graphIncomingLogistics, "Capacitor transfer")
 	if findLogisticsSeries(t, ui.incomingLogistics, "Capacitor transfer").Hits[0].Damage != 291 {
 		t.Fatal("incoming capacitor direction wrong")
 	}
 	ui.graphAverage10s = true
-	ui.outgoingLogisticsMetric.SetSelected(logisticsRepairs)
+	selectLogisticsTestTypes(ui, graphOutgoingLogistics, "Shield repair", "Armor repair")
 	if findLogisticsSeries(t, ui.outgoingLogistics, "Armor repair").Values[0] != 15 || ui.outgoingLogistics.data.RateUnit != "HP/s" {
 		t.Fatal("armor average lost lookback or units")
 	}
@@ -153,12 +165,12 @@ func TestLogisticsPlotsKeepDirectionsUnitsAndAveragesSeparate(t *testing.T) {
 		t.Fatal("damage NPC filters changed logistics")
 	}
 	ui.setDamageFilterOption(filterCharacters, "Logi", true)
-	ui.outgoingLogisticsMetric.SetSelected(logisticsCapacitor)
-	ui.incomingLogisticsMetric.SetSelected(logisticsRepairs)
+	selectLogisticsTestTypes(ui, graphOutgoingLogistics, "Capacitor transfer")
+	selectLogisticsTestTypes(ui, graphIncomingLogistics, "Shield repair", "Armor repair")
 	other := fyne.CurrentApp().NewWindow("Restored logistics")
 	defer other.Close()
 	restored := newAnalyzerUI(other)
-	if restored.outgoingLogisticsMetric.Selected != logisticsCapacitor || restored.incomingLogisticsMetric.Selected != logisticsRepairs {
+	if !restored.logisticsTypes[graphOutgoingLogistics].selected("Capacitor transfer") || restored.logisticsTypes[graphOutgoingLogistics].selected("Armor repair") || restored.logisticsTypes[graphIncomingLogistics].selected("Capacitor transfer") {
 		t.Fatal("independent logistics metrics did not persist")
 	}
 }
@@ -260,7 +272,7 @@ func TestLogisticsGraphsScrollLayoutHoverAndNavigation(t *testing.T) {
 		t.Fatal("last graph cannot be reached")
 	}
 	before := ui.graphsScroll.Offset
-	ui.incomingLogisticsMetric.SetSelected(logisticsCapacitor)
+	selectLogisticsTestTypes(ui, graphIncomingLogistics, "Capacitor transfer")
 	if ui.graphsScroll.Offset != before {
 		t.Fatal("metric change reset scroll position")
 	}
