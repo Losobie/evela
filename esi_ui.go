@@ -58,11 +58,7 @@ func (ui *analyzerUI) esiContent() fyne.CanvasObject {
 	intro.Wrapping = fyne.TextWrapWord
 	controls := container.NewBorder(nil, nil, nil, container.NewHBox(widget.NewButton("Ship history…", ui.openShipHistory), widget.NewButton("Location history…", ui.openLocationHistory)), container.NewHBox(widget.NewButton("Configure ESI…", ui.openESISettings), ui.shipRefresh, ui.shipAuto))
 	settings := container.NewVBox(intro, controls, ui.esiStatusRow(ui.esiStatus), widget.NewSeparator(), widget.NewLabel("CONNECTED CHARACTERS / CURRENT SHIPS & LOCATIONS"))
-	note := widget.NewLabel("Graph and totals grouping uses ship history at each damage event's EVE time time, assuming the last observed ship for up to 45 seconds after its last sighting. Events outside that coverage appear under Unknown ship / Unknown ship class. A character can appear in several groups after changing ships. Ship classes come from ESI groups. View recorded periods in Ship history. Saved sign-ins and history are encrypted for your Windows user.")
-	note.Wrapping = fyne.TextWrapWord
-	note.SetText(note.Text + " Location history uses the same observation rules. The System filter matches the recorded location at each event; uncovered events appear under Unknown system. Existing ship-only sign-ins need location access: enable esi-location.read_location.v1 in your EVE application and sign in again.")
-	note.SetText(note.Text + " Jump and Conduit Field messages also establish locations without ESI sign-in. Log locations take priority over ESI within their session coverage. Inspect both sources in Location history.")
-	return container.NewPadded(container.NewBorder(settings, note, nil, nil, container.NewVScroll(ui.esiConnections)))
+	return container.NewPadded(container.NewBorder(settings, nil, nil, nil, container.NewVScroll(ui.esiConnections)))
 }
 
 func (ui *analyzerUI) requestESI(action esiAction) bool {
