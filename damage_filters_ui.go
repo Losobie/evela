@@ -87,9 +87,9 @@ func (ui *analyzerUI) damageFilterButton(kind string) fyne.CanvasObject {
 }
 
 func (ui *analyzerUI) incomingDamageFilterBar() fyne.CanvasObject {
-	buttons := container.NewHBox(widget.NewLabel("Incoming sources"), ui.damageFilterButton(filterNPCNames), ui.damageFilterButton(filterNPCTypes))
+	buttons := container.NewHBox(ui.damageFilterButton(filterNPCNames), ui.damageFilterButton(filterNPCTypes), ui.incomingGroupButton)
 	ui.refreshDamageFilterControls()
-	return container.NewBorder(nil, nil, nil, ui.incomingGroupButton, buttons)
+	return container.NewBorder(nil, nil, nil, buttons, widget.NewLabel("Incoming sources"))
 }
 
 func (ui *analyzerUI) damageFilterCounts(kind string) (int, int) {

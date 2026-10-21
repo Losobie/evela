@@ -90,7 +90,7 @@ func (ui *analyzerUI) logisticsControls(id string) fyne.CanvasObject {
 	})
 	ui.logisticsTypeButtons[id] = button
 	ui.refreshLogisticsTypeControls()
-	return container.NewBorder(nil, nil, button, ui.eventGroupButton(id), note)
+	return container.NewBorder(nil, nil, nil, container.NewHBox(button, ui.eventGroupButton(id)), note)
 }
 
 func (ui *analyzerUI) saveLogisticsTypes(id string) {
