@@ -11,6 +11,43 @@ import (
 	"fyne.io/fyne/v2/test"
 )
 
+// Visibility/layout tests that exercise every graph opt in explicitly, instead
+// of relying on the application's first-launch defaults.
+func showAllTestGraphs(ui *analyzerUI) {
+	for _, option := range graphVisibilityOptions {
+		fyne.CurrentApp().Preferences().SetBool(graphVisibilityPreference+option.id, true)
+	}
+	ui.applyGraphVisibility()
+}
+
+func TestGraphVisibilityDefaultsAndSavedOverrides(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		saved map[string]bool
+		want  []bool
+	}{
+		{"no preferences", nil, []bool{true, false, true, false, false}},
+		{"explicit overrides", map[string]bool{graphOutgoing: false, graphOutgoingLogistics: true, graphIncoming: false, graphIncomingLogistics: true, graphIncomingEWar: true}, []bool{false, true, false, true, true}},
+		{"partial preferences", map[string]bool{graphIncomingEWar: true}, []bool{true, false, true, false, true}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			app := test.NewTempApp(t)
+			for id, visible := range tc.saved {
+				app.Preferences().SetBool(graphVisibilityPreference+id, visible)
+			}
+			for _, title := range []string{"Initial defaults", "Restored defaults"} {
+				window := app.NewWindow(title)
+				defer window.Close()
+				ui := newAnalyzerUI(window)
+				window.SetContent(ui.content())
+				for index, option := range graphVisibilityOptions {
+					assertGraphVisibility(t, ui, option.id, tc.want[index])
+				}
+			}
+		})
+	}
+}
+
 func assertLiveVisibilityCheckmark(t *testing.T, row fyne.CanvasObject, want bool) {
 	t.Helper()
 	var text *canvas.Text

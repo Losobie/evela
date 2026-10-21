@@ -76,6 +76,7 @@ func newEWarTestUI(t *testing.T) (*analyzerUI, time.Time) {
 	window := application.NewWindow("Incoming E-War preview")
 	t.Cleanup(window.Close)
 	ui := newAnalyzerUI(window)
+	showAllTestGraphs(ui)
 	start := time.Date(2026, 10, 20, 2, 0, 0, 0, time.UTC)
 	log := parseEWarTestLog(t)
 	ui.snapshot = &logSnapshot{Characters: []string{"Pilot A", "E-War only"}, First: start.Add(-time.Second), Last: start.Add(5 * time.Second), Logs: []*parsedLog{

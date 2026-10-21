@@ -39,6 +39,7 @@ func newGraphHistoryTestUI(t *testing.T) (*analyzerUI, time.Time) {
 	window := application.NewWindow("Graph undo/redo")
 	t.Cleanup(window.Close)
 	ui := newAnalyzerUI(&graphShortcutTestWindow{Window: window, canvas: &graphShortcutTestCanvas{Canvas: window.Canvas()}})
+	showAllTestGraphs(ui)
 	start := time.Date(2026, 10, 17, 2, 0, 0, 0, time.UTC)
 	ui.snapshot = &logSnapshot{First: start, Last: start.Add(3599 * time.Second), Characters: []string{"Pilot A", "Pilot B"}, Logs: []*parsedLog{
 		{Character: "Pilot A", Points: []damagePoint{

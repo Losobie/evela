@@ -24,7 +24,7 @@ var graphVisibilityOptions = []struct{ id, label string }{
 }
 
 func graphVisible(id string) bool {
-	return fyne.CurrentApp().Preferences().BoolWithFallback(graphVisibilityPreference+id, true)
+	return fyne.CurrentApp().Preferences().BoolWithFallback(graphVisibilityPreference+id, id == graphOutgoing || id == graphIncoming)
 }
 
 func (ui *analyzerUI) newGraphCard(id, title string, content fyne.CanvasObject) *widget.Card {

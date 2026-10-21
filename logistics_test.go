@@ -85,6 +85,7 @@ func newLogisticsTestUI(t *testing.T) (*analyzerUI, time.Time) {
 	window := application.NewWindow("Logistics graphs preview")
 	t.Cleanup(window.Close)
 	ui := newAnalyzerUI(window)
+	showAllTestGraphs(ui)
 	// Keep the original repair-specific assertions focused on HP; the new
 	// mixed-Type and default-All behavior is covered separately.
 	ui.logisticsTypes[graphOutgoingLogistics].set("Capacitor transfer", false)
