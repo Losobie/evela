@@ -7,8 +7,91 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
 )
+
+func assertLiveVisibilityCheckmark(t *testing.T, row fyne.CanvasObject, want bool) {
+	t.Helper()
+	var text *canvas.Text
+	var check *canvas.Image
+	for _, object := range test.WidgetRenderer(row.(fyne.Widget)).Objects() {
+		switch object := object.(type) {
+		case *canvas.Text:
+			text = object
+		case *canvas.Image:
+			check = object
+		}
+	}
+	if check == nil || check.Visible() != want {
+		t.Fatal("open Options menu has a stale checkmark")
+	}
+	if want && (text == nil || text.Position().X < check.Position().X+check.Size().Width) {
+		t.Fatal("visibility checkmark overlaps its label")
+	}
+}
+
+func TestOptionsStaysOpenForRepeatedVisibilityToggles(t *testing.T) {
+	ui, _ := newLogisticsTestUI(t)
+	test.Tap(ui.graphOptionsButton)
+	popup, position := ui.graphMenuPopup, ui.graphMenuPopup.Position()
+	for index, option := range graphVisibilityOptions {
+		row := popup.Items[index+3]
+		assertLiveVisibilityCheckmark(t, row, true)
+		test.Tap(row.(fyne.Tappable))
+		assertGraphVisibility(t, ui, option.id, false)
+		assertLiveVisibilityCheckmark(t, row, false)
+		if ui.graphMenuPopup != popup || !popup.Visible() || popup.Position() != position || len(ui.window.Canvas().Overlays().List()) != 1 {
+			t.Fatal("toggling visibility closed, moved or duplicated Options")
+		}
+	}
+	if ui.graphsScroll.Content != ui.graphsEmpty {
+		t.Fatal("could not hide all graphs without closing Options")
+	}
+	// Keyboard activation stays on the toggled row and can toggle it repeatedly.
+	for _, want := range []bool{true, false, true} {
+		popup.TypedKey(&fyne.KeyEvent{Name: fyne.KeySpace})
+		assertGraphVisibility(t, ui, graphIncomingEWar, want)
+		assertLiveVisibilityCheckmark(t, popup.Items[7], want)
+		if !popup.Visible() {
+			t.Fatal("keyboard visibility toggle closed Options")
+		}
+	}
+	popup.TypedKey(&fyne.KeyEvent{Name: fyne.KeyEscape})
+	if popup.Visible() || ui.window.Canvas().Overlays().Top() != nil {
+		t.Fatal("Escape did not dismiss Options")
+	}
+	test.Tap(ui.graphOptionsButton)
+	popup = ui.graphMenuPopup
+	test.TapCanvas(ui.window.Canvas(), fyne.NewPos(10, 10))
+	if popup.Visible() || ui.window.Canvas().Overlays().Top() != nil {
+		t.Fatal("outside click did not dismiss Options")
+	}
+	// Standard grouping menus still dismiss after a choice.
+	chooseGraphMenuItem(t, ui.graphOptionsMenu(), "Show Outgoing")
+	ui.graphsScroll.ScrollToTop()
+	test.Tap(ui.graphFormatButton)
+	grouping := ui.graphMenuPopup
+	test.Tap(grouping.Items[0].(fyne.Tappable))
+	if grouping.Visible() {
+		t.Fatal("Group By inherited the sticky Options behavior")
+	}
+}
+
+func TestOptionsCanShowGraphsWhenOpenedWithEveryToggleOff(t *testing.T) {
+	ui, _ := newLogisticsTestUI(t)
+	for _, option := range graphVisibilityOptions {
+		chooseGraphMenuItem(t, ui.graphOptionsMenu(), "Show "+option.label)
+	}
+	test.Tap(ui.graphOptionsButton)
+	popup := ui.graphMenuPopup
+	test.Tap(popup.Items[3].(fyne.Tappable))
+	assertGraphVisibility(t, ui, graphOutgoing, true)
+	assertLiveVisibilityCheckmark(t, popup.Items[3], true)
+	if !popup.Visible() {
+		t.Fatal("Options closed when restoring the first graph")
+	}
+}
 
 func assertGraphVisibility(t *testing.T, ui *analyzerUI, id string, want bool) {
 	t.Helper()

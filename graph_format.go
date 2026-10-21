@@ -50,18 +50,33 @@ func (ui *analyzerUI) initGraphFormat() {
 	ui.graphFormatLabel.Wrapping = fyne.TextWrapWord
 	ui.graphFormatLabel.Truncation = fyne.TextTruncateEllipsis
 	ui.graphFormatButton = ui.graphMenuButton("Group By", ui.graphFormatMenu)
-	ui.graphOptionsButton = ui.graphMenuButton("Options", ui.graphOptionsMenu)
+	ui.graphOptionsButton = ui.graphMenuButton("Options", ui.graphOptionsMenu, true)
 	ui.incomingGroupButton = ui.graphMenuButton("Group By", ui.incomingGroupingMenu)
 	ui.updateGraphFormatLabel()
 }
 
-func (ui *analyzerUI) graphMenuButton(label string, items func() *fyne.Menu) *widget.Button {
+func (ui *analyzerUI) graphMenuButton(label string, items func() *fyne.Menu, keepVisibilityOpen ...bool) *widget.Button {
 	var button *widget.Button
 	button = widget.NewButtonWithIcon(label, theme.MenuDropDownIcon(), func() {
 		if ui.graphMenuPopup != nil {
 			ui.graphMenuPopup.Hide()
 		}
-		menu := widget.NewPopUpMenu(items(), ui.window.Canvas())
+		model := items()
+		sticky := len(keepVisibilityOpen) > 0 && keepVisibilityOpen[0]
+		// Fyne reserves checkmark space only when the menu is constructed.
+		// Options needs that column even when every toggle starts unchecked.
+		var reserveCheckColumn *fyne.MenuItem
+		if sticky && !slices.ContainsFunc(model.Items, func(item *fyne.MenuItem) bool { return item.Checked }) {
+			reserveCheckColumn = model.Items[0]
+			reserveCheckColumn.Checked = true
+		}
+		menu := widget.NewPopUpMenu(model, ui.window.Canvas())
+		if reserveCheckColumn != nil {
+			reserveCheckColumn.Checked = false
+		}
+		if sticky {
+			ui.keepGraphVisibilityMenuOpen(menu, model)
+		}
 		ui.graphMenuPopup = menu
 		position := fyne.CurrentApp().Driver().AbsolutePositionForObject(button)
 		size, bounds := menu.MinSize(), ui.window.Canvas().Size()

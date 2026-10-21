@@ -67,6 +67,31 @@ func (ui *analyzerUI) graphVisibilityMenuItems() []*fyne.MenuItem {
 	return items
 }
 
+// Fyne dismisses a menu before invoking an item action. Re-show the same
+// popup synchronously for visibility toggles, updating its live checkmark
+// and restoring the active row so repeated keyboard toggles work too.
+func (ui *analyzerUI) keepGraphVisibilityMenuOpen(popup *widget.PopUpMenu, model *fyne.Menu) {
+	for _, option := range graphVisibilityOptions {
+		id := option.id
+		for index, item := range model.Items {
+			if item.Label != "Show "+option.label {
+				continue
+			}
+			action := item.Action
+			item.Action = func() {
+				action()
+				item.Checked = graphVisible(id)
+				popup.ShowAtPosition(popup.Position())
+				for _, row := range model.Items[:index+1] {
+					if !row.IsSeparator {
+						popup.ActivateNext()
+					}
+				}
+			}
+		}
+	}
+}
+
 func newGraphsEmptyState() fyne.CanvasObject {
 	label := widget.NewLabel("All graphs are hidden. Use Options to show a graph.")
 	return container.NewCenter(label)
