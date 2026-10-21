@@ -121,7 +121,8 @@ func (ui *analyzerUI) graphOptionsMenu() *fyne.Menu {
 		ui.renderSelection()
 	})
 	invulnerability.Checked = ui.graphInvulnerabilityMarkers
-	return fyne.NewMenu("Options", average, invulnerability)
+	items := []*fyne.MenuItem{average, invulnerability, fyne.NewMenuItemSeparator()}
+	return fyne.NewMenu("Options", append(items, ui.graphVisibilityMenuItems()...)...)
 }
 
 func (ui *analyzerUI) updateGraphFormatLabel() {

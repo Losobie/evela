@@ -41,6 +41,9 @@ type analyzerUI struct {
 	outgoingLogisticsMetric                 *widget.Select
 	incomingLogisticsMetric                 *widget.Select
 	graphsScroll                            *container.Scroll
+	graphStack                              *fyne.Container
+	graphCards                              map[string]*widget.Card
+	graphsEmpty                             fyne.CanvasObject
 	totals                                  *widget.Table
 	events                                  *eventsViewer
 	loadRequests                            chan []string
@@ -250,13 +253,16 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 		container.NewBorder(widget.NewLabel("Graph interval"), nil, nil, nil, ui.bucketSelect))
 	controls := container.NewVBox(heading, filters, widget.NewSeparator())
 	filterBar := ui.damageFilterBar()
-	charts := container.NewVBox(
-		widget.NewCard("Outgoing", "", ui.graphPanContent(ui.outgoing)),
-		widget.NewCard("Outgoing logistics", "", container.NewBorder(logisticsControls(ui.outgoingLogisticsMetric), nil, nil, nil, ui.graphPanContent(ui.outgoingLogistics))),
-		widget.NewCard("Incoming", "", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))),
-		widget.NewCard("Incoming logistics", "", container.NewBorder(logisticsControls(ui.incomingLogisticsMetric), nil, nil, nil, ui.graphPanContent(ui.incomingLogistics))),
-		widget.NewCard("Incoming E-War", "", container.NewBorder(ui.ewarControls(), nil, nil, nil, ui.graphPanContent(ui.ewar))))
-	ui.graphsScroll = container.NewVScroll(charts)
+	ui.graphCards = map[string]*widget.Card{}
+	ui.graphStack = container.NewVBox(
+		ui.newGraphCard(graphOutgoing, "Outgoing", ui.graphPanContent(ui.outgoing)),
+		ui.newGraphCard(graphOutgoingLogistics, "Outgoing logistics", container.NewBorder(logisticsControls(ui.outgoingLogisticsMetric), nil, nil, nil, ui.graphPanContent(ui.outgoingLogistics))),
+		ui.newGraphCard(graphIncoming, "Incoming", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))),
+		ui.newGraphCard(graphIncomingLogistics, "Incoming logistics", container.NewBorder(logisticsControls(ui.incomingLogisticsMetric), nil, nil, nil, ui.graphPanContent(ui.incomingLogistics))),
+		ui.newGraphCard(graphIncomingEWar, "Incoming E-War", container.NewBorder(ui.ewarControls(), nil, nil, nil, ui.graphPanContent(ui.ewar))))
+	ui.graphsScroll = container.NewVScroll(ui.graphStack)
+	ui.graphsEmpty = newGraphsEmptyState()
+	ui.applyGraphVisibility()
 	scrollHint := widget.NewLabel("Use the scrollbar or wheel over graph headings to scroll · Wheel over a plot zooms all graphs")
 	scrollHint.Truncation = fyne.TextTruncateEllipsis
 	graphContent := container.NewBorder(container.NewVBox(filterBar, scrollHint), nil, nil, nil, ui.graphsScroll)
