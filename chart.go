@@ -342,6 +342,22 @@ func (r *chartRenderer) Refresh() {
 	}
 	r.Layout(r.chart.Size())
 	r.chart.cursor.Hide()
+	r.chart.setHoverHint(data.hoverHint())
+	if r.chart.drag != nil && r.chart.drag.Moved {
+		r.chart.updateRangeSelection()
+	} else {
+		r.chart.selection.Hide()
+		if r.chart.hovered && r.chart.drag == nil && r.chart.hoverGroup == nil {
+			r.chart.updateHover(r.chart.hoverPosition)
+		}
+	}
+	if r.chart.hoverGroup != nil {
+		r.chart.hoverGroup.refresh()
+	}
+	r.plot.Refresh()
+}
+
+func (data plotData) hoverHint() string {
 	hint := chartHint
 	if data.AverageWindow > 0 {
 		hint += " · " + data.AverageWindow.String() + " avg"
@@ -358,19 +374,7 @@ func (r *chartRenderer) Refresh() {
 	if data.SecondaryUnit != "" {
 		hint += " · " + data.SecondaryUnit + " on right axis"
 	}
-	r.chart.setHoverHint(hint)
-	if r.chart.drag != nil && r.chart.drag.Moved {
-		r.chart.updateRangeSelection()
-	} else {
-		r.chart.selection.Hide()
-		if r.chart.hovered && r.chart.drag == nil {
-			r.chart.updateHover(r.chart.hoverPosition)
-		}
-	}
-	if r.chart.hoverGroup != nil {
-		r.chart.hoverGroup.refresh()
-	}
-	r.plot.Refresh()
+	return hint
 }
 
 func (chart *damageChart) renderPlot(w, h int) image.Image {
@@ -502,29 +506,39 @@ func (chart *damageChart) MouseMoved(event *desktop.MouseEvent) {
 	if chart.drag != nil {
 		return
 	}
-	chart.updateHover(event.Position)
 	if chart.hoverGroup != nil {
 		chart.hoverGroup.source = chart
 		chart.hoverGroup.refresh()
+	} else {
+		chart.updateHover(event.Position)
 	}
 }
 
 // Recompute from the pointer position so refreshes inspect the new data and
 // time axis even when the mouse has not moved.
 func (chart *damageChart) updateHover(position fyne.Position) {
+	chart.updateHoverReadout(position, nil)
+}
+
+// A shared inspection time bypasses this graph's nearest-hit search so all
+// graphs describe the same instant while retaining their own values and units.
+func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionTime *time.Time) (time.Time, bool) {
 	chart.mu.RLock()
 	data := chart.data
 	chart.mu.RUnlock()
-	if (len(data.Series) == 0 && len(data.Markers) == 0) || data.Bucket <= 0 || !data.End.After(data.Start) || chart.hover == nil {
-		return
+	if (inspectionTime == nil && len(data.Series) == 0 && len(data.Markers) == 0) || data.Bucket <= 0 || !data.End.After(data.Start) || chart.hover == nil {
+		return time.Time{}, false
 	}
 	w := chart.Size().Width - chartPlotLeft - data.plotRight()
 	if w <= 0 {
-		return
+		return time.Time{}, false
 	}
 	x := math.Max(0, math.Min(float64(w), float64(position.X-chartPlotLeft)))
 	elapsed := x / float64(w) * data.End.Sub(data.Start).Seconds()
 	bin := int(elapsed / data.Bucket.Seconds())
+	if inspectionTime != nil {
+		bin = int(inspectionTime.Sub(data.Start) / data.Bucket)
+	}
 	bin = min(bin, int((data.End.Sub(data.Start)-1)/data.Bucket))
 	type reading struct {
 		name  string
@@ -538,16 +552,20 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 		hoverTime = data.Start.Add(time.Duration(math.Floor(elapsed)) * time.Second)
 		nearest, distance, found := int64(0), float64(5), false
 		target := float64(data.Start.Unix()) + elapsed
-		for _, series := range data.Series {
-			index := sort.Search(len(series.Hits), func(i int) bool { return float64(series.Hits[i].Second) >= target })
-			for _, candidate := range []int{index - 1, index} {
-				if candidate < 0 || candidate >= len(series.Hits) {
-					continue
-				}
-				second := series.Hits[candidate].Second
-				delta := math.Abs(float64(second)-target) / data.End.Sub(data.Start).Seconds() * float64(w)
-				if delta <= distance {
-					nearest, distance, found = second, delta, true
+		if inspectionTime != nil {
+			nearest, found = inspectionTime.Unix(), true
+		} else {
+			for _, series := range data.Series {
+				index := sort.Search(len(series.Hits), func(i int) bool { return float64(series.Hits[i].Second) >= target })
+				for _, candidate := range []int{index - 1, index} {
+					if candidate < 0 || candidate >= len(series.Hits) {
+						continue
+					}
+					second := series.Hits[candidate].Second
+					delta := math.Abs(float64(second)-target) / data.End.Sub(data.Start).Seconds() * float64(w)
+					if delta <= distance {
+						nearest, distance, found = second, delta, true
+					}
 				}
 			}
 		}
@@ -582,6 +600,9 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 				readings = append(readings, reading{name, series.Values[bin], series.Color, series.Unit})
 			}
 		}
+	}
+	if inspectionTime != nil {
+		hoverTime = *inspectionTime
 	}
 	sort.SliceStable(readings, func(i, j int) bool { return readings[i].value > readings[j].value })
 	chart.hover.Text = hoverTime.Format("Jan 02 15:04:05") + " EVE time"
@@ -640,6 +661,7 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 	chart.cursor.Position2 = fyne.NewPos(float32(x)+chartPlotLeft, chart.Size().Height-chartPlotBottom)
 	chart.cursor.Show()
 	chart.cursor.Refresh()
+	return hoverTime, true
 }
 
 func (chart *damageChart) setHoverHint(text string) {

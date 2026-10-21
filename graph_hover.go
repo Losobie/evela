@@ -30,6 +30,12 @@ func (group *chartHoverGroup) leave(chart *damageChart) {
 
 func (group *chartHoverGroup) refresh() {
 	at, active := group.hoverTime()
+	inspectionTime := at.Truncate(time.Second)
+	if active {
+		if selectedTime, ok := group.source.updateHoverReadout(group.source.hoverPosition, nil); ok {
+			inspectionTime = selectedTime
+		}
+	}
 	for _, chart := range group.charts {
 		if chart.cursor == nil {
 			continue
@@ -40,9 +46,13 @@ func (group *chartHoverGroup) refresh() {
 		width := chart.Size().Width - chartPlotLeft - data.plotRight()
 		if !active || chart.drag != nil || width <= 0 || !data.End.After(data.Start) || at.Before(data.Start) || at.After(data.End) {
 			chart.cursor.Hide()
+			if chart.drag == nil {
+				chart.setHoverHint(data.hoverHint())
+			}
 			continue
 		}
 		x := chartPlotLeft + float32(float64(at.Sub(data.Start))/float64(data.End.Sub(data.Start)))*width
+		chart.updateHoverReadout(fyne.NewPos(x, chartPlotTop), &inspectionTime)
 		chart.cursor.Position1 = fyne.NewPos(x, chartPlotTop)
 		chart.cursor.Position2 = fyne.NewPos(x, chart.Size().Height-chartPlotBottom)
 		chart.cursor.Show()
