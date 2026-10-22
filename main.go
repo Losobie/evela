@@ -17,80 +17,80 @@ import (
 )
 
 type analyzerUI struct {
-	window                                  fyne.Window
-	snapshot                                *logSnapshot
-	view                                    damageView
-	analysis                                *logSnapshot
-	selected                                map[string]bool
-	path                                    *widget.Entry
-	start, end                              *dateTimePicker
-	rangeSelect, bucketSelect               *widget.Select
-	status, summary, directoryInfo          *widget.Label
-	progress                                *widget.ProgressBar
-	refresh                                 *widget.Button
-	auto                                    *widget.Check
-	characters                              *fyne.Container
-	characterSearch                         *widget.Entry
-	incoming, outgoing                      *damageChart
-	ewar                                    *damageChart
-	ewarMetric                              *widget.Select
-	outgoingLogistics                       *damageChart
-	incomingLogistics                       *damageChart
-	logisticsTypes                          map[string]*damageFilterSelection
-	logisticsTypeButtons                    map[string]*widget.Button
-	eventGraphGroupings                     map[string]string
-	graphsScroll                            *container.Scroll
-	graphStack                              *fyne.Container
-	graphCards                              map[string]*widget.Card
-	graphsEmpty                             fyne.CanvasObject
-	totals                                  *widget.Table
-	events                                  *eventsViewer
-	loadRequests                            chan []string
-	stop                                    chan struct{}
-	settingRange                            bool
-	ships                                   map[string]shipRecord
-	shipHistory                             shipHistory
-	locationHistory                         locationHistory
-	logLocations                            logLocationHistory
-	logLocationUpdates                      chan logLocationHistory
-	locationLookup                          locationResolver
-	groupSelect                             *widget.Select
-	characterGroups                         []characterGroup
-	characterGroupEditor                    *characterGroupEditor
-	tableSeries                             []characterSeries
-	totalsSortColumn                        int
-	totalsSortDescending                    bool
-	clientID                                *widget.Entry
-	esiStatus                               *widget.Label
-	esiConnections                          *fyne.Container
-	shipAuto                                *widget.Check
-	shipRefresh, connect, cancelLogin       *widget.Button
-	esiActions                              chan esiAction
-	cancelESILogin                          context.CancelFunc
-	tabs                                    *container.AppTabs
-	callbackPort, accessToken, refreshToken *widget.Entry
-	callbackURL                             *widget.Label
-	esiDialogStatus                         *widget.Label
-	tokenConnections                        *fyne.Container
-	esiDialog                               *dialog.CustomDialog
-	esiSettingsTabs                         *container.AppTabs
-	esiSettingsDirty, settingESI            bool
-	graphUndo, graphRedo                    []graphRangeChange
-	logDirectory                            string
-	logLookbackDays                         int
-	logLoadingDialog                        *dialog.CustomDialog
-	graphAverage10s                         bool
-	graphInvulnerabilityMarkers             bool
-	graphFormatLabel                        *widget.Label
-	graphFormatButton                       *widget.Button
-	graphOptionsButton                      *widget.Button
-	incomingGroupButton                     *widget.Button
-	incomingGrouping                        string
-	graphMenuPopup                          *widget.PopUpMenu
-	damageFilters                           map[string]*damageFilterSelection
-	filterOptions                           map[string][]damageFilterOption
-	filterButtons                           map[string]*widget.Button
-	filterPopup                             *damageFilterPopup
+	window                            fyne.Window
+	snapshot                          *logSnapshot
+	view                              damageView
+	analysis                          *logSnapshot
+	selected                          map[string]bool
+	path                              *widget.Entry
+	start, end                        *dateTimePicker
+	rangeSelect, bucketSelect         *widget.Select
+	status, summary, directoryInfo    *widget.Label
+	progress                          *widget.ProgressBar
+	refresh                           *widget.Button
+	auto                              *widget.Check
+	characters                        *fyne.Container
+	characterSearch                   *widget.Entry
+	incoming, outgoing                *damageChart
+	ewar                              *damageChart
+	ewarMetric                        *widget.Select
+	outgoingLogistics                 *damageChart
+	incomingLogistics                 *damageChart
+	logisticsTypes                    map[string]*damageFilterSelection
+	logisticsTypeButtons              map[string]*widget.Button
+	eventGraphGroupings               map[string]string
+	graphsScroll                      *container.Scroll
+	graphStack                        *fyne.Container
+	graphCards                        map[string]*widget.Card
+	graphsEmpty                       fyne.CanvasObject
+	totals                            *widget.Table
+	events                            *eventsViewer
+	loadRequests                      chan []string
+	stop                              chan struct{}
+	settingRange                      bool
+	ships                             map[string]shipRecord
+	shipHistory                       shipHistory
+	locationHistory                   locationHistory
+	logLocations                      logLocationHistory
+	logLocationUpdates                chan logLocationHistory
+	locationLookup                    locationResolver
+	groupSelect                       *widget.Select
+	characterGroups                   []characterGroup
+	characterGroupEditor              *characterGroupEditor
+	tableSeries                       []characterSeries
+	totalsSortColumn                  int
+	totalsSortDescending              bool
+	clientID                          *widget.Entry
+	esiStatus                         *widget.Label
+	esiConnections                    *fyne.Container
+	shipAuto                          *widget.Check
+	shipRefresh, connect, cancelLogin *widget.Button
+	esiActions                        chan esiAction
+	cancelESILogin                    context.CancelFunc
+	tabs                              *container.AppTabs
+	callbackPort                      *widget.Entry
+	callbackURL                       *widget.Label
+	esiDialogStatus                   *widget.Label
+	tokenConnections                  *fyne.Container
+	esiDialog                         *dialog.CustomDialog
+	esiSettingsTabs                   *container.AppTabs
+	esiSettingsDirty, settingESI      bool
+	graphUndo, graphRedo              []graphRangeChange
+	logDirectory                      string
+	logLookbackDays                   int
+	logLoadingDialog                  *dialog.CustomDialog
+	graphAverage10s                   bool
+	graphInvulnerabilityMarkers       bool
+	graphFormatLabel                  *widget.Label
+	graphFormatButton                 *widget.Button
+	graphOptionsButton                *widget.Button
+	incomingGroupButton               *widget.Button
+	incomingGrouping                  string
+	graphMenuPopup                    *widget.PopUpMenu
+	damageFilters                     map[string]*damageFilterSelection
+	filterOptions                     map[string][]damageFilterOption
+	filterButtons                     map[string]*widget.Button
+	filterPopup                       *damageFilterPopup
 }
 
 func main() {

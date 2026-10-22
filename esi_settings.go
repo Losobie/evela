@@ -34,9 +34,6 @@ func (ui *analyzerUI) initESISettings() {
 			ui.callbackURL.SetText(esiCallbackURL(port))
 		}
 	}
-	ui.accessToken, ui.refreshToken = widget.NewPasswordEntry(), widget.NewPasswordEntry()
-	ui.accessToken.SetPlaceHolder("Paste an access token, or leave blank to use a refresh token")
-	ui.refreshToken.SetPlaceHolder("Optional refresh token for automatic renewal")
 	ui.esiDialogStatus = widget.NewLabel("")
 	ui.esiDialogStatus.Wrapping = fyne.TextWrapWord
 	ui.esiDialogStatus.Truncation = fyne.TextTruncateEllipsis
@@ -60,19 +57,8 @@ func (ui *analyzerUI) requestESIConfiguration(kind string) {
 		return
 	}
 	action := esiAction{Kind: kind, ClientID: clientID, CallbackPort: port}
-	if kind == "import" {
-		action.AccessToken, action.RefreshToken = strings.TrimSpace(ui.accessToken.Text), strings.TrimSpace(ui.refreshToken.Text)
-		if action.AccessToken == "" && action.RefreshToken == "" {
-			ui.setESIStatus("Enter an access token or a refresh token to import.")
-			return
-		}
-	}
 	if ui.requestESI(action) {
 		ui.setESIStatus("ESI request queued…")
-		if kind == "import" {
-			ui.accessToken.SetText("")
-			ui.refreshToken.SetText("")
-		}
 	}
 }
 
@@ -100,19 +86,17 @@ func (ui *analyzerUI) openESISettings() {
 		callbackNote, ui.callbackURL, copyCallback,
 		widget.NewLabel("Ship scope: "+shipScope), widget.NewLabel("Location scope: "+locationScope), widget.NewHyperlink("Open EVE developer applications", portal),
 		widget.NewButton("Save application configuration", func() { ui.requestESIConfiguration("configure") })))
-	importNote := widget.NewLabel("Sign in for each character, or import tokens issued to the configured Client ID with ship and location access. Ship-only tokens still work for ships; sign in again to grant location access. Importing replaces that character's saved tokens. A refresh token alone can be imported; an access token alone works until it expires.")
-	importNote.Wrapping = fyne.TextWrapWord
-	form := widget.NewForm(widget.NewFormItem("Access token", ui.accessToken), widget.NewFormItem("Refresh token", ui.refreshToken))
-	importControls := container.NewVBox(importNote, container.NewHBox(ui.connect, ui.cancelLogin), widget.NewSeparator(), form,
-		widget.NewButton("Validate and import tokens", func() { ui.requestESIConfiguration("import") }), widget.NewSeparator(), widget.NewLabel("SAVED CHARACTER TOKENS"))
-	tokens := container.NewBorder(importControls, nil, nil, nil, container.NewVScroll(ui.tokenConnections))
+	signInNote := widget.NewLabel("Sign in with EVE Online for each character to grant ship and location access. Tokens are received and renewed automatically. Existing ship-only sign-ins still work for ships; sign in again to grant location access.")
+	signInNote.Wrapping = fyne.TextWrapWord
+	signInControls := container.NewVBox(signInNote, container.NewHBox(ui.connect, ui.cancelLogin), widget.NewSeparator(), widget.NewLabel("SAVED CHARACTER TOKENS"))
+	tokens := container.NewBorder(signInControls, nil, nil, nil, container.NewVScroll(ui.tokenConnections))
 	ui.esiSettingsTabs = container.NewAppTabs(container.NewTabItem("Application", application), container.NewTabItem("Character tokens", tokens))
-	security := widget.NewLabel("Sign-ins are saved encrypted for your Windows user. Tokens are validated before import; existing token values are never displayed here.")
+	security := widget.NewLabel("Sign-ins are saved encrypted for your Windows user. Saved token values are never displayed here.")
 	security.Wrapping = fyne.TextWrapWord
 	ui.esiDialogStatus.SetText(ui.esiStatus.Text)
 	content := container.NewBorder(nil, container.NewVBox(widget.NewSeparator(), ui.esiStatusRow(ui.esiDialogStatus), security), nil, nil, ui.esiSettingsTabs)
 	ui.esiDialog = dialog.NewCustom("ESI configuration", "Close", content, ui.window)
-	ui.esiDialog.SetOnClosed(func() { ui.accessToken.SetText(""); ui.refreshToken.SetText(""); ui.esiDialog = nil })
+	ui.esiDialog.SetOnClosed(func() { ui.esiDialog = nil })
 	ui.esiDialog.Resize(fyne.NewSize(920, 720))
 	ui.esiDialog.Show()
 }

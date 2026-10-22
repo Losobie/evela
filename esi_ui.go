@@ -17,10 +17,9 @@ import (
 )
 
 type esiAction struct {
-	Kind, ClientID            string
-	CharacterID               int64
-	CallbackPort              int
-	AccessToken, RefreshToken string
+	Kind, ClientID string
+	CharacterID    int64
+	CallbackPort   int
 }
 
 func (ui *analyzerUI) initESI() {
@@ -54,7 +53,7 @@ func (ui *analyzerUI) initESI() {
 }
 
 func (ui *analyzerUI) esiContent() fyne.CanvasObject {
-	intro := widget.NewLabel("Connect characters through Settings → ESI configuration. Sign in with EVE Online or import existing tokens for your application. Matching log characters are linked automatically by name.")
+	intro := widget.NewLabel("Connect characters through Settings → ESI configuration. Sign in with EVE Online for each character. Matching log characters are linked automatically by name.")
 	intro.Wrapping = fyne.TextWrapWord
 	controls := container.NewBorder(nil, nil, nil, container.NewHBox(widget.NewButton("Ship history…", ui.openShipHistory), widget.NewButton("Location history…", ui.openLocationHistory)), container.NewHBox(widget.NewButton("Configure ESI…", ui.openESISettings), ui.shipRefresh, ui.shipAuto))
 	settings := container.NewVBox(intro, controls, ui.esiStatusRow(ui.esiStatus), widget.NewSeparator(), widget.NewLabel("CONNECTED CHARACTERS / CURRENT SHIPS & LOCATIONS"))
@@ -177,28 +176,13 @@ func (ui *analyzerUI) watchESI() {
 			}
 		case action := <-ui.esiActions:
 			switch action.Kind {
-			case "configure", "connect", "import":
+			case "configure", "connect":
 				if err := service.configure(action.ClientID, action.CallbackPort); err != nil {
 					publish(err.Error())
 					continue
 				}
 				if action.Kind == "configure" {
 					publish("ESI configuration saved. Register " + esiCallbackURL(service.config.CallbackPort) + " in your EVE application.")
-					continue
-				}
-				if action.Kind == "import" {
-					fyne.Do(func() { ui.setESIStatus("Validating and importing ESI tokens…") })
-					importCtx, finish := context.WithTimeout(ctx, 30*time.Second)
-					_, importErr := service.importTokens(importCtx, action.AccessToken, action.RefreshToken)
-					finish()
-					if ctx.Err() != nil {
-						return
-					}
-					if importErr != nil {
-						publish("Import ESI tokens: " + importErr.Error())
-					} else {
-						refresh()
-					}
 					continue
 				}
 				loginCtx, finish := context.WithTimeout(ctx, 5*time.Minute)

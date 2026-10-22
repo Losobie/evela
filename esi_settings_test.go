@@ -66,15 +66,10 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 		t.Fatal("an empty application ID was accepted")
 	}
 	ui.clientID.SetText("example-client")
-	ui.accessToken.SetText("fake-access-token")
-	ui.refreshToken.SetText("fake-refresh-token")
-	ui.requestESIConfiguration("import")
+	test.Tap(ui.connect)
 	action = <-ui.esiActions
-	if action.AccessToken != "fake-access-token" || action.RefreshToken != "fake-refresh-token" || action.CallbackPort != 8080 {
-		t.Fatal("token import action lost inputs")
-	}
-	if ui.accessToken.Text != "" || ui.refreshToken.Text != "" || !ui.accessToken.Password || !ui.refreshToken.Password {
-		t.Fatal("token entries were not masked and cleared")
+	if action.Kind != "connect" || action.ClientID != "example-client" || action.CallbackPort != 8080 {
+		t.Fatal("sign-in button did not use the configured application")
 	}
 	ui.setESIStatus("ESI settings ready")
 	if ui.esiStatus.Text != ui.esiDialogStatus.Text {
@@ -96,10 +91,9 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 		ui.esiSettingsTabs.SelectIndex(1)
 		capture(path + ".tokens.png")
 	}
-	ui.accessToken.SetText("discard-on-close")
 	ui.esiDialog.Hide()
-	if ui.esiDialog != nil || ui.accessToken.Text != "" {
-		t.Fatal("closing the dialog did not clear pasted credentials")
+	if ui.esiDialog != nil {
+		t.Fatal("closing the dialog did not release it")
 	}
 	ui.openESISettings()
 	if ui.clientID.Text != "example-client" {
