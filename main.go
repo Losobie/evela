@@ -417,7 +417,6 @@ func (ui *analyzerUI) rebuildView() {
 	ui.saveGraphRangePreference()
 	ui.renderSelection()
 	ui.rebuildCharacters()
-	ui.events.setRange(ui.snapshot, start, end)
 }
 
 func (ui *analyzerUI) rebuildCharacters() {
@@ -554,4 +553,5 @@ func (ui *analyzerUI) renderSelection() {
 	ui.updateGraphFormatLabel()
 	ui.refreshDamageFilterControls()
 	ui.refreshLogisticsTypeControls()
+	ui.refreshEvents()
 }

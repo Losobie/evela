@@ -161,6 +161,18 @@ func (ui *analyzerUI) characterFilterGroups() map[string][]string {
 	return members
 }
 
+func characterGroupsSelected(selection *damageFilterSelection, groups []string) bool {
+	if len(groups) == 0 {
+		return selection.selected(filterUngrouped)
+	}
+	for _, group := range groups {
+		if selection.selected(group) {
+			return true
+		}
+	}
+	return false
+}
+
 func systemFilterOption(location locationPeriod, known bool) damageFilterOption {
 	if !known || (location.SystemID <= 0 && location.SystemName == "") {
 		return damageFilterOption{Key: "unknown", Label: "Unknown system"}
@@ -213,15 +225,7 @@ func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
 	filtered := *ui.snapshot
 	filtered.Logs = nil
 	for _, log := range ui.snapshot.Logs {
-		keys := members[characterKey(log.Character)]
-		if len(keys) == 0 {
-			keys = []string{filterUngrouped}
-		}
-		groupMatches := false
-		for _, key := range keys {
-			groupMatches = groupMatches || groups.selected(key)
-		}
-		if !groupMatches {
+		if !characterGroupsSelected(groups, members[characterKey(log.Character)]) {
 			continue
 		}
 		matches := func(second int64) bool {
@@ -328,11 +332,19 @@ func (ui *analyzerUI) refreshDamageFilterOptions() {
 	locations := ui.locationLookup
 	first, end := ui.view.Start.Unix(), ui.view.End.Unix()
 	for _, log := range ui.snapshot.Logs {
-		registerCharacter := func(second int64) {
+		registerCharacterName := func() {
 			options[filterCharacters][log.Character] = log.Character
 			if _, exists := ui.selected[log.Character]; !exists {
 				ui.selected[log.Character] = ui.damageFilterSelected(filterCharacters, log.Character)
 			}
+		}
+		// Events-only characters must also be selectable in the shared filter.
+		index := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= first })
+		if index < len(log.Events) && log.Events[index].Second < end {
+			registerCharacterName()
+		}
+		registerCharacter := func(second int64) {
+			registerCharacterName()
 			ship, known := byName[characterKey(log.Character)].atName(log.Character, time.Unix(second, 0))
 			hull, class := shipFilterOptions(ship, known)
 			options[filterShipType][hull.Key], options[filterShipClass][class.Key] = hull.Label, class.Label

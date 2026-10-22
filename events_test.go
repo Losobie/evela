@@ -153,9 +153,13 @@ func TestEventsTabRangeSortingAndMessageSearch(t *testing.T) {
 	viewer.search.SetText("")
 	viewer.table.OnSelected(widget.TableCellID{Row: 0, Col: 0})
 	ui.setAllDamageFilterOptions(filterCharacters, false)
+	if len(viewer.rows) != 0 {
+		t.Fatal("clearing Characters did not hide Events")
+	}
 	ui.setAllDamageFilterOptions(filterShipType, false)
+	ui.setAllDamageFilterOptions(filterCharacters, true)
 	if len(viewer.rows) != 6 {
-		t.Fatal("damage filters hid non-damage log events")
+		t.Fatal("ship filters hid non-damage log events")
 	}
 	ui.applyGraphRange(start.Add(time.Second), start.Add(3*time.Second))
 	if len(viewer.rows) != 3 || !viewer.descending {
@@ -202,6 +206,116 @@ func TestEventsRefreshPreferencesAndPreview(t *testing.T) {
 	}
 }
 
+func newFilteredEventsTestUI(t *testing.T) (*analyzerUI, time.Time) {
+	t.Helper()
+	ui, start := newEventsTestUI(t)
+	ui.snapshot = &logSnapshot{Characters: []string{"Pilot A", "Pilot B", "Pilot C", "Outside"}, First: start.Add(-time.Second), Last: start.Add(10 * time.Second), Logs: []*parsedLog{
+		ui.snapshot.Logs[0],
+		{Character: "Pilot B", Events: []logEvent{{Second: start.Unix() + 1, Message: "(notify) Hello B"}, {Second: start.Unix() + 3, Message: "(notify) Jumping B"}}},
+		{Character: "Pilot C", Events: []logEvent{{Second: start.Unix() + 2, Message: "(notify) Hello C"}}},
+		{Character: "Outside", Events: []logEvent{{Second: start.Unix() + 10, Message: "(notify) Outside range"}}},
+	}}
+	ui.characterGroups = []characterGroup{
+		{ID: "fleet", Name: "Fleet", Members: []string{"pilot a", "Pilot B"}},
+		{ID: "scouts", Name: "Scouts", Members: []string{"PILOT B"}},
+	}
+	ui.persistCharacterGroups("")
+	return ui, start
+}
+
+func assertEventCharacters(t *testing.T, viewer *eventsViewer, want map[string]int) {
+	t.Helper()
+	got := map[string]int{}
+	for _, event := range viewer.rows {
+		got[event.Character]++
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Events character counts = %v, want %v", got, want)
+	}
+}
+
+func TestEventsCharacterAndGroupFiltersIntersectWithoutDuplicates(t *testing.T) {
+	ui, _ := newFilteredEventsTestUI(t)
+	viewer := ui.events
+	all := map[string]int{"Pilot A": 6, "Pilot B": 2, "Pilot C": 1}
+	assertEventCharacters(t, viewer, all)
+	var options []string
+	for _, option := range ui.filterOptions[filterCharacters] {
+		options = append(options, option.Key)
+	}
+	if !reflect.DeepEqual(options, []string{"Pilot A", "Pilot B", "Pilot C"}) {
+		t.Fatalf("Characters dropdown omitted events-only characters or included out-of-range events: %v", options)
+	}
+	// These graph-specific choices must not remove unrelated log messages.
+	for _, kind := range []string{filterShipType, filterShipClass, filterSystem, filterNPCNames, filterNPCTypes} {
+		ui.setAllDamageFilterOptions(kind, false)
+	}
+	ui.groupSelect.SetSelected("Group: Fleet")
+	assertEventCharacters(t, viewer, all)
+	ui.setAllDamageFilterOptions(filterCharacterGroup, false)
+	assertEventCharacters(t, viewer, map[string]int{})
+	ui.setDamageFilterOption(filterCharacterGroup, "group:fleet", true)
+	assertEventCharacters(t, viewer, map[string]int{"Pilot A": 6, "Pilot B": 2})
+	ui.setDamageFilterOption(filterCharacterGroup, "group:scouts", true)
+	assertEventCharacters(t, viewer, map[string]int{"Pilot A": 6, "Pilot B": 2})
+	ui.setDamageFilterOption(filterCharacters, "Pilot B", false)
+	assertEventCharacters(t, viewer, map[string]int{"Pilot A": 6})
+	ui.setDamageFilterOption(filterCharacterGroup, "group:fleet", false)
+	assertEventCharacters(t, viewer, map[string]int{})
+	ui.setDamageFilterOption(filterCharacters, "Pilot B", true)
+	assertEventCharacters(t, viewer, map[string]int{"Pilot B": 2})
+	ui.setAllDamageFilterOptions(filterCharacterGroup, true)
+	assertEventCharacters(t, viewer, all)
+	ui.setAllDamageFilterOptions(filterCharacters, false)
+	assertEventCharacters(t, viewer, map[string]int{})
+	ui.setDamageFilterOption(filterCharacters, "Pilot C", true)
+	ui.setAllDamageFilterOptions(filterCharacterGroup, false)
+	ui.setDamageFilterOption(filterCharacterGroup, filterUngrouped, true)
+	assertEventCharacters(t, viewer, map[string]int{"Pilot C": 1})
+	if len(ui.snapshot.Logs[0].Events) != 8 || len(ui.snapshot.Logs[1].Events) != 2 {
+		t.Fatal("filtering changed the original event archive")
+	}
+}
+
+func TestEventsFiltersSurviveSearchRefreshRangeAndGroupEdits(t *testing.T) {
+	ui, start := newFilteredEventsTestUI(t)
+	viewer := ui.events
+	viewer.regex.SetChecked(true)
+	viewer.search.SetText("(?i)hello")
+	viewer.table.OnSelected(widget.TableCellID{Row: 0, Col: 0})
+	ui.setAllDamageFilterOptions(filterCharacterGroup, false)
+	ui.setDamageFilterOption(filterCharacterGroup, "group:scouts", true)
+	assertEventCharacters(t, viewer, map[string]int{"Pilot B": 1})
+	if !strings.HasPrefix(viewer.status.Text, "1 of 2 events") {
+		t.Fatal("search counts included excluded characters")
+	}
+	log := *ui.snapshot.Logs[1]
+	log.Events = append(append([]logEvent(nil), log.Events...), logEvent{Second: start.Unix() + 4, Message: "(notify) HELLO new"})
+	snapshot := *ui.snapshot
+	snapshot.Logs = append([]*parsedLog(nil), snapshot.Logs...)
+	snapshot.Logs[1] = &log
+	ui.snapshot = &snapshot
+	ui.rebuildView()
+	assertEventCharacters(t, viewer, map[string]int{"Pilot B": 2})
+	if !viewer.descending || !viewer.regex.Checked || viewer.search.Text != "(?i)hello" || viewer.rows[0].Second != start.Unix()+4 {
+		t.Fatal("filtering or refresh lost the message search and sort")
+	}
+	ui.applyGraphRange(start.Add(2*time.Second), start.Add(4*time.Second))
+	assertEventCharacters(t, viewer, map[string]int{})
+	ui.undoGraphRange()
+	assertEventCharacters(t, viewer, map[string]int{"Pilot B": 2})
+	if _, err := ui.saveCharacterGroup(characterGroup{ID: "scouts", Name: "Scouts", Members: []string{"pilot c"}}); err != nil {
+		t.Fatal(err)
+	}
+	assertEventCharacters(t, viewer, map[string]int{"Pilot C": 1})
+	window := fyne.CurrentApp().NewWindow("Restored Events filters")
+	defer window.Close()
+	restored := newAnalyzerUI(window)
+	restored.snapshot = ui.snapshot
+	restored.updateRange()
+	assertEventCharacters(t, restored.events, map[string]int{"Pilot C": 1})
+}
+
 func TestEventDuplicateExportsRetainDistinctMessages(t *testing.T) {
 	directory := t.TempDir()
 	for _, name := range []string{"original.txt", "copy.txt"} {
@@ -236,7 +350,7 @@ func TestEventDuplicateExportsRetainDistinctMessages(t *testing.T) {
 	defer window.Close()
 	viewer := newEventsViewer(window)
 	start := time.Date(2026, 10, 19, 1, 59, 0, 0, time.UTC)
-	viewer.setRange(snapshot, start, start.Add(time.Hour))
+	viewer.setRange(snapshot, start, start.Add(time.Hour), nil)
 	viewer.search.SetText("Jumping")
 	characters := map[string]bool{}
 	for row, event := range viewer.rows {
@@ -280,7 +394,7 @@ func TestLocalEvents(t *testing.T) {
 	window := application.NewWindow("Real Events")
 	defer window.Close()
 	viewer := newEventsViewer(window)
-	viewer.setRange(snapshot, start, end)
+	viewer.setRange(snapshot, start, end, nil)
 	if expected == 0 || len(viewer.rows) != expected {
 		t.Fatalf("real Events range: got %d rows, want %d", len(viewer.rows), expected)
 	}

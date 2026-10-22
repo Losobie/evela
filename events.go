@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
 	"sort"
 	"strings"
@@ -37,6 +38,7 @@ type eventsViewer struct {
 	rangeEvents []eventRow
 	rows        []eventRow
 	descending  bool
+	characters  map[string]bool // nil includes every character; an empty map includes none.
 }
 
 func newEventsViewer(window fyne.Window) *eventsViewer {
@@ -115,34 +117,39 @@ func newEventsViewer(window fyne.Window) *eventsViewer {
 		details.Show()
 	}
 	search := container.NewBorder(nil, nil, widget.NewLabel("Message search"), viewer.regex, viewer.search)
-	note := widget.NewLabel("All loaded characters · EVE time · Click Timestamp to reverse order; select a row to read its full message.")
+	note := widget.NewLabel("Characters and Character Group filters · EVE time · Click Timestamp to reverse order; select a row to read its full message.")
 	note.Truncation = fyne.TextTruncateEllipsis
 	viewer.content = container.NewBorder(container.NewVBox(search, viewer.status), note, nil, nil, viewer.table)
 	viewer.applySearch()
 	return viewer
 }
 
-func (viewer *eventsViewer) setRange(snapshot *logSnapshot, start, end time.Time) {
-	if viewer.snapshot == snapshot && viewer.start.Equal(start) && viewer.end.Equal(end) {
+func (viewer *eventsViewer) setRange(snapshot *logSnapshot, start, end time.Time, characters map[string]bool) {
+	sameRange := viewer.snapshot == snapshot && viewer.start.Equal(start) && viewer.end.Equal(end)
+	sameCharacters := (viewer.characters == nil) == (characters == nil) && maps.Equal(viewer.characters, characters)
+	if sameRange && sameCharacters {
 		return
 	}
 	changedRange := !viewer.start.Equal(start) || !viewer.end.Equal(end)
+	viewer.characters = maps.Clone(characters)
 	viewer.snapshot, viewer.start, viewer.end = snapshot, start, end
-	viewer.rangeEvents = nil
-	first, last := start.Unix(), end.Unix()
-	for _, log := range snapshot.Logs {
-		// Parsed events are sorted once, so broad archives need only a binary
-		// search and a copy of records belonging to the visible time window.
-		left := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= first })
-		right := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= last })
-		if left < right {
-			for _, event := range log.Events[left:right] {
-				viewer.rangeEvents = append(viewer.rangeEvents, eventRow{logEvent: event, Character: log.Character})
+	if !sameRange {
+		viewer.rangeEvents = nil
+		first, last := start.Unix(), end.Unix()
+		for _, log := range snapshot.Logs {
+			// Parsed events are sorted once, so broad archives need only a binary
+			// search and a copy of records belonging to the visible time window.
+			left := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= first })
+			right := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= last })
+			if left < right {
+				for _, event := range log.Events[left:right] {
+					viewer.rangeEvents = append(viewer.rangeEvents, eventRow{logEvent: event, Character: log.Character})
+				}
 			}
 		}
 	}
 	viewer.applySearch()
-	if changedRange {
+	if changedRange || !sameCharacters {
 		viewer.table.ScrollToTop()
 	}
 }
@@ -162,7 +169,12 @@ func (viewer *eventsViewer) applySearch() {
 	}
 	viewer.rows = nil
 	literal := strings.ToLower(query)
+	eligible := 0
 	for _, event := range viewer.rangeEvents {
+		if viewer.characters != nil && !viewer.characters[event.Character] {
+			continue
+		}
+		eligible++
 		matches := query == ""
 		if !matches {
 			if pattern != nil {
@@ -181,9 +193,11 @@ func (viewer *eventsViewer) applySearch() {
 		}
 		return viewer.rows[i].Second < viewer.rows[j].Second
 	})
-	status := fmt.Sprintf("%d of %d events", len(viewer.rows), len(viewer.rangeEvents))
+	status := fmt.Sprintf("%d of %d events", len(viewer.rows), eligible)
 	if len(viewer.rangeEvents) == 0 {
 		status = "No events in this time range"
+	} else if eligible == 0 {
+		status = "No events for the selected characters and character groups"
 	} else if len(viewer.rows) == 0 {
 		status = "No matching messages · " + status
 	}
@@ -192,4 +206,17 @@ func (viewer *eventsViewer) applySearch() {
 	}
 	viewer.status.SetText(status)
 	viewer.table.Refresh()
+}
+
+func (ui *analyzerUI) refreshEvents() {
+	if ui.events == nil {
+		return
+	}
+	members := ui.characterFilterGroups()
+	selected := map[string]bool{}
+	for _, log := range ui.snapshot.Logs {
+		selected[log.Character] = ui.damageFilterSelected(filterCharacters, log.Character) &&
+			characterGroupsSelected(ui.damageFilters[filterCharacterGroup], members[characterKey(log.Character)])
+	}
+	ui.events.setRange(ui.snapshot, ui.view.Start, ui.view.End, selected)
 }
