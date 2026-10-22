@@ -101,11 +101,17 @@ func main() {
 	ui := newAnalyzerUI(window)
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
-	window.SetOnClosed(func() { close(ui.stop) })
+	window.SetOnClosed(func() {
+		ui.saveWindowGeometry()
+		close(ui.stop)
+	})
 	go ui.watch()
 	go ui.watchESI()
 	ui.requestLoad()
-	application.Lifecycle().SetOnStarted(ui.initGraphMouseNavigation)
+	application.Lifecycle().SetOnStarted(func() {
+		ui.restoreWindowGeometry()
+		ui.initGraphMouseNavigation()
+	})
 	window.ShowAndRun()
 }
 
