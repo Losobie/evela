@@ -99,7 +99,7 @@ func main() {
 	application := app.NewWithID("io.evela.damage-analyzer")
 	application.SetIcon(fyne.NewStaticResource("icon.svg", applicationIcon))
 	application.Settings().SetTheme(theme.DarkTheme())
-	window := application.NewWindow("Evela · EVE Online damage analyzer")
+	window := application.NewWindow("Evela · EVE Online log analyzer")
 	ui := newAnalyzerUI(window)
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
