@@ -105,7 +105,7 @@ func TestOptionsStaysOpenForRepeatedVisibilityToggles(t *testing.T) {
 		t.Fatal("outside click did not dismiss Options")
 	}
 	// Standard grouping menus still dismiss after a choice.
-	chooseGraphMenuItem(t, ui.graphOptionsMenu(), "Show Outgoing")
+	chooseGraphMenuItem(t, ui.graphOptionsMenu(), "Show Outgoing damage")
 	ui.graphsScroll.ScrollToTop()
 	test.Tap(ui.graphFormatButton)
 	grouping := ui.graphMenuPopup
@@ -224,7 +224,7 @@ func TestGraphVisibilityAllHiddenPersistsAndCanBeRestored(t *testing.T) {
 	if restored.graphsScroll.Content != restored.graphsEmpty {
 		t.Fatal("saved all-hidden choice was not applied before loading logs")
 	}
-	chooseGraphMenuItem(t, restored.graphOptionsMenu(), "Show Incoming")
+	chooseGraphMenuItem(t, restored.graphOptionsMenu(), "Show Incoming damage")
 	assertGraphVisibility(t, restored, graphIncoming, true)
 	if restored.graphsScroll.Content != restored.graphStack {
 		t.Fatal("showing a graph did not dismiss the empty state")

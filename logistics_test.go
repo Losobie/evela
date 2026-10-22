@@ -232,7 +232,7 @@ func TestLogisticsSharedFiltersApplyAtEventTime(t *testing.T) {
 func TestLogisticsGraphsScrollLayoutHoverAndNavigation(t *testing.T) {
 	ui, start := newLogisticsTestUI(t)
 	cards := ui.graphsScroll.Content.(*fyne.Container).Objects
-	want := []string{"Outgoing", "Outgoing logistics", "Incoming", "Incoming logistics", "Incoming E-War"}
+	want := []string{"Outgoing damage", "Outgoing logistics", "Incoming damage", "Incoming logistics", "Incoming E-War"}
 	if len(cards) != len(want) {
 		t.Fatal("incorrect graph count")
 	}

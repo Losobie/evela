@@ -16,9 +16,9 @@ const (
 )
 
 var graphVisibilityOptions = []struct{ id, label string }{
-	{graphOutgoing, "Outgoing"},
+	{graphOutgoing, "Outgoing damage"},
 	{graphOutgoingLogistics, "Outgoing logistics"},
-	{graphIncoming, "Incoming"},
+	{graphIncoming, "Incoming damage"},
 	{graphIncomingLogistics, "Incoming logistics"},
 	{graphIncomingEWar, "Incoming E-War"},
 }

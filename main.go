@@ -258,9 +258,9 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	filterBar := ui.damageFilterBar()
 	ui.graphCards = map[string]*widget.Card{}
 	ui.graphStack = container.NewVBox(
-		ui.newGraphCard(graphOutgoing, "Outgoing", container.NewBorder(container.NewBorder(nil, nil, nil, ui.graphFormatButton, ui.graphFormatLabel), nil, nil, nil, ui.graphPanContent(ui.outgoing))),
+		ui.newGraphCard(graphOutgoing, "Outgoing damage", container.NewBorder(container.NewBorder(nil, nil, nil, ui.graphFormatButton, ui.graphFormatLabel), nil, nil, nil, ui.graphPanContent(ui.outgoing))),
 		ui.newGraphCard(graphOutgoingLogistics, "Outgoing logistics", container.NewBorder(ui.logisticsControls(graphOutgoingLogistics), nil, nil, nil, ui.graphPanContent(ui.outgoingLogistics))),
-		ui.newGraphCard(graphIncoming, "Incoming", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))),
+		ui.newGraphCard(graphIncoming, "Incoming damage", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))),
 		ui.newGraphCard(graphIncomingLogistics, "Incoming logistics", container.NewBorder(ui.logisticsControls(graphIncomingLogistics), nil, nil, nil, ui.graphPanContent(ui.incomingLogistics))),
 		ui.newGraphCard(graphIncomingEWar, "Incoming E-War", container.NewBorder(ui.ewarControls(), nil, nil, nil, ui.graphPanContent(ui.ewar))))
 	ui.graphsScroll = container.NewVScroll(ui.graphStack)

@@ -241,7 +241,7 @@ func TestGraphFormatPreferencesRestoreBeforeLoadingLogs(t *testing.T) {
 		}
 	}
 	for _, item := range append(restored.graphFormatMenu().Items, restored.graphOptionsMenu().Items...) {
-		want := item.Label == "10-second DPS average" || item.Label == "Ship class (ship history)" || item.Label == "Show Outgoing" || item.Label == "Show Incoming"
+		want := item.Label == "10-second DPS average" || item.Label == "Ship class (ship history)" || item.Label == "Show Outgoing damage" || item.Label == "Show Incoming damage"
 		if item.Checked != want {
 			t.Fatalf("restored menu checkmark for %q = %v, want %v", item.Label, item.Checked, want)
 		}
