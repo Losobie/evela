@@ -106,6 +106,7 @@ To update, download CCP's [latest JSONL SDE](https://developers.eveonline.com/st
 go run ./tools/npcdata -sde .cache/eve-sde-<build>-jsonl.zip
 go test ./...
 go build -ldflags="-H=windowsgui" -o evela.exe .
+Compress-Archive -LiteralPath evela.exe -DestinationPath evela.zip -Force
 ```
 
 The generator reads build/release metadata from the archive; update the version/counts above when replacing the snapshot. Only compact names, type IDs and group names/IDs are embedded; the full archive is excluded from version control.
@@ -117,6 +118,7 @@ Requires Go 1.23+ and Fyne's desktop build prerequisites (a C compiler; MinGW GC
 ```powershell
 go test ./...
 go build -ldflags="-H=windowsgui" -o evela.exe .
+Compress-Archive -LiteralPath evela.exe -DestinationPath evela.zip -Force
 ```
 
 The application and Windows executable use `icon.svg`. After changing the SVG, run `go generate .` to regenerate `icon.ico` and `icon_windows_amd64.syso`, then rebuild with the command above. Icon resource generation requires MinGW `windres`.
