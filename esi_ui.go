@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -25,6 +24,7 @@ type esiAction struct {
 func (ui *analyzerUI) initESI() {
 	ui.ships = map[string]shipRecord{}
 	ui.esiActions = make(chan esiAction, 8)
+	ui.esiLogins = make(chan esiLoginRequest, 1)
 	ui.logLocationUpdates = make(chan logLocationHistory, 1)
 	ui.clientID = widget.NewEntry()
 	ui.clientID.SetPlaceHolder("Public EVE application client ID")
@@ -77,6 +77,10 @@ func (ui *analyzerUI) watchESI() {
 		return
 	}
 	service := newESIService(filepath.Join(directory, "Evela", "esi.dat"))
+	ui.watchESIService(service, ui.openESIBrowser)
+}
+
+func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(string) error) {
 	loadErr := service.load()
 	fyne.DoAndWait(func() {
 		if !ui.esiSettingsDirty {
@@ -93,6 +97,26 @@ func (ui *analyzerUI) watchESI() {
 		case <-ui.stop:
 			cancel()
 		case <-ctx.Done():
+		}
+	}()
+	loginResults := make(chan esiLoginResult, 1)
+	loginDone := make(chan struct{})
+	go func() {
+		defer close(loginDone)
+		ui.watchESILogins(ctx, service, loginResults, openBrowser)
+	}()
+	defer func() {
+		cancel()
+		<-loginDone
+		// A completed sign-in may have interrupted a refresh just as the app
+		// closed. Persist it before the storage owner exits.
+		select {
+		case result := <-loginResults:
+			close(result.taken)
+			if err := service.acceptLogin(result.action.ClientID, result.action.CallbackPort, result.account); err != nil {
+				fyne.LogError("Save completed EVE sign-in", err)
+			}
+		default:
 		}
 	}()
 	publish := func(message string) {
@@ -121,11 +145,23 @@ func (ui *analyzerUI) watchESI() {
 			publish("No characters connected. Sign in with EVE Online first.")
 			return
 		}
-		fyne.Do(func() { ui.shipRefresh.Disable(); ui.setESIStatus("Querying current ships and locations from ESI…") })
 		refreshCtx, finish := context.WithTimeout(ctx, 25*time.Second)
+		fyne.DoAndWait(func() {
+			ui.cancelESIRefresh = finish
+			ui.shipRefresh.Disable()
+			ui.setESIStatus("Querying current ships and locations from ESI…")
+		})
+		if len(loginResults) > 0 {
+			finish()
+		}
 		err := service.refreshShips(refreshCtx)
+		interrupted := refreshCtx.Err() == context.Canceled
 		finish()
+		fyne.DoAndWait(func() { ui.cancelESIRefresh = nil; ui.shipRefresh.Enable() })
 		if ctx.Err() != nil {
+			return
+		}
+		if interrupted {
 			return
 		}
 		message := "Ships and locations updated " + time.Now().Format("15:04:05") + " · " + strconv.Itoa(len(service.config.Accounts)) + " connected characters."
@@ -133,7 +169,6 @@ func (ui *analyzerUI) watchESI() {
 			message = err.Error()
 		}
 		publish(message)
-		fyne.Do(func() { ui.shipRefresh.Enable() })
 	}
 	if len(service.config.Accounts) > 0 || len(service.config.ShipHistory) > 0 || len(service.config.LocationHistory) > 0 {
 		refresh()
@@ -156,6 +191,14 @@ func (ui *analyzerUI) watchESI() {
 		select {
 		case <-ctx.Done():
 			return
+		case result := <-loginResults:
+			close(result.taken)
+			if err := service.acceptLogin(result.action.ClientID, result.action.CallbackPort, result.account); err != nil {
+				publish("EVE sign-in: " + err.Error())
+			} else {
+				publish("Connected " + result.account.Ship.CharacterName + ".")
+				refresh()
+			}
 		case locations := <-ui.logLocationUpdates:
 			if service.config.LogLocations == nil {
 				service.config.LogLocations = logLocationHistory{}
@@ -176,40 +219,12 @@ func (ui *analyzerUI) watchESI() {
 			}
 		case action := <-ui.esiActions:
 			switch action.Kind {
-			case "configure", "connect":
+			case "configure":
 				if err := service.configure(action.ClientID, action.CallbackPort); err != nil {
 					publish(err.Error())
 					continue
 				}
-				if action.Kind == "configure" {
-					publish("ESI configuration saved. Register " + esiCallbackURL(service.config.CallbackPort) + " in your EVE application.")
-					continue
-				}
-				loginCtx, finish := context.WithTimeout(ctx, 5*time.Minute)
-				fyne.DoAndWait(func() {
-					ui.cancelESILogin = finish
-					ui.connect.Disable()
-					ui.cancelLogin.Show()
-					ui.setESIStatus("Complete EVE sign-in in your browser. Select a character and grant ship and location access.")
-				})
-				_, loginErr := service.authorize(loginCtx, func(address string) error {
-					parsed, err := url.Parse(address)
-					if err != nil {
-						return err
-					}
-					fyne.DoAndWait(func() { err = fyne.CurrentApp().OpenURL(parsed) })
-					return err
-				})
-				finish()
-				if ctx.Err() != nil {
-					return
-				}
-				fyne.Do(func() { ui.cancelESILogin = nil; ui.connect.Enable(); ui.cancelLogin.Hide() })
-				if loginErr != nil {
-					publish("EVE sign-in: " + loginErr.Error())
-				} else {
-					refresh()
-				}
+				publish("ESI configuration saved. Register " + esiCallbackURL(service.config.CallbackPort) + " in your EVE application.")
 			case "refresh":
 				refresh()
 			case "disconnect":

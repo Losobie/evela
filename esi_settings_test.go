@@ -35,10 +35,23 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 		t.Fatal("default application ID was not filled in cleanly")
 	}
 	ui.requestESIConfiguration("connect")
-	defaultAction := <-ui.esiActions
+	defaultLogin := <-ui.esiLogins
+	defer defaultLogin.cancel()
+	defaultAction := defaultLogin.action
 	if defaultAction.ClientID != defaultESIClientID || defaultAction.CallbackPort != defaultESICallbackPort || defaultAction.Kind != "connect" {
 		t.Fatal("default sign-in did not use the built-in application")
 	}
+	if !ui.connect.Disabled() || !ui.cancelLogin.Visible() {
+		t.Fatal("pending sign-in did not immediately expose cancellation and prevent duplicates")
+	}
+	ui.requestESIConfiguration("connect")
+	if len(ui.esiLogins) != 0 {
+		t.Fatal("a second login was queued while one was pending")
+	}
+	defaultLogin.cancel()
+	ui.cancelESILogin = nil
+	ui.connect.Enable()
+	ui.cancelLogin.Hide()
 	first := ui.esiDialog
 	ui.openESISettings()
 	if ui.esiDialog != first {
@@ -56,7 +69,7 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 	}
 	ui.callbackPort.SetText("0")
 	ui.requestESIConfiguration("connect")
-	if len(ui.esiActions) != 0 {
+	if len(ui.esiActions) != 0 || len(ui.esiLogins) != 0 {
 		t.Fatal("invalid callback port queued a login")
 	}
 	ui.callbackPort.SetText("8080")
@@ -67,7 +80,9 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 	}
 	ui.clientID.SetText("example-client")
 	test.Tap(ui.connect)
-	action = <-ui.esiActions
+	login := <-ui.esiLogins
+	defer login.cancel()
+	action = login.action
 	if action.Kind != "connect" || action.ClientID != "example-client" || action.CallbackPort != 8080 {
 		t.Fatal("sign-in button did not use the configured application")
 	}

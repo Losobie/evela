@@ -199,6 +199,19 @@ func (service *esiService) records() []shipRecord {
 
 func (service *esiService) configure(clientID string, port int) error {
 	clientID = strings.TrimSpace(clientID)
+	if err := service.validateConfiguration(clientID, port); err != nil {
+		return err
+	}
+	previous := service.config
+	service.config.ClientID, service.config.CallbackPort = clientID, port
+	if err := service.save(); err != nil {
+		service.config = previous
+		return fmt.Errorf("save ESI settings: %w", err)
+	}
+	return nil
+}
+
+func (service *esiService) validateConfiguration(clientID string, port int) error {
 	if clientID == "" {
 		return fmt.Errorf("enter your EVE application's public Client ID")
 	}
@@ -207,12 +220,6 @@ func (service *esiService) configure(clientID string, port int) error {
 	}
 	if len(service.config.Accounts) > 0 && service.config.ClientID != clientID {
 		return fmt.Errorf("disconnect existing characters before changing the Client ID")
-	}
-	previous := service.config
-	service.config.ClientID, service.config.CallbackPort = clientID, port
-	if err := service.save(); err != nil {
-		service.config = previous
-		return fmt.Errorf("save ESI settings: %w", err)
 	}
 	return nil
 }

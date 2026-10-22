@@ -57,6 +57,10 @@ func (ui *analyzerUI) requestESIConfiguration(kind string) {
 		return
 	}
 	action := esiAction{Kind: kind, ClientID: clientID, CallbackPort: port}
+	if kind == "connect" {
+		ui.requestESILogin(action)
+		return
+	}
 	if ui.requestESI(action) {
 		ui.setESIStatus("ESI request queued…")
 	}

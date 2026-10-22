@@ -103,6 +103,19 @@ func loginCallback(state string, result chan<- loginResult) http.Handler {
 }
 
 func (service *esiService) authorize(ctx context.Context, openBrowser func(string) error) (*esiAccount, error) {
+	account, err := service.authenticate(ctx, openBrowser)
+	if err != nil {
+		return nil, err
+	}
+	return account, service.acceptLogin(service.config.ClientID, service.config.CallbackPort, account)
+}
+
+// Authentication has private configuration and never writes accounts or history.
+// The ESI worker adopts the validated result and remains the only storage writer.
+func (service *esiService) authenticate(ctx context.Context, openBrowser func(string) error) (*esiAccount, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(service.config.ClientID) == "" {
 		return nil, fmt.Errorf("enter your EVE application's public client ID first")
 	}
@@ -135,6 +148,9 @@ func (service *esiService) authorize(ctx context.Context, openBrowser func(strin
 	query := url.Values{"response_type": {"code"}, "client_id": {service.config.ClientID}, "redirect_uri": {callbackURL}, "scope": {shipScope + " " + locationScope}, "state": {state}}
 	query.Set("code_challenge", base64.RawURLEncoding.EncodeToString(challenge[:]))
 	query.Set("code_challenge_method", "S256")
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if err = openBrowser(metadata.Authorization + "?" + query.Encode()); err != nil {
 		return nil, fmt.Errorf("open EVE sign-in browser: %w", err)
 	}
@@ -154,11 +170,25 @@ func (service *esiService) authorize(ctx context.Context, openBrowser func(strin
 		return nil, err
 	}
 	account := &esiAccount{Ship: shipRecord{CharacterID: identity.ID, CharacterName: identity.Name}, Token: token}
-	service.config.Accounts[identity.ID] = account
-	if err = service.save(); err != nil {
-		return account, fmt.Errorf("connected for this session, but could not save sign-in: %w", err)
-	}
 	return account, nil
+}
+
+func (service *esiService) acceptLogin(clientID string, port int, account *esiAccount) error {
+	clientID = strings.TrimSpace(clientID)
+	if err := service.validateConfiguration(clientID, port); err != nil {
+		return err
+	}
+	service.config.ClientID, service.config.CallbackPort = clientID, port
+	if previous := service.config.Accounts[account.Ship.CharacterID]; previous != nil {
+		name := account.Ship.CharacterName
+		account.Ship, account.Location = previous.Ship, previous.Location
+		account.Ship.CharacterName = name
+	}
+	service.config.Accounts[account.Ship.CharacterID] = account
+	if err := service.save(); err != nil {
+		return fmt.Errorf("connected for this session, but could not save sign-in: %w", err)
+	}
+	return nil
 }
 
 type ssoIdentity struct {

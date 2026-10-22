@@ -66,7 +66,9 @@ type analyzerUI struct {
 	shipAuto                          *widget.Check
 	shipRefresh, connect, cancelLogin *widget.Button
 	esiActions                        chan esiAction
+	esiLogins                         chan esiLoginRequest
 	cancelESILogin                    context.CancelFunc
+	cancelESIRefresh                  context.CancelFunc
 	tabs                              *container.AppTabs
 	callbackPort                      *widget.Entry
 	callbackURL                       *widget.Label

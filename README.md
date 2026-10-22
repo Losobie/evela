@@ -56,6 +56,8 @@ Sign-in requests `esi-location.read_ship_type.v1` and `esi-location.read_locatio
 
 The **Character tokens** tab uses **Sign in with EVE Online** to connect each character. Access and refresh tokens arrive through this authorization flow and renew automatically. Saved connections show token expiry and whether automatic renewal is available, with a **Disconnect** action; saved token values are not displayed.
 
+Background ship and location refreshes do not block sign-in. Only one browser sign-in is active at a time; **Cancel sign-in** releases the callback listener so you can try again. Completed sign-ins are saved alongside existing characters and history before their ships and locations are refreshed.
+
 The Client ID and callback port persist across restarts. Existing saved Client IDs are retained; missing IDs adopt the default above, and older settings without a port adopt 8080. Changing the callback port keeps existing character tokens; changing the Client ID requires disconnecting them first. Former client-secret configurations must use a PKCE application and may require signing in again. Legacy client-secret fields are ignored and omitted when settings are next saved.
 
 Outgoing ship grouping uses **recorded ship history at each damage event**, including when a character changes ships inside a graph bucket. Refreshing current ships never assigns the new hull to older damage. Evela cannot recover ship history from before it began recording observations. ESI cannot expose this private data for characters that have not authorized the application. Queries send ESI access tokens and character IDs to CCP; combat logs are never uploaded.
