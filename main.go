@@ -3,14 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"image/color"
 	"slices"
 	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
@@ -241,14 +239,11 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 }
 
 func (ui *analyzerUI) content() fyne.CanvasObject {
-	title := canvas.NewText("EVELA", color.NRGBA{68, 209, 223, 255})
-	title.TextStyle.Bold = true
-	title.TextSize = 28
 	// Keep the progress slot even when its bar is hidden, so refreshing never
 	// changes the height available to the graphs.
 	progressSlot := container.NewGridWrap(fyne.NewSize(140, ui.progress.MinSize().Height), ui.progress)
 	details := widget.NewButton("Details…", func() { ui.showRefreshDetails("Log refresh", ui.status.Text+"\n\n"+ui.directoryInfo.Text) })
-	heading := container.NewHBox(title, widget.NewLabel("COMBAT LOG ANALYZER"), layout.NewSpacer(), progressSlot, ui.auto, ui.refresh, details)
+	heading := container.NewHBox(layout.NewSpacer(), progressSlot, ui.auto, ui.refresh, details)
 	filters := container.NewGridWithColumns(4,
 		container.NewBorder(widget.NewLabel("Time range"), nil, nil, nil, ui.rangeSelect),
 		container.NewBorder(widget.NewLabel("Start · EVE time"), nil, nil, nil, ui.start),
