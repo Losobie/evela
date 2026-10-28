@@ -26,9 +26,9 @@ func TestGraphVisibilityDefaultsAndSavedOverrides(t *testing.T) {
 		saved map[string]bool
 		want  []bool
 	}{
-		{"no preferences", nil, []bool{true, false, true, false, false}},
-		{"explicit overrides", map[string]bool{graphOutgoing: false, graphOutgoingLogistics: true, graphIncoming: false, graphIncomingLogistics: true, graphIncomingEWar: true}, []bool{false, true, false, true, true}},
-		{"partial preferences", map[string]bool{graphIncomingEWar: true}, []bool{true, false, true, false, true}},
+		{"no preferences", nil, []bool{true, false, true, false, false, false}},
+		{"explicit overrides", map[string]bool{graphOutgoing: false, graphOutgoingLogistics: true, graphIncoming: false, graphIncomingLogistics: true, graphIncomingEWar: true, graphMining: true}, []bool{false, true, false, true, true, true}},
+		{"partial preferences", map[string]bool{graphIncomingEWar: true}, []bool{true, false, true, false, true, false}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			app := test.NewTempApp(t)
@@ -88,8 +88,8 @@ func TestOptionsStaysOpenForRepeatedVisibilityToggles(t *testing.T) {
 	// Keyboard activation stays on the toggled row and can toggle it repeatedly.
 	for _, want := range []bool{true, false, true} {
 		popup.TypedKey(&fyne.KeyEvent{Name: fyne.KeySpace})
-		assertGraphVisibility(t, ui, graphIncomingEWar, want)
-		assertLiveVisibilityCheckmark(t, popup.Items[7], want)
+		assertGraphVisibility(t, ui, graphMining, want)
+		assertLiveVisibilityCheckmark(t, popup.Items[8], want)
 		if !popup.Visible() {
 			t.Fatal("keyboard visibility toggle closed Options")
 		}

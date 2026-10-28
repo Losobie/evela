@@ -12,6 +12,7 @@ const (
 	graphIncoming             = "incoming"
 	graphIncomingLogistics    = "incoming-logistics"
 	graphIncomingEWar         = "incoming-ewar"
+	graphMining               = "mining"
 	graphVisibilityPreference = "graph.visible."
 )
 
@@ -21,6 +22,7 @@ var graphVisibilityOptions = []struct{ id, label string }{
 	{graphIncoming, "Incoming damage"},
 	{graphIncomingLogistics, "Incoming logistics"},
 	{graphIncomingEWar, "Incoming E-War"},
+	{graphMining, "Mining"},
 }
 
 func graphVisible(id string) bool {

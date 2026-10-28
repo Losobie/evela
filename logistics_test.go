@@ -232,7 +232,7 @@ func TestLogisticsSharedFiltersApplyAtEventTime(t *testing.T) {
 func TestLogisticsGraphsScrollLayoutHoverAndNavigation(t *testing.T) {
 	ui, start := newLogisticsTestUI(t)
 	cards := ui.graphsScroll.Content.(*fyne.Container).Objects
-	want := []string{"Outgoing damage", "Outgoing logistics", "Incoming damage", "Incoming logistics", "Incoming E-War"}
+	want := []string{"Outgoing damage", "Outgoing logistics", "Incoming damage", "Incoming logistics", "Incoming E-War", "Mining"}
 	if len(cards) != len(want) {
 		t.Fatal("incorrect graph count")
 	}
@@ -244,7 +244,7 @@ func TestLogisticsGraphsScrollLayoutHoverAndNavigation(t *testing.T) {
 	if ui.graphsScroll.Direction != container.ScrollVerticalOnly || ui.graphsScroll.Content.Size().Height <= ui.graphsScroll.Size().Height {
 		t.Fatal("graphs do not have vertical overflow/scrolling")
 	}
-	for _, chart := range []*damageChart{ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar} {
+	for _, chart := range []*damageChart{ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar, ui.mining} {
 		if chart.Size().Height < 175 {
 			t.Fatal("scrolling compressed plot height")
 		}
@@ -267,7 +267,7 @@ func TestLogisticsGraphsScrollLayoutHoverAndNavigation(t *testing.T) {
 		t.Fatal("wheel on panel did not scroll")
 	}
 	ui.graphsScroll.ScrollToBottom()
-	position := fyne.CurrentApp().Driver().AbsolutePositionForObject(ui.ewar)
+	position := fyne.CurrentApp().Driver().AbsolutePositionForObject(ui.mining)
 	bounds := fyne.CurrentApp().Driver().AbsolutePositionForObject(ui.graphsScroll)
 	if position.Y < bounds.Y || position.Y+ui.ewar.Size().Height > bounds.Y+ui.graphsScroll.Size().Height+1 {
 		t.Fatal("last graph cannot be reached")

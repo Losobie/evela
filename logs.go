@@ -53,6 +53,7 @@ type parsedLog struct {
 	Events          []logEvent
 	EWar            []ewarEvent
 	Logistics       []logisticsEvent
+	Mining          []miningEvent
 	SessionStarted  time.Time
 	LocationEvents  []logLocationEvent
 	Hash            [32]byte
@@ -112,6 +113,12 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		}
 		combat := message[:channelEnd+1] == "(combat)"
 		channel := message[:channelEnd+1]
+		if channel == "(mining)" || channel == "(notify)" {
+			if events := parseMining(strings.TrimSpace(message[channelEnd+1:]), channel, at.Unix()); len(events) > 0 {
+				result.Mining = append(result.Mining, events...)
+				continue
+			}
+		}
 		locationChannel := channel == "(notify)" || channel == "(None)" || channel == "(info)"
 		if !combat && !locationChannel && !strings.Contains(message, "invulnerable") {
 			continue
@@ -216,6 +223,7 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 	sort.SliceStable(result.Hits, func(i, j int) bool { return result.Hits[i].Second < result.Hits[j].Second })
 	sort.SliceStable(result.EWar, func(i, j int) bool { return result.EWar[i].Second < result.EWar[j].Second })
 	sort.SliceStable(result.Logistics, func(i, j int) bool { return result.Logistics[i].Second < result.Logistics[j].Second })
+	sort.SliceStable(result.Mining, func(i, j int) bool { return result.Mining[i].Second < result.Mining[j].Second })
 	for _, point := range sourceSeconds {
 		result.IncomingSources = append(result.IncomingSources, *point)
 	}
@@ -403,6 +411,15 @@ func (snapshot *logSnapshot) populateLogs() {
 			}
 		}
 		for _, event := range log.Logistics {
+			at := time.Unix(event.Second, 0).UTC()
+			if first.IsZero() || at.Before(first) {
+				first = at
+			}
+			if last.IsZero() || at.After(last) {
+				last = at
+			}
+		}
+		for _, event := range log.Mining {
 			at := time.Unix(event.Second, 0).UTC()
 			if first.IsZero() || at.Before(first) {
 				first = at

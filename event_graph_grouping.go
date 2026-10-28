@@ -18,12 +18,20 @@ const (
 
 var eventGroupingModes = []string{eventByType, eventByCharacter, eventByGroup, eventByShip, eventByClass}
 
+func eventGroupingOptions(id string) []string {
+	if id == graphMining {
+		return []string{eventByCharacter, eventByGroup}
+	}
+	return eventGroupingModes
+}
+
 func (ui *analyzerUI) initEventGraphGrouping() {
 	ui.eventGraphGroupings = map[string]string{}
-	for _, id := range []string{graphOutgoingLogistics, graphIncomingLogistics, graphIncomingEWar} {
-		mode := fyne.CurrentApp().Preferences().StringWithFallback("graph.grouping."+id, eventByType)
-		if !slices.Contains(eventGroupingModes, mode) {
-			mode = eventByType
+	for _, id := range []string{graphOutgoingLogistics, graphIncomingLogistics, graphIncomingEWar, graphMining} {
+		modes := eventGroupingOptions(id)
+		mode := fyne.CurrentApp().Preferences().StringWithFallback("graph.grouping."+id, modes[0])
+		if !slices.Contains(modes, mode) {
+			mode = modes[0]
 		}
 		ui.eventGraphGroupings[id] = mode
 	}
@@ -31,7 +39,7 @@ func (ui *analyzerUI) initEventGraphGrouping() {
 
 func (ui *analyzerUI) eventGroupingMenu(id string) *fyne.Menu {
 	menu := fyne.NewMenu("Group By")
-	for _, mode := range eventGroupingModes {
+	for _, mode := range eventGroupingOptions(id) {
 		grouping := mode
 		item := fyne.NewMenuItem(grouping, func() {
 			ui.eventGraphGroupings[id] = grouping

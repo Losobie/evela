@@ -249,6 +249,12 @@ func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
 		copyLog.Hits = nil
 		copyLog.EWar = nil
 		copyLog.Logistics = nil
+		copyLog.Mining = nil
+		for _, event := range log.Mining {
+			if matches(event.Second) {
+				copyLog.Mining = append(copyLog.Mining, event)
+			}
+		}
 		for _, event := range log.Logistics {
 			if matches(event.Second) {
 				copyLog.Logistics = append(copyLog.Logistics, event)
@@ -358,6 +364,11 @@ func (ui *analyzerUI) refreshDamageFilterOptions() {
 			}
 		}
 		for _, event := range log.Logistics {
+			if event.Second >= first && event.Second < end {
+				registerCharacter(event.Second)
+			}
+		}
+		for _, event := range log.Mining {
 			if event.Second >= first && event.Second < end {
 				registerCharacter(event.Second)
 			}

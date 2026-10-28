@@ -36,6 +36,10 @@ type analyzerUI struct {
 	ewarMetric                        *widget.Select
 	outgoingLogistics                 *damageChart
 	incomingLogistics                 *damageChart
+	mining                            *damageChart
+	miningFilters                     map[string]*damageFilterSelection
+	miningFilterOptions               map[string][]damageFilterOption
+	miningFilterButtons               map[string]*widget.Button
 	logisticsTypes                    map[string]*damageFilterSelection
 	logisticsTypeButtons              map[string]*widget.Button
 	eventGraphGroupings               map[string]string
@@ -170,7 +174,8 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.initDamageFilters()
 	ui.initEWar()
 	ui.initLogistics()
-	linkChartHovers(ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar)
+	ui.initMining()
+	linkChartHovers(ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar, ui.mining)
 	ui.initEventGraphGrouping()
 	ui.totals = widget.NewTable(
 		func() (int, int) { return len(ui.tableSeries) + 1, 7 },
@@ -265,7 +270,8 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 		ui.newGraphCard(graphOutgoingLogistics, "Outgoing logistics", container.NewBorder(ui.logisticsControls(graphOutgoingLogistics), nil, nil, nil, ui.graphPanContent(ui.outgoingLogistics))),
 		ui.newGraphCard(graphIncoming, "Incoming damage", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))),
 		ui.newGraphCard(graphIncomingLogistics, "Incoming logistics", container.NewBorder(ui.logisticsControls(graphIncomingLogistics), nil, nil, nil, ui.graphPanContent(ui.incomingLogistics))),
-		ui.newGraphCard(graphIncomingEWar, "Incoming E-War", container.NewBorder(ui.ewarControls(), nil, nil, nil, ui.graphPanContent(ui.ewar))))
+		ui.newGraphCard(graphIncomingEWar, "Incoming E-War", container.NewBorder(ui.ewarControls(), nil, nil, nil, ui.graphPanContent(ui.ewar))),
+		ui.newGraphCard(graphMining, "Mining", container.NewBorder(ui.miningControls(), nil, nil, nil, ui.graphPanContent(ui.mining))))
 	ui.graphsScroll = container.NewVScroll(ui.graphStack)
 	ui.graphsEmpty = newGraphsEmptyState()
 	ui.applyGraphVisibility()
@@ -374,9 +380,9 @@ func (ui *analyzerUI) watch() {
 					status += " No .txt game logs found in the configured folders."
 				}
 			} else if snapshot.Last.IsZero() {
-				status += " No supported English combat messages found."
+				status += " No supported English combat or mining messages found."
 			} else {
-				status += " Latest combat: " + snapshot.Last.Format("2006-01-02 15:04:05") + " EVE time."
+				status += " Latest activity: " + snapshot.Last.Format("2006-01-02 15:04:05") + " EVE time."
 			}
 			status += snapshot.warningDetails()
 			ui.status.SetText(status)
@@ -524,6 +530,7 @@ func (ui *analyzerUI) renderSelection() {
 	ui.ewar.setData(ui.incomingEWarPlot(selected))
 	ui.outgoingLogistics.setData(ui.logisticsPlot(selected, false))
 	ui.incomingLogistics.setData(ui.logisticsPlot(selected, true))
+	ui.mining.setData(ui.miningPlot(selected))
 	ui.sortDamageTotals()
 	ui.totals.Refresh()
 	var ewarCount int
@@ -544,6 +551,11 @@ func (ui *analyzerUI) renderSelection() {
 				contributing[log.Character] = true
 			}
 		}
+		for _, event := range log.Mining {
+			if event.Second >= ui.view.Start.Unix() && event.Second < ui.view.End.Unix() {
+				contributing[log.Character] = true
+			}
+		}
 	}
 	summary := fmt.Sprintf("%d selected   |   Outgoing %s damage / %d hits   |   Incoming %s damage / %d hits", len(contributing), shortNumber(outgoing), hitsOut, shortNumber(incoming), hitsIn)
 	if ewarCount > 0 {
@@ -553,5 +565,6 @@ func (ui *analyzerUI) renderSelection() {
 	ui.updateGraphFormatLabel()
 	ui.refreshDamageFilterControls()
 	ui.refreshLogisticsTypeControls()
+	ui.refreshMiningControls()
 	ui.refreshEvents()
 }
