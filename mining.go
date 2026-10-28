@@ -180,11 +180,11 @@ func (ui *analyzerUI) refreshMiningControls() {
 }
 
 func (ui *analyzerUI) miningPlot(selected map[string]bool) plotData {
-	data := plotData{Start: ui.view.Start, End: ui.view.End, Bucket: ui.view.Bucket, RateUnit: "units/s", HitUnit: "units", IndividualHits: !ui.graphAverage10s,
+	data := plotData{Start: ui.view.Start, End: ui.view.End, Bucket: ui.view.Bucket, RateUnit: "units/s", HitUnit: "units", IndividualHits: ui.graphAverageWindow == 0,
 		EmptyText: "No mining records for the selected ores, message types and characters"}
 	window := int64(1)
-	if ui.graphAverage10s {
-		data.AverageWindow, window = dpsAverageWindow, int64(dpsAverageWindow/time.Second)
+	if ui.graphAverageWindow > 0 {
+		data.AverageWindow, window = ui.graphAverageWindow, int64(ui.graphAverageWindow/time.Second)
 	}
 	if !data.End.After(data.Start) || data.Bucket < time.Second {
 		return data
@@ -192,6 +192,7 @@ func (ui *analyzerUI) miningPlot(selected map[string]bool) plotData {
 	first, end, bucket := data.Start.Unix(), data.End.Unix(), int64(data.Bucket/time.Second)
 	n := int(math.Ceil(data.End.Sub(data.Start).Seconds() / data.Bucket.Seconds()))
 	groups := map[string]*plotSeries{}
+	ships := ui.shipHistory.indexByName()
 	for _, log := range ui.analysisSnapshot().Logs {
 		if !selected[log.Character] {
 			continue
@@ -204,10 +205,7 @@ func (ui *analyzerUI) miningPlot(selected map[string]bool) plotData {
 			if left >= right {
 				continue
 			}
-			names := []string{log.Character}
-			if ui.eventGraphGroupings[graphMining] == eventByGroup {
-				names = ui.hitCharacterGroups(log.Character, "")
-			}
+			names := ui.eventGroupingNames(graphMining, log.Character, oreType(event.Ore), event.Second, ships)
 			for _, name := range names {
 				label := name + " · " + event.Kind
 				series := groups[label]

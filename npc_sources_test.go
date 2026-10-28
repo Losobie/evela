@@ -103,7 +103,7 @@ func newNPCFilterUI(t *testing.T) (*analyzerUI, time.Time) {
 		t.Fatal(err)
 	}
 	ui.snapshot = &logSnapshot{Characters: []string{"Pilot A"}, Logs: []*parsedLog{log}, First: start.Add(-time.Second), Last: start.Add(time.Second)}
-	ui.graphAverage10s = false
+	ui.graphAverageWindow = 0
 	ui.applyGraphRange(start, start.Add(2*time.Second))
 	return ui, start
 }
@@ -143,7 +143,7 @@ func TestNPCFiltersIntersectWithoutChangingOutgoingDamage(t *testing.T) {
 	ui.setAllDamageFilterOptions(filterNPCTypes, true)
 	ui.setAllDamageFilterOptions(filterNPCNames, false)
 	ui.setDamageFilterOption(filterNPCNames, "npc-name:amarr sentry gun", true)
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.rebuildView()
 	if got := ui.incoming.data.Series[0].Values[0]; got != 14 {
 		t.Fatalf("average lost pre-range selected NPC damage: %f", got)
@@ -257,7 +257,7 @@ func TestLocalNPCSources(t *testing.T) {
 	for _, mode := range incomingGroupingModes[2:] {
 		var damage float64
 		var hits int
-		groups := view.incomingSourceSeries(snapshot, selected, mode, false)
+		groups := view.incomingSourceSeries(snapshot, selected, mode, 0)
 		for _, series := range groups {
 			damage += series.TotalIncoming
 			hits += series.IncomingHits

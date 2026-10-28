@@ -112,7 +112,7 @@ func TestDamageFiltersIntersectAtEventTimeAcrossGraphsAndTotals(t *testing.T) {
 		t.Fatal("filter categories did not intersect consistently in totals and summary")
 	}
 	ui.graphInvulnerabilityMarkers = true
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.renderSelection()
 	if len(ui.outgoing.data.Markers) != 1 || ui.outgoing.data.Markers[0].Label != "First target" || ui.outgoing.data.Series[0].Values[60] != 0 {
 		t.Fatal("markers or averaged damage leaked through the ship filter")

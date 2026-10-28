@@ -39,11 +39,11 @@ func (ui *analyzerUI) incomingGroupingMenu() *fyne.Menu {
 
 func (ui *analyzerUI) incomingGraphSeries(selected map[string]bool) []characterSeries {
 	if ui.incomingGrouping != incomingByCharacter && ui.incomingGrouping != incomingByCharacterGroup {
-		return ui.view.incomingSourceSeries(ui.analysisSnapshot(), selected, ui.incomingGrouping, ui.graphAverage10s)
+		return ui.view.incomingSourceSeries(ui.analysisSnapshot(), selected, ui.incomingGrouping, ui.graphAverageWindow)
 	}
 	series := ui.view.activeSeries()
-	if ui.graphAverage10s {
-		series = ui.view.tenSecondAverage(ui.analysisSnapshot())
+	if ui.graphAverageWindow > 0 {
+		series = ui.view.rollingAverage(ui.analysisSnapshot(), ui.graphAverageWindow)
 	}
 	if ui.incomingGrouping == incomingByCharacterGroup {
 		return ui.groupCharacterSeriesFor(series, selected, "")
@@ -80,7 +80,7 @@ func incomingSourceGroup(source damageSource, mode string) damageFilterOption {
 
 // Source attribution precedes bucketing and averaging. Every source contributes
 // to one group, including sources without enough information for the chosen mode.
-func (view damageView) incomingSourceSeries(snapshot *logSnapshot, selected map[string]bool, mode string, average bool) []characterSeries {
+func (view damageView) incomingSourceSeries(snapshot *logSnapshot, selected map[string]bool, mode string, averageWindow time.Duration) []characterSeries {
 	if view.Bucket < time.Second || !view.End.After(view.Start) {
 		return nil
 	}
@@ -98,8 +98,8 @@ func (view damageView) incomingSourceSeries(snapshot *logSnapshot, selected map[
 	bucket := int64(view.Bucket / time.Second)
 	n := int(math.Ceil(view.End.Sub(view.Start).Seconds() / view.Bucket.Seconds()))
 	window := int64(1)
-	if average {
-		window = int64(dpsAverageWindow / time.Second)
+	if averageWindow >= time.Second {
+		window = int64(averageWindow / time.Second)
 	}
 	add := func(character string, source damageSource, point incomingSourcePoint) {
 		left, right := max(first, point.Second), min(end, point.Second+window)

@@ -85,7 +85,7 @@ type analyzerUI struct {
 	logDirectory                      string
 	logLookbackDays                   int
 	logLoadingDialog                  *dialog.CustomDialog
-	graphAverage10s                   bool
+	graphAverageWindow                time.Duration
 	graphInvulnerabilityMarkers       bool
 	graphFormatLabel                  *widget.Label
 	graphFormatButton                 *widget.Button
@@ -472,8 +472,8 @@ func (ui *analyzerUI) selectRangeCharacters(selected bool) {
 
 func (ui *analyzerUI) renderSelection() {
 	in := plotData{Start: ui.view.Start, End: ui.view.End, Bucket: ui.view.Bucket}
-	if ui.graphAverage10s {
-		in.AverageWindow = dpsAverageWindow
+	if ui.graphAverageWindow > 0 {
+		in.AverageWindow = ui.graphAverageWindow
 	}
 	out := in
 	selected := ui.filteredCharacterSelection()
@@ -502,12 +502,12 @@ func (ui *analyzerUI) renderSelection() {
 	}
 	ui.tableSeries = append([]characterSeries(nil), filtered...)
 	graphSeries := active
-	if ui.graphAverage10s && !ui.shipGrouping() {
-		graphSeries = ui.view.tenSecondAverage(ui.analysisSnapshot())
+	if ui.graphAverageWindow > 0 && !ui.shipGrouping() {
+		graphSeries = ui.view.rollingAverage(ui.analysisSnapshot(), ui.graphAverageWindow)
 	}
 	if ui.shipGrouping() {
-		ui.tableSeries = ui.groupedShipSeries(selected, false)
-		graphSeries = ui.groupedShipSeries(ui.selected, ui.graphAverage10s)
+		ui.tableSeries = ui.groupedShipSeries(selected, 0)
+		graphSeries = ui.groupedShipSeries(ui.selected, ui.graphAverageWindow)
 	} else if ui.characterGroupGrouping() {
 		ui.tableSeries = ui.groupCustomCharacterSeries(active, selected)
 		graphSeries = ui.groupCustomCharacterSeries(graphSeries, selected)
@@ -522,7 +522,7 @@ func (ui *analyzerUI) renderSelection() {
 	for _, series := range ui.incomingGraphSeries(selected) {
 		in.Series = append(in.Series, plotSeries{Name: series.Name, Color: characterColor(series.Name), Values: series.Incoming, MemberCount: len(series.Members), MemberCounts: series.MemberCounts})
 	}
-	if !ui.graphAverage10s {
+	if ui.graphAverageWindow == 0 {
 		ui.attachIndividualHits(&in, &out, selected)
 	}
 	ui.incoming.setData(in)

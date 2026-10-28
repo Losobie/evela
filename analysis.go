@@ -21,6 +21,7 @@ type damageView struct {
 	Bucket        time.Duration
 	Series        []characterSeries
 	averageSeries []characterSeries
+	averageWindow time.Duration
 }
 
 // Keep the archive roster in Series, but expose only characters with actual

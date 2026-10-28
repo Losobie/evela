@@ -91,7 +91,7 @@ func newMiningTestUI(t *testing.T) *analyzerUI {
 	}
 	ui.snapshot = &logSnapshot{SourceFiles: map[string]cachedLog{"mining.txt": {Log: log}}}
 	ui.snapshot.populateLogs()
-	ui.graphAverage10s = false
+	ui.graphAverageWindow = 0
 	ui.rangeSelect.SetSelected("All history")
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
@@ -152,7 +152,7 @@ func TestMiningGraphFiltersGroupsPersistenceAndVisibility(t *testing.T) {
 	ui.characterGroups = []characterGroup{{ID: "fleet", Name: "Mining fleet", Members: []string{"Miner"}}, {ID: "other", Name: "Other fleet", Members: []string{"Miner"}}}
 	before := ui.outgoing.data
 	chooseGraphMenuItem(t, ui.eventGroupingMenu(graphMining), eventByGroup)
-	if len(ui.eventGroupingMenu(graphMining).Items) != 2 || len(ui.mining.data.Series) != 2 || !reflect.DeepEqual(before, ui.outgoing.data) {
+	if len(ui.eventGroupingMenu(graphMining).Items) != 4 || len(ui.mining.data.Series) != 2 || !reflect.DeepEqual(before, ui.outgoing.data) {
 		t.Fatal("grouping did not stay independent or lost overlapping memberships")
 	}
 	ui.setDamageFilterOption(filterCharacterGroup, "group:other", false)
@@ -201,7 +201,7 @@ func TestMiningAverageLookbackAndPartialBuckets(t *testing.T) {
 	start := ui.snapshot.First
 	ui.miningFilters[filterMiningMessage].Default = false
 	ui.miningFilters[filterMiningMessage].set(miningMined, true)
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.applyGraphRange(start.Add(time.Second), start.Add(13*time.Second))
 	ui.bucketSelect.SetSelected("5 seconds")
 	series := findLogisticsSeries(t, ui.mining, "Miner · Ore mined")
@@ -214,5 +214,61 @@ func TestMiningAverageLookbackAndPartialBuckets(t *testing.T) {
 	}
 	if len(series.Hits) != 2 || ui.mining.data.AverageWindow != 10*time.Second {
 		t.Fatal("lookback event appeared as an in-range raw hit")
+	}
+}
+
+func TestMiningGroupsByHistoricalShipAndOreType(t *testing.T) {
+	ui := newMiningTestUI(t)
+	start := ui.snapshot.First
+	ui.shipHistory = shipHistory{1: {
+		{CharacterID: 1, CharacterName: "Miner", TypeID: 1, TypeName: "Hulk", FirstSeen: start, LastSeen: start.Add(time.Second)},
+		{CharacterID: 1, CharacterName: "Miner", TypeID: 2, TypeName: "Mackinaw", FirstSeen: start.Add(2 * time.Second), LastSeen: ui.snapshot.Last},
+	}}
+	other := &parsedLog{Character: "Other miner", Mining: []miningEvent{{Second: start.Unix(), Ore: "Xenotime", Kind: miningMined, Amount: 50}}}
+	ui.snapshot.Logs = append(ui.snapshot.Logs, other)
+	ui.snapshot.Characters = append(ui.snapshot.Characters, other.Character)
+	ui.rebuildView()
+	before := ui.outgoing.data
+	chooseGraphMenuItem(t, ui.eventGroupingMenu(graphMining), eventByShip)
+	if !reflect.DeepEqual(before, ui.outgoing.data) {
+		t.Fatal("mining ship grouping changed another graph")
+	}
+	if hits := findLogisticsSeries(t, ui.mining, "Hulk · Ore mined").Hits; len(hits) != 2 || hits[0].Damage != 154 || hits[1].Damage != 100 {
+		t.Fatal("mining did not use the ship at the event timestamp")
+	}
+	if hits := findLogisticsSeries(t, ui.mining, "Mackinaw · Ore mined").Hits; len(hits) != 1 || hits[0].Damage != 276 {
+		t.Fatal("mining ship change lost")
+	}
+	if findLogisticsSeries(t, ui.mining, "Unknown ship · Ore mined").Hits[0].Character != other.Character {
+		t.Fatal("mining without ship history did not stay unknown")
+	}
+	// The old hull retains the tail when averaging extends beyond a ship change.
+	chooseGraphMenuItem(t, ui.graphOptionsMenu(), "30-second DPS average")
+	if got := findLogisticsSeries(t, ui.mining, "Hulk · Ore mined").Values[3]; math.Abs(got-254.0/30) > 1e-9 {
+		t.Fatalf("mining tail moved to the new hull: %v", got)
+	}
+	before = ui.outgoing.data
+	chooseGraphMenuItem(t, ui.eventGroupingMenu(graphMining), eventByOreType)
+	moon := findLogisticsSeries(t, ui.mining, "Exceptional Moon Ore · Ore mined")
+	if len(moon.Hits) != 3 || math.Abs(moon.Values[3]-304.0/30) > 1e-9 {
+		t.Fatal("ore type did not combine grades and characters")
+	}
+	if findLogisticsSeries(t, ui.mining, "Gneiss · Ore mined").Hits[0].Damage != 276 || findLogisticsSeries(t, ui.mining, "Exceptional Moon Ore · Compressed").Hits[0].Damage != 308 {
+		t.Fatal("ore type mixed message kinds or ore families")
+	}
+	if !reflect.DeepEqual(before, ui.outgoing.data) {
+		t.Fatal("mining grouping changed another graph")
+	}
+	window := fyne.CurrentApp().NewWindow("Restored ore grouping")
+	defer window.Close()
+	if restored := newAnalyzerUI(window); restored.eventGraphGroupings[graphMining] != eventByOreType {
+		t.Fatal("ore type grouping not saved")
+	}
+	ui.miningFilters[filterOreType].set("Exceptional Moon Ore", false)
+	ui.saveMiningFilters()
+	for _, series := range ui.mining.data.Series {
+		if strings.HasPrefix(series.Name, "Exceptional Moon Ore") {
+			t.Fatal("ore grouping ignored the type filter")
+		}
 	}
 }

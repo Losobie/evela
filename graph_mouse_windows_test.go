@@ -100,7 +100,7 @@ func TestGraphMouseBackForwardSharesShortcutHistory(t *testing.T) {
 	first := graphHistoryState(ui)
 	dragGraphFraction(ui.incoming, .1, .6)
 	second := graphHistoryState(ui)
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.renderSelection()
 	send(wmGraphXButtonDown, 1<<16, 0)
 	assertGraphHistoryState(t, ui, second, 30)
@@ -112,7 +112,7 @@ func TestGraphMouseBackForwardSharesShortcutHistory(t *testing.T) {
 	assertGraphHistoryState(t, ui, first, 90)
 	sendGraphShortcut(ui, &fyne.ShortcutRedo{})
 	assertGraphHistoryState(t, ui, second, 30)
-	if len(ui.graphUndo) != 2 || len(ui.graphRedo) != 0 || !ui.graphAverage10s {
+	if len(ui.graphUndo) != 2 || len(ui.graphRedo) != 0 || ui.graphAverageWindow == 0 {
 		t.Fatal("mouse navigation duplicated history or changed graph formatting")
 	}
 	ui.window.Canvas().Focus(ui.start)

@@ -178,7 +178,7 @@ func TestStructureMarkersOutgoingRenderingSelectionAndFormats(t *testing.T) {
 	red := color.RGBA{255, 70, 70, 255}
 	for _, grouping := range []string{"Characters", "Ship history", "Ship class history"} {
 		ui.groupSelect.SetSelected(grouping)
-		ui.graphAverage10s = true
+		ui.graphAverageWindow = dpsAverageWindow
 		ui.renderSelection()
 		if len(ui.outgoing.data.Markers) != 1 || len(ui.incoming.data.Markers) != 0 {
 			t.Fatal("duplicate pilots produced multiple markers or marked the incoming graph")

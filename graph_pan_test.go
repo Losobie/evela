@@ -30,7 +30,7 @@ func graphPanButtons(root fyne.CanvasObject) []*graphPanButton {
 func TestGraphPanButtonsSynchronizeAndShareUndoHistory(t *testing.T) {
 	ui, _ := newGraphHistoryTestUI(t)
 	initial := graphHistoryState(ui)
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.renderSelection()
 	buttons := graphPanButtons(ui.tabs.Items[0].Content)
 	if len(buttons) != 2*len(graphVisibilityOptions) {
@@ -73,7 +73,7 @@ func TestGraphPanButtonsSynchronizeAndShareUndoHistory(t *testing.T) {
 	assertGraphHistoryState(t, ui, returned, 1180)
 	sendGraphShortcut(ui, &fyne.ShortcutRedo{})
 	assertGraphHistoryState(t, ui, zoom, 30)
-	if !ui.graphAverage10s || ui.incoming.data.AverageWindow != 10*time.Second {
+	if ui.graphAverageWindow == 0 || ui.incoming.data.AverageWindow != 10*time.Second {
 		t.Fatal("panning or undo changed graph formatting")
 	}
 	ui.updateRange()

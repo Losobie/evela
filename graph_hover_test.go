@@ -160,7 +160,7 @@ func TestGraphHoverSurvivesFiltersResizeVisibilityAndWheelZoom(t *testing.T) {
 	// Enabling capacitor adds a second axis and changes the time under this
 	// stationary pointer. All graphs must adopt that new time together.
 	ui.logisticsTypes[graphOutgoingLogistics].set("Capacitor transfer", true)
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.renderSelection()
 	width := chart.Size().Width - chartPlotLeft - chart.plotRight()
 	at := chart.data.Start.Add(time.Duration(200 / float64(width) * float64(chart.data.End.Sub(chart.data.Start))))

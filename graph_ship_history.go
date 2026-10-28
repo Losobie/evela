@@ -9,7 +9,7 @@ import (
 
 // Attribute each hit before bucketing or averaging. A character may change hull
 // inside a bucket; averaging must keep a hit with its original ship as it tails off.
-func (view damageView) historicalShipSeries(snapshot *logSnapshot, history shipHistory, selected map[string]bool, byClass, average bool) []characterSeries {
+func (view damageView) historicalShipSeries(snapshot *logSnapshot, history shipHistory, selected map[string]bool, byClass bool, averageWindow time.Duration) []characterSeries {
 	if view.Bucket < time.Second || !view.End.After(view.Start) {
 		return nil
 	}
@@ -36,8 +36,8 @@ func (view damageView) historicalShipSeries(snapshot *logSnapshot, history shipH
 	bucket := int64(view.Bucket / time.Second)
 	n := int(math.Ceil(view.End.Sub(view.Start).Seconds() / view.Bucket.Seconds()))
 	window := int64(1)
-	if average {
-		window = int64(dpsAverageWindow / time.Second)
+	if averageWindow >= time.Second {
+		window = int64(averageWindow / time.Second)
 	}
 	for _, log := range snapshot.Logs {
 		if !active[log.Character] {

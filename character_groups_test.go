@@ -344,7 +344,7 @@ func TestCharacterGroupGroupingFilteringPersistenceAndDeletion(t *testing.T) {
 		t.Fatalf("legend could not filter by group name: %v", got)
 	}
 	ui.characterSearch.SetText("")
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.renderSelection()
 	if ui.outgoing.data.Series[0].Values[0] != 3 || math.Abs(ui.incoming.data.Series[0].Values[0]-.1) > 1e-10 || ui.tableSeries[0].TotalOutgoing != 30 {
 		t.Fatal("group averaging changed raw totals or combined rolling DPS incorrectly")

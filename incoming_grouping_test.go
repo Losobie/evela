@@ -50,7 +50,7 @@ func newIncomingGroupingTestUI(t *testing.T) (*analyzerUI, time.Time) {
 		}
 		ui.snapshot.Logs = append(ui.snapshot.Logs, log)
 	}
-	ui.graphAverage10s = false
+	ui.graphAverageWindow = 0
 	ui.applyGraphRange(start, start.Add(2*time.Second))
 	return ui, start
 }
@@ -151,8 +151,8 @@ func TestIncomingGroupingMenusAndPreferences(t *testing.T) {
 	if !reflect.DeepEqual(labels, []string{"Character", "Character Group", "Attacker", "Ship", "NPC", "NPC Type"}) {
 		t.Fatalf("incoming choices: %v", labels)
 	}
-	if len(ui.graphOptionsMenu().Items) != 3+len(graphVisibilityOptions) {
-		t.Fatal("Options must contain the two format toggles, a separator and every graph visibility toggle")
+	if len(ui.graphOptionsMenu().Items) != 4+len(graphVisibilityOptions) {
+		t.Fatal("Options must contain the three format toggles, a separator and every graph visibility toggle")
 	}
 	chooseGraphMenuItem(t, ui.incomingGroupingMenu(), incomingByNPC)
 	chooseGraphMenuItem(t, ui.graphFormatMenu(), "Ship class (ship history)")
@@ -176,7 +176,7 @@ func TestIncomingGroupingMenusAndPreferences(t *testing.T) {
 	window := fyne.CurrentApp().NewWindow("Restored independent grouping")
 	defer window.Close()
 	restored := newAnalyzerUI(window)
-	if restored.incomingGrouping != incomingByNPC || !restored.shipClassGrouping() || !restored.graphAverage10s || !restored.graphInvulnerabilityMarkers {
+	if restored.incomingGrouping != incomingByNPC || !restored.shipClassGrouping() || restored.graphAverageWindow == 0 || !restored.graphInvulnerabilityMarkers {
 		t.Fatal("independent grouping/options did not persist")
 	}
 	for _, item := range restored.incomingGroupingMenu().Items {

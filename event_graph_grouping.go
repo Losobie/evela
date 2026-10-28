@@ -14,13 +14,14 @@ const (
 	eventByGroup     = "Character Group"
 	eventByShip      = "Ship type (ship history)"
 	eventByClass     = "Ship class (ship history)"
+	eventByOreType   = "Ore Type"
 )
 
 var eventGroupingModes = []string{eventByType, eventByCharacter, eventByGroup, eventByShip, eventByClass}
 
 func eventGroupingOptions(id string) []string {
 	if id == graphMining {
-		return []string{eventByCharacter, eventByGroup}
+		return []string{eventByCharacter, eventByGroup, eventByShip, eventByOreType}
 	}
 	return eventGroupingModes
 }

@@ -98,7 +98,7 @@ func newLogisticsTestUI(t *testing.T) (*analyzerUI, time.Time) {
 	ui.snapshot = &logSnapshot{Characters: []string{"Logi", "Logistics only"}, Logs: []*parsedLog{log,
 		{Character: "Logistics only", Logistics: []logisticsEvent{{Second: start.Unix(), Kind: "Shield repair", Amount: 10}}},
 	}, First: start.Add(-time.Second), Last: start.Add(7 * time.Second)}
-	ui.graphAverage10s = false
+	ui.graphAverageWindow = 0
 	ui.applyGraphRange(start, start.Add(8*time.Second))
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
@@ -144,7 +144,7 @@ func TestLogisticsPlotsKeepDirectionsUnitsAndAveragesSeparate(t *testing.T) {
 	if findLogisticsSeries(t, ui.incomingLogistics, "Capacitor transfer").Hits[0].Damage != 291 {
 		t.Fatal("incoming capacitor direction wrong")
 	}
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	selectLogisticsTestTypes(ui, graphOutgoingLogistics, "Shield repair", "Armor repair")
 	if findLogisticsSeries(t, ui.outgoingLogistics, "Armor repair").Values[0] != 15 || ui.outgoingLogistics.data.RateUnit != "HP/s" {
 		t.Fatal("armor average lost lookback or units")
@@ -200,7 +200,7 @@ func TestLogisticsSharedFiltersApplyAtEventTime(t *testing.T) {
 		{CharacterID: 1, CharacterName: "Pilot A", SystemID: 30000142, SystemName: "Jita", FirstSeen: start, LastSeen: start.Add(5 * time.Second)},
 		{CharacterID: 1, CharacterName: "Pilot A", SystemID: 30002187, SystemName: "Amarr", FirstSeen: start.Add(time.Minute), LastSeen: start.Add(65 * time.Second)},
 	}, 2: {{CharacterID: 2, CharacterName: "Pilot B", SystemID: 30000142, SystemName: "Jita", FirstSeen: start, LastSeen: start.Add(30 * time.Second)}}}
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.rebuildView()
 	ui.setAllDamageFilterOptions(filterSystem, false)
 	ui.setDamageFilterOption(filterSystem, "system:30000142", true)
@@ -253,7 +253,7 @@ func TestLogisticsGraphsScrollLayoutHoverAndNavigation(t *testing.T) {
 	if text := ui.outgoingLogistics.hoverReadings[0].Text; !strings.Contains(text, "50 HP") || !strings.Contains(text, "Logi") || !strings.Contains(text, "remote armor repaired") || strings.Contains(text, "damage") {
 		t.Fatalf("raw logistics hover: %q", text)
 	}
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.renderSelection()
 	ui.outgoingLogistics.MouseMoved(testMouseEvent(chartPlotLeft, 60, 0))
 	if text := ui.outgoingLogistics.hoverReadings[0].Text; !strings.Contains(text, "15.0 HP/s (10s avg)") || strings.Contains(text, "DPS") {

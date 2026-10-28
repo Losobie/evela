@@ -154,7 +154,7 @@ func TestMixedLogisticsAxesAndHoverKeepHPAndGJSeparate(t *testing.T) {
 	if text := ui.outgoingLogistics.hoverReadings[0].Text; !strings.Contains(text, "311 GJ") || strings.Contains(text, "311 HP") {
 		t.Fatalf("mixed hover units: %q", text)
 	}
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.renderSelection()
 	if got := findLogisticsSeries(t, ui.outgoingLogistics, "Capacitor transfer").Values[2]; math.Abs(got-31.1) > 1e-10 {
 		t.Fatal("Type All changed capacitor averages")

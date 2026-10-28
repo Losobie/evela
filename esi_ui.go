@@ -312,8 +312,8 @@ func (ui *analyzerUI) shipClassGrouping() bool {
 	return ui.groupSelect != nil && ui.groupSelect.Selected == "Ship class history"
 }
 
-func (ui *analyzerUI) groupedShipSeries(selected map[string]bool, average bool) []characterSeries {
-	return ui.view.historicalShipSeries(ui.analysisSnapshot(), ui.shipHistory, selected, ui.shipClassGrouping(), average)
+func (ui *analyzerUI) groupedShipSeries(selected map[string]bool, averageWindow time.Duration) []characterSeries {
+	return ui.view.historicalShipSeries(ui.analysisSnapshot(), ui.shipHistory, selected, ui.shipClassGrouping(), averageWindow)
 }
 
 func (ui *analyzerUI) characterRow(name, group, shipNames string) fyne.CanvasObject {
@@ -339,12 +339,12 @@ func (ui *analyzerUI) groupedCharacterList(query string) []fyne.CanvasObject {
 	var groups []characterSeries
 	if ui.characterGroupGrouping() {
 		series := ui.view.activeSeries()
-		if ui.graphAverage10s {
-			series = ui.view.tenSecondAverage(ui.analysisSnapshot())
+		if ui.graphAverageWindow > 0 {
+			series = ui.view.rollingAverage(ui.analysisSnapshot(), ui.graphAverageWindow)
 		}
 		groups = ui.groupCustomCharacterSeries(series, nil)
 	} else {
-		groups = ui.groupedShipSeries(nil, ui.graphAverage10s)
+		groups = ui.groupedShipSeries(nil, ui.graphAverageWindow)
 	}
 	for _, group := range groups {
 		var names []string

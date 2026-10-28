@@ -26,7 +26,7 @@ func TestTenSecondAverageLookbackAndBucketWidths(t *testing.T) {
 	wantIn := []float64{3, 2, 2, 2, 2, 2, 2, 2, 6, 6, 4, 4, 4, 4, 4, 4, 14}
 	for _, bucket := range []time.Duration{time.Second, 3 * time.Second, 10 * time.Second, time.Minute} {
 		view := buildView(snapshot, start, start.Add(17*time.Second), bucket)
-		averaged := view.tenSecondAverage(snapshot)
+		averaged := view.rollingAverage(snapshot, dpsAverageWindow)
 		if len(averaged) != 1 || averaged[0].Name != "A" {
 			t.Fatal("averaging added a character without damage in the selected window")
 		}
@@ -58,7 +58,7 @@ func TestTenSecondAverageIncludesIdleSecondsAndShortRanges(t *testing.T) {
 	start := time.Date(2026, 10, 17, 2, 0, 0, 0, time.UTC)
 	snapshot := &logSnapshot{Characters: []string{"A"}, Logs: []*parsedLog{{Character: "A", Points: []damagePoint{{Second: start.Unix(), Outgoing: 100}}}}}
 	view := buildView(snapshot, start, start.Add(20*time.Second), time.Second)
-	for bin, value := range view.tenSecondAverage(snapshot)[0].Outgoing {
+	for bin, value := range view.rollingAverage(snapshot, dpsAverageWindow)[0].Outgoing {
 		want := float64(0)
 		if bin < 10 {
 			want = 10
@@ -68,11 +68,11 @@ func TestTenSecondAverageIncludesIdleSecondsAndShortRanges(t *testing.T) {
 		}
 	}
 	view = buildView(snapshot, start, start.Add(time.Second), time.Second)
-	if got := view.tenSecondAverage(snapshot)[0].Outgoing[0]; got != 10 {
+	if got := view.rollingAverage(snapshot, dpsAverageWindow)[0].Outgoing[0]; got != 10 {
 		t.Fatalf("short range changed the ten-second denominator: %v", got)
 	}
 	view = buildView(snapshot, start.Add(time.Hour), start.Add(time.Hour+time.Second), time.Second)
-	if len(view.tenSecondAverage(snapshot)) != 0 {
+	if len(view.rollingAverage(snapshot, dpsAverageWindow)) != 0 {
 		t.Fatal("empty range acquired an averaged series")
 	}
 }

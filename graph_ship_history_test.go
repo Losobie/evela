@@ -85,24 +85,24 @@ func TestHistoricalShipEventsSplitWithinBucketsAndAverages(t *testing.T) {
 		}
 		return result
 	}
-	groups := byName(view.historicalShipSeries(snapshot, history, nil, false, false))
+	groups := byName(view.historicalShipSeries(snapshot, history, nil, false, 0))
 	if len(groups) != 3 || groups["Thrasher"].TotalOutgoing != 60 || groups["Caracal"].TotalOutgoing != 170 || groups["Cormorant"].TotalOutgoing != 20 {
 		t.Fatalf("events were not assigned to their historical hulls: %+v", groups)
 	}
 	if !reflect.DeepEqual(groups["Caracal"].Outgoing, []float64{8, 32.5}) || !reflect.DeepEqual(groups["Thrasher"].Outgoing, []float64{12, 0}) || groups["Caracal"].OutgoingHits != 3 {
 		t.Fatal("intra-bucket ship changes, partial bucket rates or unknown hits are incorrect")
 	}
-	classes := byName(view.historicalShipSeries(snapshot, history, nil, true, false))
+	classes := byName(view.historicalShipSeries(snapshot, history, nil, true, 0))
 	if len(classes) != 2 || classes["Destroyer"].TotalOutgoing != 80 || !reflect.DeepEqual(classes["Destroyer"].MemberCounts, []int{2, 0}) || !reflect.DeepEqual(classes["Cruiser"].MemberCounts, []int{1, 1}) {
 		t.Fatal("class grouping did not merge hulls or preserve bucket membership")
 	}
-	selected := byName(view.historicalShipSeries(snapshot, history, map[string]bool{"A": true}, true, false))
+	selected := byName(view.historicalShipSeries(snapshot, history, map[string]bool{"A": true}, true, 0))
 	if selected["Destroyer"].TotalOutgoing != 60 || len(selected["Destroyer"].Members) != 1 || selected["Destroyer"].MemberCounts[0] != 1 {
 		t.Fatal("historical class groups ignored character selection")
 	}
 	// Compare coarse historical rolling averages with the mean of one-second
 	// historical rates. A's old hull must retain its pre-range damage tail.
-	averages := byName(view.historicalShipSeries(snapshot, history, nil, false, true))
+	averages := byName(view.historicalShipSeries(snapshot, history, nil, false, dpsAverageWindow))
 	if math.Abs(averages["Thrasher"].Outgoing[0]-13.4) > 1e-10 || averages["Thrasher"].Outgoing[1] != 16 || averages["Caracal"].Outgoing[0] != .8 || averages["Caracal"].Outgoing[1] != 11 {
 		t.Fatalf("rolling damage moved to the new hull or used the wrong denominator: %+v", averages)
 	}
@@ -111,7 +111,7 @@ func TestHistoricalShipEventsSplitWithinBucketsAndAverages(t *testing.T) {
 	}
 	// Duplicate names with different IDs stay unknown, even with matching hulls.
 	history[3] = append([]shipPeriod(nil), history[1]...)
-	ambiguous := byName(view.historicalShipSeries(snapshot, history, map[string]bool{"A": true}, false, false))
+	ambiguous := byName(view.historicalShipSeries(snapshot, history, map[string]bool{"A": true}, false, 0))
 	if len(ambiguous) != 1 || ambiguous["Unknown ship"].TotalOutgoing != 230 {
 		t.Fatalf("ambiguous names were assigned a hull: %+v", ambiguous)
 	}
@@ -129,7 +129,7 @@ func TestHistoricalShipAssumptionExpiresForTypeAndClass(t *testing.T) {
 		TypeName: "Loki", ClassName: "Strategic Cruiser", FirstSeen: start, LastSeen: start}}}
 	view := buildView(snapshot, start.Add(-time.Second), start.Add(56*time.Second), time.Second)
 	for _, byClass := range []bool{false, true} {
-		for _, average := range []bool{false, true} {
+		for _, average := range []time.Duration{0, dpsAverageWindow} {
 			known, unknown := "Loki", "Unknown ship"
 			if byClass {
 				known, unknown = "Strategic Cruiser", "Unknown ship class"
@@ -141,7 +141,7 @@ func TestHistoricalShipAssumptionExpiresForTypeAndClass(t *testing.T) {
 			if len(groups) != 2 || groups[known].TotalOutgoing != 30 || groups[unknown].TotalOutgoing != 70 {
 				t.Fatalf("type/class grouping or averaging ignored the 45-second cutoff: class=%v, average=%v, groups=%+v", byClass, average, groups)
 			}
-			if average && groups[known].Outgoing[47] != 2 {
+			if average > 0 && groups[known].Outgoing[47] != 2 {
 				t.Fatal("rolling damage lost its assumed ship when its tail crossed the cutoff")
 			}
 		}

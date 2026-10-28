@@ -226,13 +226,13 @@ func TestGraphFormatPreferencesRestoreBeforeLoadingLogs(t *testing.T) {
 		t.Fatalf("missing format option %q", label)
 	}
 	first := newUI()
-	if !first.graphAverage10s || first.outgoing.data.AverageWindow != dpsAverageWindow || first.incoming.data.AverageWindow != dpsAverageWindow {
+	if first.graphAverageWindow == 0 || first.outgoing.data.AverageWindow != dpsAverageWindow || first.incoming.data.AverageWindow != dpsAverageWindow {
 		t.Fatal("new users did not get averaged DPS on both graphs by default")
 	}
 	choose(first, "Ship class (ship history)")
 	// A new UI reads the same saved user preferences, as on the next launch.
 	restored := newUI()
-	if !restored.graphAverage10s || !restored.shipClassGrouping() || !strings.Contains(restored.graphFormatLabel.Text, "By ship class") || !strings.Contains(restored.graphFormatLabel.Text, "10-second average") {
+	if restored.graphAverageWindow == 0 || !restored.shipClassGrouping() || !strings.Contains(restored.graphFormatLabel.Text, "By ship class") || !strings.Contains(restored.graphFormatLabel.Text, "10-second average") {
 		t.Fatal("startup lost the saved grouping, average or format label")
 	}
 	for _, chart := range []*damageChart{restored.outgoing, restored.incoming} {
@@ -263,7 +263,7 @@ func TestGraphFormatPreferencesRestoreBeforeLoadingLogs(t *testing.T) {
 	choose(restored, "10-second DPS average")
 	choose(restored, "Character")
 	reset := newUI()
-	if reset.graphAverage10s || reset.shipGrouping() {
+	if reset.graphAverageWindow > 0 || reset.shipGrouping() {
 		t.Fatal("turning format options off was not saved")
 	}
 	reset.groupSelect.SetSelected("Ship history")

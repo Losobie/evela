@@ -116,11 +116,11 @@ func (ui *analyzerUI) incomingEWarPlot(selected map[string]bool) plotData {
 		data.RateUnit, data.HitUnit = "GJ/s", "GJ"
 		data.EmptyText = "No logged incoming capacitor drain in this range for the selected characters"
 	}
-	data.IndividualHits = !ui.graphAverage10s
+	data.IndividualHits = ui.graphAverageWindow == 0
 	window := int64(1)
-	if ui.graphAverage10s {
-		data.AverageWindow = dpsAverageWindow
-		window = int64(dpsAverageWindow / time.Second)
+	if ui.graphAverageWindow > 0 {
+		data.AverageWindow = ui.graphAverageWindow
+		window = int64(ui.graphAverageWindow / time.Second)
 	}
 	if !data.End.After(data.Start) || data.Bucket < time.Second {
 		return data

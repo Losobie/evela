@@ -132,7 +132,7 @@ func (ui *analyzerUI) logisticsPlot(selected map[string]bool, incoming bool) plo
 	if incoming {
 		id, direction = graphIncomingLogistics, "incoming"
 	}
-	data := plotData{Start: ui.view.Start, End: ui.view.End, Bucket: ui.view.Bucket, RateUnit: "HP/s", HitUnit: "HP", IndividualHits: !ui.graphAverage10s}
+	data := plotData{Start: ui.view.Start, End: ui.view.End, Bucket: ui.view.Bucket, RateUnit: "HP/s", HitUnit: "HP", IndividualHits: ui.graphAverageWindow == 0}
 	types := ui.logisticsTypes[id]
 	repairs, capacitor := types.selected("Shield repair") || types.selected("Armor repair"), types.selected("Capacitor transfer")
 	if capacitor && !repairs {
@@ -143,8 +143,8 @@ func (ui *analyzerUI) logisticsPlot(selected map[string]bool, incoming bool) plo
 	}
 	data.EmptyText = "No logged " + direction + " logistics for the selected types and characters"
 	window := int64(1)
-	if ui.graphAverage10s {
-		data.AverageWindow, window = dpsAverageWindow, int64(dpsAverageWindow/time.Second)
+	if ui.graphAverageWindow > 0 {
+		data.AverageWindow, window = ui.graphAverageWindow, int64(ui.graphAverageWindow/time.Second)
 	}
 	if !data.End.After(data.Start) || data.Bucket < time.Second {
 		return data

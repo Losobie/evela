@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"slices"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
@@ -10,6 +12,7 @@ import (
 
 const (
 	graphAveragePreference         = "graph.format.average-10s"
+	graphAverageSecondsPreference  = "graph.format.average-seconds"
 	graphGroupingPreference        = "graph.format.grouping"
 	graphInvulnerabilityPreference = "graph.format.invulnerability-markers"
 	incomingGroupingPreference     = "graph.incoming.grouping"
@@ -17,7 +20,15 @@ const (
 
 func (ui *analyzerUI) initGraphFormat() {
 	preferences := fyne.CurrentApp().Preferences()
-	ui.graphAverage10s = preferences.BoolWithFallback(graphAveragePreference, true)
+	legacySeconds := 0
+	if preferences.BoolWithFallback(graphAveragePreference, true) {
+		legacySeconds = int(dpsAverageWindow / time.Second)
+	}
+	seconds := preferences.IntWithFallback(graphAverageSecondsPreference, legacySeconds)
+	if seconds != 0 && seconds != 10 && seconds != 30 {
+		seconds = legacySeconds
+	}
+	ui.graphAverageWindow = time.Duration(seconds) * time.Second
 	ui.graphInvulnerabilityMarkers = preferences.Bool(graphInvulnerabilityPreference)
 	ui.incomingGrouping = preferences.String(incomingGroupingPreference)
 	switch ui.incomingGrouping {
@@ -94,7 +105,7 @@ func (ui *analyzerUI) graphMenuButton(label string, items func() *fyne.Menu, kee
 
 func (ui *analyzerUI) saveGraphFormatPreferences() {
 	preferences := fyne.CurrentApp().Preferences()
-	preferences.SetBool(graphAveragePreference, ui.graphAverage10s)
+	preferences.SetInt(graphAverageSecondsPreference, int(ui.graphAverageWindow/time.Second))
 	preferences.SetBool(graphInvulnerabilityPreference, ui.graphInvulnerabilityMarkers)
 	grouping := "characters"
 	if ui.shipClassGrouping() {
@@ -123,20 +134,29 @@ func (ui *analyzerUI) graphFormatMenu() *fyne.Menu {
 }
 
 func (ui *analyzerUI) graphOptionsMenu() *fyne.Menu {
-	average := fyne.NewMenuItem("10-second DPS average", func() {
-		ui.graphAverage10s = !ui.graphAverage10s
-		ui.saveGraphFormatPreferences()
-		ui.renderSelection()
-		ui.rebuildCharacters()
-	})
-	average.Checked = ui.graphAverage10s
+	items := []*fyne.MenuItem{}
+	for _, window := range []time.Duration{10 * time.Second, 30 * time.Second} {
+		averageWindow := window
+		average := fyne.NewMenuItem(fmt.Sprintf("%d-second DPS average", int(window/time.Second)), func() {
+			if ui.graphAverageWindow == averageWindow {
+				ui.graphAverageWindow = 0
+			} else {
+				ui.graphAverageWindow = averageWindow
+			}
+			ui.saveGraphFormatPreferences()
+			ui.renderSelection()
+			ui.rebuildCharacters()
+		})
+		average.Checked = ui.graphAverageWindow == averageWindow
+		items = append(items, average)
+	}
 	invulnerability := fyne.NewMenuItem("Target invulnerability indicators", func() {
 		ui.graphInvulnerabilityMarkers = !ui.graphInvulnerabilityMarkers
 		ui.saveGraphFormatPreferences()
 		ui.renderSelection()
 	})
 	invulnerability.Checked = ui.graphInvulnerabilityMarkers
-	items := []*fyne.MenuItem{average, invulnerability, fyne.NewMenuItemSeparator()}
+	items = append(items, invulnerability, fyne.NewMenuItemSeparator())
 	return fyne.NewMenu("Options", append(items, ui.graphVisibilityMenuItems()...)...)
 }
 
@@ -158,8 +178,8 @@ func (ui *analyzerUI) updateGraphFormatLabel() {
 		}
 	}
 	text := "Linear · " + grouping
-	if ui.graphAverage10s {
-		text += " · 10-second average"
+	if ui.graphAverageWindow > 0 {
+		text += fmt.Sprintf(" · %d-second average", int(ui.graphAverageWindow/time.Second))
 	} else {
 		text += " · individual hits"
 	}

@@ -73,7 +73,7 @@ func TestOptionsStaysOpenForRepeatedVisibilityToggles(t *testing.T) {
 	test.Tap(ui.graphOptionsButton)
 	popup, position := ui.graphMenuPopup, ui.graphMenuPopup.Position()
 	for index, option := range graphVisibilityOptions {
-		row := popup.Items[index+3]
+		row := popup.Items[index+4]
 		assertLiveVisibilityCheckmark(t, row, true)
 		test.Tap(row.(fyne.Tappable))
 		assertGraphVisibility(t, ui, option.id, false)
@@ -89,7 +89,7 @@ func TestOptionsStaysOpenForRepeatedVisibilityToggles(t *testing.T) {
 	for _, want := range []bool{true, false, true} {
 		popup.TypedKey(&fyne.KeyEvent{Name: fyne.KeySpace})
 		assertGraphVisibility(t, ui, graphMining, want)
-		assertLiveVisibilityCheckmark(t, popup.Items[8], want)
+		assertLiveVisibilityCheckmark(t, popup.Items[9], want)
 		if !popup.Visible() {
 			t.Fatal("keyboard visibility toggle closed Options")
 		}
@@ -122,9 +122,9 @@ func TestOptionsCanShowGraphsWhenOpenedWithEveryToggleOff(t *testing.T) {
 	}
 	test.Tap(ui.graphOptionsButton)
 	popup := ui.graphMenuPopup
-	test.Tap(popup.Items[3].(fyne.Tappable))
+	test.Tap(popup.Items[4].(fyne.Tappable))
 	assertGraphVisibility(t, ui, graphOutgoing, true)
-	assertLiveVisibilityCheckmark(t, popup.Items[3], true)
+	assertLiveVisibilityCheckmark(t, popup.Items[4], true)
 	if !popup.Visible() {
 		t.Fatal("Options closed when restoring the first graph")
 	}

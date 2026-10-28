@@ -109,7 +109,7 @@ func TestShipClassFormatSynchronizesGraphsLegendAndTotals(t *testing.T) {
 	}
 	ui.characterSearch.SetText("")
 	ui.selected["B"] = false
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.updateRange()
 	applyTestShipRecords(ui, records)
 	if !ui.shipClassGrouping() || ui.outgoing.data.Series[0].Values[0] != 10 || ui.incoming.data.Series[0].Values[0] != 1 || ui.tableSeries[0].TotalOutgoing != 100 {

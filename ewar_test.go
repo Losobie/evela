@@ -82,7 +82,7 @@ func newEWarTestUI(t *testing.T) (*analyzerUI, time.Time) {
 	ui.snapshot = &logSnapshot{Characters: []string{"Pilot A", "E-War only"}, First: start.Add(-time.Second), Last: start.Add(5 * time.Second), Logs: []*parsedLog{
 		log, {Character: "E-War only", EWar: []ewarEvent{{Second: start.Unix(), Effect: "ECM", Message: "You are jammed by Enemy."}}},
 	}}
-	ui.graphAverage10s = false
+	ui.graphAverageWindow = 0
 	ui.applyGraphRange(start, start.Add(6*time.Second))
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
@@ -133,7 +133,7 @@ func TestEWarPlotUnitsAveragingFiltersAndNavigation(t *testing.T) {
 	if len(ui.ewar.data.Series) != 2 {
 		t.Fatal("non-capacitor effects leaked into GJ view")
 	}
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.renderSelection()
 	if got := ewarSeries(t, ui, "Energy neutralizer").Values[0]; got != 15 {
 		t.Fatalf("missing average lookback: %g", got)
@@ -186,7 +186,7 @@ func TestEWarSharedFiltersUseEventTimeBeforeAveraging(t *testing.T) {
 		{CharacterID: 1, CharacterName: "Pilot A", SystemID: 30002187, SystemName: "Amarr", FirstSeen: start.Add(time.Second), LastSeen: start.Add(5 * time.Second)},
 	}}
 	ui.characterGroups = []characterGroup{{ID: "fleet", Name: "Fleet", Members: []string{"Pilot A"}}}
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.ewarMetric.SetSelected(ewarCapacitor)
 	ui.rebuildView()
 	ui.setAllDamageFilterOptions(filterSystem, false)
@@ -241,7 +241,7 @@ func TestEWarGraphLayoutAndHover(t *testing.T) {
 	if path := os.Getenv("EVELA_EWAR_CAPTURE"); path != "" {
 		captureWindowPreview(t, ui.window, path+".individual.png")
 	}
-	ui.graphAverage10s = true
+	ui.graphAverageWindow = dpsAverageWindow
 	ui.renderSelection()
 	ui.ewar.MouseMoved(testMouseEvent(chartPlotLeft, 60, 0))
 	if got := ui.ewar.hoverReadings[0].Text; !strings.Contains(got, "15.0 GJ/s (10s avg)") || strings.Contains(got, "DPS") {
