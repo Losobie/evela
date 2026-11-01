@@ -65,3 +65,37 @@ func BenchmarkGraphUpdates(b *testing.B) {
 		}
 	})
 }
+
+// Broad ranges with real Events records and substantial ship history reproduce
+// the allocation-heavy paths identified by the interactive profile.
+func BenchmarkBroadGraphUpdates(b *testing.B) {
+	for _, kind := range []string{"Zoom", "Filter"} {
+		b.Run(kind, func(b *testing.B) {
+			ui := benchmarkGraphUpdates(b)
+			start := ui.snapshot.First
+			for character, log := range ui.snapshot.Logs {
+				for _, point := range log.Points {
+					log.Events = append(log.Events, logEvent{Second: point.Second, Message: "(combat) 100 to Enemy - Laser - Hits"})
+				}
+				if ui.shipHistory == nil {
+					ui.shipHistory = shipHistory{}
+				}
+				for i := 0; i < 2400; i++ {
+					at := start.Add(time.Duration(i*100) * time.Second)
+					ui.shipHistory[int64(character+1)] = append(ui.shipHistory[int64(character+1)], shipPeriod{CharacterID: int64(character + 1), CharacterName: log.Character, TypeID: 1, TypeName: "Hulk", GroupID: 543, ClassName: "Exhumer", FirstSeen: at, LastSeen: at.Add(89 * time.Second)})
+				}
+			}
+			ui.window.SetContent(ui.content())
+			ui.applyGraphRange(ui.snapshot.First, ui.snapshot.Last.Add(time.Second))
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if kind == "Zoom" {
+					ui.rebuildViewWithOptions(true)
+				} else {
+					ui.setScopeFilter(graphOutgoing, filterWeaponType, "name:Drone", i%2 == 0)
+				}
+			}
+		})
+	}
+}

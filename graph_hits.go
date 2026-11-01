@@ -42,7 +42,7 @@ func (ui *analyzerUI) attachIndividualHits(in, out *plotData, selected map[strin
 			incomingLabels[characterKey(series.Name)] = series.Name
 		}
 	}
-	ships := ui.shipHistory.indexByName()
+	ships := ui.graphMetadata().ships
 	first, end := ui.view.Start.Unix(), ui.view.End.Unix()
 	for _, log := range ui.analysisSnapshot().Logs {
 		if !selected[log.Character] {

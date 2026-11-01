@@ -39,7 +39,7 @@ func (ui *analyzerUI) incomingGroupingMenu() *fyne.Menu {
 
 func (ui *analyzerUI) incomingGraphSeries(selected map[string]bool) []characterSeries {
 	if ui.incomingGrouping == eventByShip || ui.incomingGrouping == eventByClass || ui.incomingGrouping == filterSystem {
-		return ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, ui.incomingGrouping, ui.graphAverageWindow)
+		return ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, ui.incomingGrouping, ui.graphAverageWindow, ui.graphMetadata())
 	}
 	if weaponGroupingMode(ui.incomingGrouping) {
 		return ui.view.weaponSeries(ui.analysisSnapshot(), selected, ui.incomingGrouping, ui.graphAverageWindow)

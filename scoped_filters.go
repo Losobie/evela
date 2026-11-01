@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"sort"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -262,113 +260,6 @@ func (ui *analyzerUI) scopeFilterOptions(scope, kind string) []damageFilterOptio
 	return ui.scopedOptions[scope][kind]
 }
 
-func (ui *analyzerUI) buildScopeFilterOptions(scope string, snapshot *logSnapshot) map[string][]damageFilterOption {
-	values := map[string]map[string]string{}
-	for _, kind := range availableFilters(scope) {
-		values[kind] = map[string]string{}
-	}
-
-	kinds := availableFilters(scope)
-	first, end := ui.view.Start.Unix(), ui.view.End.Unix()
-	ships, members := ui.shipHistory.indexByName(), ui.characterFilterGroups()
-	register := func(log *parsedLog, second int64, hit *damageHit, kindValue, ore string) {
-		if second < first || second >= end {
-			return
-		}
-		for _, kind := range kinds {
-			add := func(option damageFilterOption) { values[kind][option.Key] = option.Label }
-			switch kind {
-			case filterCharacters:
-				add(damageFilterOption{Key: log.Character, Label: log.Character})
-			case filterCharacterGroup:
-				if len(members[characterKey(log.Character)]) == 0 {
-					add(damageFilterOption{Key: filterUngrouped, Label: ungroupedCharacters})
-				}
-				for _, group := range ui.characterGroups {
-					if group.contains(log.Character) {
-						add(damageFilterOption{Key: "group:" + group.ID, Label: group.Name})
-					}
-				}
-			case filterShipType, filterShipClass:
-				ship, known := ships[characterKey(log.Character)].atName(log.Character, time.Unix(second, 0))
-				hull, class := shipFilterOptions(ship, known)
-				if kind == filterShipType {
-					add(hull)
-				} else {
-					add(class)
-				}
-			case filterSystem:
-				location, known := ui.locationLookup.atName(log.Character, time.Unix(second, 0))
-				add(systemFilterOption(location, known))
-			case filterWeaponType, filterWeaponStrength:
-				if hit != nil {
-					add(hitWeaponOption(*hit, kind))
-				}
-			case filterAttacker, filterAttackerShip, filterNPCNames, filterNPCTypes:
-				source := damageSource{}
-				if hit != nil && hit.Source >= 0 && hit.Source < len(log.Sources) {
-					source = log.Sources[hit.Source]
-				}
-				add(sourceFilterOption(source, kind))
-			case filterLogisticsType:
-				for _, option := range logisticsTypeOptions {
-					if option.Key == kindValue {
-						add(option)
-					}
-				}
-			case filterEffectType, filterMiningMessage:
-				add(damageFilterOption{Key: kindValue, Label: kindValue})
-			case filterOreName:
-				add(damageFilterOption{Key: ore, Label: ore})
-			case filterOreType:
-				add(damageFilterOption{Key: oreType(ore), Label: oreType(ore)})
-			}
-		}
-	}
-	for _, log := range snapshot.Logs {
-		switch scope {
-		case graphOutgoing, graphIncoming:
-			incoming := scope == graphIncoming
-			for _, hit := range log.Hits {
-				if hit.Incoming == incoming {
-					register(log, hit.Second, &hit, "", "")
-				}
-			}
-			if len(log.Hits) == 0 {
-				for _, point := range log.Points {
-					if incoming && (point.Incoming != 0 || point.IncomingHits != 0) || !incoming && (point.Outgoing != 0 || point.OutgoingHits != 0) {
-						register(log, point.Second, nil, "", "")
-					}
-				}
-			}
-		case graphIncomingEWar:
-			for _, event := range log.EWar {
-				register(log, event.Second, nil, event.Effect, "")
-			}
-		case graphMining:
-			for _, event := range log.Mining {
-				register(log, event.Second, nil, event.Kind, event.Ore)
-			}
-		case graphIncomingLogistics, graphOutgoingLogistics:
-			for _, event := range log.Logistics {
-				if event.Incoming == (scope == graphIncomingLogistics) {
-					register(log, event.Second, nil, event.Kind, "")
-				}
-			}
-		}
-	}
-	result := map[string][]damageFilterOption{}
-	for kind, items := range values {
-		for key, label := range items {
-			result[kind] = append(result[kind], damageFilterOption{Key: key, Label: label})
-		}
-		sort.Slice(result[kind], func(i, j int) bool { return compareTotalsText(result[kind][i].Label, result[kind][j].Label) < 0 })
-	}
-	if scope == graphIncomingLogistics || scope == graphOutgoingLogistics {
-		result[filterLogisticsType] = logisticsTypeOptions
-	}
-	return result
-}
 func sourceFilterOption(source damageSource, kind string) damageFilterOption {
 	switch kind {
 	case filterAttacker:

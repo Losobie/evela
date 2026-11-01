@@ -126,7 +126,7 @@ func (ui *analyzerUI) restoreGraphRange(state graphRangeState) {
 	ui.rangeSelect.Refresh()
 	// Restore the exact previous bounds. A restored relative preset resumes
 	// following new log data on the next normal refresh.
-	ui.rebuildView()
+	ui.rebuildViewWithOptions(true)
 }
 
 func (ui *analyzerUI) undoGraphRange() {

@@ -9,15 +9,15 @@ import (
 
 // Attribute each hit before bucketing or averaging. A character may change hull
 // inside a bucket; averaging must keep a hit with its original ship as it tails off.
-func (view damageView) historicalShipSeries(snapshot *logSnapshot, history shipHistory, selected map[string]bool, byClass bool, averageWindow time.Duration) []characterSeries {
+func (view damageView) historicalShipSeries(snapshot *logSnapshot, history shipHistory, selected map[string]bool, byClass bool, averageWindow time.Duration, metadata ...*graphMetadata) []characterSeries {
 	mode := eventByShip
 	if byClass {
 		mode = eventByClass
 	}
-	return view.historicalAttributeSeries(snapshot, history, locationResolver{}, selected, mode, averageWindow)
+	return view.historicalAttributeSeries(snapshot, history, locationResolver{}, selected, mode, averageWindow, metadata...)
 }
 
-func (view damageView) historicalAttributeSeries(snapshot *logSnapshot, history shipHistory, locations locationResolver, selected map[string]bool, mode string, averageWindow time.Duration) []characterSeries {
+func (view damageView) historicalAttributeSeries(snapshot *logSnapshot, history shipHistory, locations locationResolver, selected map[string]bool, mode string, averageWindow time.Duration, metadata ...*graphMetadata) []characterSeries {
 	byClass := mode == eventByClass
 
 	if view.Bucket < time.Second || !view.End.After(view.Start) {
@@ -34,7 +34,14 @@ func (view damageView) historicalAttributeSeries(snapshot *logSnapshot, history 
 	}
 	// Index by log name once, avoiding a scan of every connected character for
 	// every damage point. Keep IDs separate so ambiguous names remain unknown.
-	byName := history.indexByName()
+	var cached *graphMetadata
+	var byName map[string]shipHistory
+	if len(metadata) > 0 {
+		cached = metadata[0]
+	}
+	if cached == nil {
+		byName = history.indexByName()
+	}
 	type groupData struct {
 		series  characterSeries
 		members map[string]bool
@@ -66,23 +73,36 @@ func (view damageView) historicalAttributeSeries(snapshot *logSnapshot, history 
 			if byClass {
 				name = "Unknown ship class"
 			}
-			if ship, ok := byName[characterKey(log.Character)].atName(log.Character, time.Unix(point.Second, 0)); ok {
-				if ship.TypeName != "" {
-					hullName = ship.TypeName
-				} else if ship.TypeID > 0 {
-					hullName = fmt.Sprintf("Type %d", ship.TypeID)
-				}
+			if cached != nil {
+				attributes := cached.attributes(log.Character, point.Second)
+				hullName = attributes.hull.Label
+				name = hullName
 				if byClass {
-					if ship.ClassName != "" {
-						name = ship.ClassName
-					}
-				} else {
-					name = hullName
+					name = attributes.class.Label
 				}
-			}
-			if mode == filterSystem {
-				location, known := locations.atName(log.Character, time.Unix(point.Second, 0))
-				name = systemFilterOption(location, known).Label
+				if mode == filterSystem {
+					name = attributes.system.Label
+				}
+			} else {
+				if ship, ok := byName[characterKey(log.Character)].atName(log.Character, time.Unix(point.Second, 0)); ok {
+					if ship.TypeName != "" {
+						hullName = ship.TypeName
+					} else if ship.TypeID > 0 {
+						hullName = fmt.Sprintf("Type %d", ship.TypeID)
+					}
+					if byClass {
+						if ship.ClassName != "" {
+							name = ship.ClassName
+						}
+					} else {
+						name = hullName
+					}
+				}
+				if mode == filterSystem {
+					location, known := locations.atName(log.Character, time.Unix(point.Second, 0))
+					name = systemFilterOption(location, known).Label
+				}
+
 			}
 			group := groups[name]
 			if group == nil {

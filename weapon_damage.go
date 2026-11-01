@@ -71,43 +71,47 @@ func (ui *analyzerUI) weaponGrouping() bool {
 }
 
 func rebuildDamageFromHits(log *parsedLog) {
-	points := map[int64]*damagePoint{}
-	sources := map[[2]int64]*incomingSourcePoint{}
-	log.Points, log.IncomingSources = nil, nil
+	points := make([]damagePoint, 0, min(len(log.Points), len(log.Hits)))
+	sources := make([]incomingSourcePoint, 0, min(len(log.IncomingSources), len(log.Hits)))
+	sourceIDs := map[int]int{}
+	sourceStart := 0
+	flush := func() {
+		if len(sources)-sourceStart < 2 {
+			return
+		}
+		sort.Slice(sources[sourceStart:], func(i, j int) bool { return sources[sourceStart+i].Source < sources[sourceStart+j].Source })
+	}
 	for _, hit := range log.Hits {
 		if hit.WeaponStrength == "Misses" {
 			continue
 		}
-		point := points[hit.Second]
-		if point == nil {
-			point = &damagePoint{Second: hit.Second}
-			points[hit.Second] = point
+		if len(points) == 0 || points[len(points)-1].Second != hit.Second {
+			flush()
+			sourceStart = len(sources)
+			clear(sourceIDs)
+			points = append(points, damagePoint{Second: hit.Second})
 		}
+		point := &points[len(points)-1]
 		if hit.Incoming {
 			point.Incoming += hit.Amount
 			point.IncomingHits++
 			if hit.Source >= 0 {
-				key := [2]int64{hit.Second, int64(hit.Source)}
-				source := sources[key]
-				if source == nil {
-					source = &incomingSourcePoint{Second: hit.Second, Source: hit.Source}
-					sources[key] = source
+				index, exists := sourceIDs[hit.Source]
+				if !exists {
+					index = len(sources)
+					sources = append(sources, incomingSourcePoint{Second: hit.Second, Source: hit.Source})
+					sourceIDs[hit.Source] = index
 				}
-				source.Damage += hit.Amount
-				source.Hits++
+				sources[index].Damage += hit.Amount
+				sources[index].Hits++
 			}
 		} else {
 			point.Outgoing += hit.Amount
 			point.OutgoingHits++
 		}
 	}
-	for _, point := range points {
-		log.Points = append(log.Points, *point)
-	}
-	for _, point := range sources {
-		log.IncomingSources = append(log.IncomingSources, *point)
-	}
-	sortDamageRecords(log)
+	flush()
+	log.Points, log.IncomingSources = points, sources
 }
 
 func sortDamageRecords(log *parsedLog) {

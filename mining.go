@@ -121,25 +121,7 @@ func (ui *analyzerUI) saveMiningFilters() {
 }
 
 func (ui *analyzerUI) refreshMiningControls() {
-	options := map[string]map[string]bool{filterOreName: {}, filterOreType: {}}
-	first, end := ui.view.Start.Unix(), ui.view.End.Unix()
-	for _, log := range ui.snapshot.Logs {
-		for _, event := range recordsInRange(log.Mining, first, end, func(event miningEvent) int64 { return event.Second }) {
-			if event.Second >= first && event.Second < end {
-				options[filterOreName][event.Ore] = true
-				options[filterOreType][oreType(event.Ore)] = true
-			}
-		}
-	}
-	ui.miningFilterOptions = map[string][]damageFilterOption{filterMiningMessage: miningMessageOptions}
-	for kind, values := range options {
-		for value := range values {
-			ui.miningFilterOptions[kind] = append(ui.miningFilterOptions[kind], damageFilterOption{Key: value, Label: value})
-		}
-		sort.Slice(ui.miningFilterOptions[kind], func(i, j int) bool {
-			return compareTotalsText(ui.miningFilterOptions[kind][i].Label, ui.miningFilterOptions[kind][j].Label) < 0
-		})
-	}
+	ui.miningFilterOptions = map[string][]damageFilterOption{filterMiningMessage: miningMessageOptions, filterOreName: ui.scopedOptions[graphMining][filterOreName], filterOreType: ui.scopedOptions[graphMining][filterOreType]}
 	for kind, button := range ui.miningFilterButtons {
 		count := 0
 		for _, option := range ui.miningFilterOptions[kind] {
@@ -170,7 +152,6 @@ func (ui *analyzerUI) miningPlot(selected map[string]bool) plotData {
 	first, end, bucket := data.Start.Unix(), data.End.Unix(), int64(data.Bucket/time.Second)
 	n := int(math.Ceil(data.End.Sub(data.Start).Seconds() / data.Bucket.Seconds()))
 	groups := map[string]*plotSeries{}
-	ships := ui.shipHistory.indexByName()
 	for _, log := range ui.analysisSnapshot().Logs {
 		if !selected[log.Character] {
 			continue
@@ -187,7 +168,7 @@ func (ui *analyzerUI) miningPlot(selected map[string]bool) plotData {
 			if ui.eventGraphGroupings[graphMining] == eventByOreName {
 				kind = event.Ore
 			}
-			names := ui.eventGroupingNames(graphMining, log.Character, kind, event.Second, ships)
+			names := ui.eventGroupingNames(graphMining, log.Character, kind, event.Second)
 			for _, name := range names {
 				label := name + " · " + event.Kind
 				series := groups[label]

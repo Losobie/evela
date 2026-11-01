@@ -145,6 +145,10 @@ $env:EVELA_TEST_LOGS = Join-Path ([Environment]::GetFolderPath('MyDocuments')) '
 go test -run TestLocalLogs -v
 ```
 
+## Interaction performance
+
+The Events table is updated when its tab is visible; graph zooming and filtering do not rebuild a hidden Events table. Search, regex, and sorting choices remain intact when returning to Events. Graph updates share ship-history indexes and timestamp metadata, reuse filter-option keys, and retain unchanged record slices. Metadata refreshes and new log snapshots invalidate these caches automatically.
+
 ## Interactive profiling
 
 Set `EVELA_PROFILE_ADDR=127.0.0.1:6060` before launching `evela.exe` to enable Go pprof diagnostics on that loopback address. Normal launches start no profiling server. CPU profiles and execution traces are captured on demand; blocking and mutex samples are collected while profiling is enabled. Use the application normally while recording:

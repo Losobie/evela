@@ -19,6 +19,8 @@ import (
 )
 
 type analyzerUI struct {
+	metadata            *graphMetadata
+	eventsDirty         bool
 	scopedOptions       map[string]map[string][]damageFilterOption
 	scopedFilters       map[string]map[string]*damageFilterSelection
 	visibleFilters      map[string]map[string]bool
@@ -301,6 +303,11 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	totals := container.NewBorder(totalsNote, nil, nil, nil, ui.totals)
 	tabs := container.NewAppTabs(container.NewTabItem("Graphs", graphContent), container.NewTabItem("Totals", totals), container.NewTabItem("Events", ui.events.content), container.NewTabItem("ESI & ships", ui.esiContent()))
 	ui.tabs = tabs
+	tabs.OnSelected = func(item *container.TabItem) {
+		if item.Content == ui.events.content {
+			ui.refreshEvents()
+		}
+	}
 	footer := container.NewVBox(widget.NewSeparator(), ui.summary)
 	return container.NewPadded(container.NewBorder(controls, footer, nil, nil, tabs))
 }
@@ -433,7 +440,7 @@ func (ui *analyzerUI) updateRange() {
 	ui.rebuildView()
 }
 
-func (ui *analyzerUI) rebuildView() { ui.rebuildViewWithOptions(true) }
+func (ui *analyzerUI) rebuildView() { ui.metadata = nil; ui.rebuildViewWithOptions(true) }
 
 // Filter selections do not change the available options in the raw time range.
 func (ui *analyzerUI) rebuildFilteredView() { ui.rebuildViewWithOptions(false) }
@@ -447,10 +454,17 @@ func (ui *analyzerUI) rebuildViewWithOptions(refreshOptions bool) {
 		return
 	}
 	bucket := map[string]time.Duration{"1 second": time.Second, "5 seconds": 5 * time.Second, "10 seconds": 10 * time.Second, "1 minute": time.Minute, "5 minutes": 5 * time.Minute}[ui.bucketSelect.Selected]
+	if ui.metadata != nil && ui.metadata.snapshot != ui.snapshot {
+		ui.metadata = nil
+		refreshOptions = true
+	}
 	refreshOptions = refreshOptions || ui.filterOptions == nil || !start.Equal(ui.view.Start) || !end.Equal(ui.view.End)
-	if refreshOptions {
+	if ui.metadata == nil {
 		ui.locationLookup = ui.resolvedLocations()
 		ui.migrateSystemFilterNames(ui.locationLookup)
+	}
+	if refreshOptions {
+		ui.graphMetadata().resetTimes()
 	}
 	// Retain the longest supported average's pre-range tail even while viewing
 	// individual hits, so switching averaging on never requires an archive scan.
@@ -550,8 +564,8 @@ func (ui *analyzerUI) renderSelection() {
 		graphSeries = ui.view.rollingAverage(ui.analysisSnapshot(), ui.graphAverageWindow)
 	}
 	if ui.systemGrouping() {
-		ui.tableSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, filterSystem, 0)
-		graphSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, filterSystem, ui.graphAverageWindow)
+		ui.tableSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, filterSystem, 0, ui.graphMetadata())
+		graphSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, filterSystem, ui.graphAverageWindow, ui.graphMetadata())
 	} else if ui.weaponGrouping() {
 		ui.tableSeries = ui.view.weaponSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, 0)
 		graphSeries = ui.view.weaponSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, ui.graphAverageWindow)

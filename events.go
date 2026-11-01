@@ -134,7 +134,8 @@ func (viewer *eventsViewer) setRange(snapshot *logSnapshot, start, end time.Time
 	viewer.characters = maps.Clone(characters)
 	viewer.snapshot, viewer.start, viewer.end = snapshot, start, end
 	if !sameRange {
-		viewer.rangeEvents = nil
+		clear(viewer.rangeEvents)
+		viewer.rangeEvents = viewer.rangeEvents[:0]
 		first, last := start.Unix(), end.Unix()
 		for _, log := range snapshot.Logs {
 			// Parsed events are sorted once, so broad archives need only a binary
@@ -147,6 +148,7 @@ func (viewer *eventsViewer) setRange(snapshot *logSnapshot, start, end time.Time
 				}
 			}
 		}
+		sort.SliceStable(viewer.rangeEvents, func(i, j int) bool { return viewer.rangeEvents[i].Second < viewer.rangeEvents[j].Second })
 	}
 	viewer.applySearch()
 	if changedRange || !sameCharacters {
@@ -161,13 +163,15 @@ func (viewer *eventsViewer) applySearch() {
 		var err error
 		pattern, err = regexp.Compile(query)
 		if err != nil {
-			viewer.rows = nil
+			clear(viewer.rows)
+			viewer.rows = viewer.rows[:0]
 			viewer.status.SetText("Invalid regular expression: " + err.Error())
 			viewer.table.Refresh()
 			return
 		}
 	}
-	viewer.rows = nil
+	clear(viewer.rows)
+	viewer.rows = viewer.rows[:0]
 	literal := strings.ToLower(query)
 	eligible := 0
 	for _, event := range viewer.rangeEvents {
@@ -187,12 +191,22 @@ func (viewer *eventsViewer) applySearch() {
 			viewer.rows = append(viewer.rows, event)
 		}
 	}
-	sort.SliceStable(viewer.rows, func(i, j int) bool {
-		if viewer.descending {
-			return viewer.rows[i].Second > viewer.rows[j].Second
+	if viewer.descending {
+		// Reverse timestamp groups without reversing equal-time event ordering.
+		for left, right := 0, len(viewer.rows)-1; left < right; left, right = left+1, right-1 {
+			viewer.rows[left], viewer.rows[right] = viewer.rows[right], viewer.rows[left]
 		}
-		return viewer.rows[i].Second < viewer.rows[j].Second
-	})
+		for first := 0; first < len(viewer.rows); {
+			end := first + 1
+			for end < len(viewer.rows) && viewer.rows[end].Second == viewer.rows[first].Second {
+				end++
+			}
+			for left, right := first, end-1; left < right; left, right = left+1, right-1 {
+				viewer.rows[left], viewer.rows[right] = viewer.rows[right], viewer.rows[left]
+			}
+			first = end
+		}
+	}
 	status := fmt.Sprintf("%d of %d events", len(viewer.rows), eligible)
 	if len(viewer.rangeEvents) == 0 {
 		status = "No events in this time range"
@@ -212,7 +226,17 @@ func (ui *analyzerUI) refreshEvents() {
 	if ui.events == nil {
 		return
 	}
-	members := ui.characterFilterGroups()
+	if ui.tabs != nil && ui.tabs.Selected().Content != ui.events.content {
+		ui.eventsDirty = true
+		// A hidden viewer must not keep an obsolete full archive alive after
+		// folder changes or a new import. Its displayed rows refresh on entry.
+		if ui.events.snapshot != ui.snapshot {
+			ui.events.snapshot = nil
+		}
+		return
+	}
+	ui.eventsDirty = false
+	members := ui.graphMetadata().members
 	selected := map[string]bool{}
 	for _, log := range ui.snapshot.Logs {
 		selected[log.Character] = ui.damageFilterSelected(filterCharacters, log.Character) &&

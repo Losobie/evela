@@ -72,6 +72,7 @@ func newEventsTestUI(t *testing.T) (*analyzerUI, time.Time) {
 	}
 	ui.snapshot = &logSnapshot{Characters: []string{"Pilot A"}, Logs: []*parsedLog{log}, First: start.Add(-time.Second), Last: start.Add(10 * time.Second)}
 	ui.applyGraphRange(start, start.Add(10*time.Second))
+	ui.tabs.SelectIndex(2)
 	return ui, start
 }
 

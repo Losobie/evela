@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
-	"time"
 
 	"fyne.io/fyne/v2"
 )
@@ -232,100 +230,34 @@ func (ui *analyzerUI) migrateSystemFilterNames(locations locationResolver) {
 }
 
 func (ui *analyzerUI) refreshDamageFilterOptions() {
-	options := map[string]map[string]string{}
-	for _, kind := range damageFilterKinds {
-		options[kind] = map[string]string{}
-	}
-	for _, group := range ui.characterGroups {
-		options[filterCharacterGroup]["group:"+group.ID] = group.Name
-	}
-	options[filterCharacterGroup][filterUngrouped] = ungroupedCharacters
-	byName := ui.shipHistory.indexByName()
-	locations := ui.locationLookup
-	first, end := ui.view.Start.Unix(), ui.view.End.Unix()
 	input := snapshotInRange(ui.snapshot, ui.view.Start, ui.view.End, 0)
-	for _, log := range input.Logs {
-		registerCharacterName := func() {
-			options[filterCharacters][log.Character] = log.Character
-			if _, exists := ui.selected[log.Character]; !exists {
-				ui.selected[log.Character] = ui.damageFilterSelected(filterCharacters, log.Character)
-			}
-		}
-		// Events-only characters must also be selectable in the shared filter.
-		index := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= first })
-		if index < len(log.Events) && log.Events[index].Second < end {
-			registerCharacterName()
-		}
-		registerCharacter := func(second int64) {
-			registerCharacterName()
-			ship, known := byName[characterKey(log.Character)].atName(log.Character, time.Unix(second, 0))
-			hull, class := shipFilterOptions(ship, known)
-			options[filterShipType][hull.Key], options[filterShipClass][class.Key] = hull.Label, class.Label
-			location, known := locations.atName(log.Character, time.Unix(second, 0))
-			system := systemFilterOption(location, known)
-			options[filterSystem][system.Key] = system.Label
-		}
-		for _, hit := range log.Hits {
-			if hit.Second >= first && hit.Second < end {
-				registerCharacter(hit.Second)
-				for _, kind := range []string{filterWeaponType, filterWeaponStrength} {
-					option := hitWeaponOption(hit, kind)
-					options[kind][option.Key] = option.Label
-				}
-			}
-		}
-		for _, event := range log.EWar {
-			if event.Second >= first && event.Second < end {
-				registerCharacter(event.Second)
-			}
-		}
-		for _, event := range log.Logistics {
-			if event.Second >= first && event.Second < end {
-				registerCharacter(event.Second)
-			}
-		}
-		for _, event := range log.Mining {
-			if event.Second >= first && event.Second < end {
-				registerCharacter(event.Second)
-			}
-		}
-		for _, point := range log.IncomingSources {
-			if point.Second >= first && point.Second < end {
-				names, types := npcFilterOptions(log.Sources[point.Source])
-				options[filterNPCNames][names.Key], options[filterNPCTypes][types.Key] = names.Label, types.Label
-			}
-		}
-		for _, point := range log.Points {
-			if point.Second < first || point.Second >= end || (point.Incoming == 0 && point.Outgoing == 0 && point.IncomingHits == 0 && point.OutgoingHits == 0) {
-				continue
-			}
-			registerCharacter(point.Second)
-			if len(log.IncomingSources) == 0 && (point.Incoming != 0 || point.IncomingHits != 0) {
-				names, types := npcFilterOptions(damageSource{})
-				options[filterNPCNames][names.Key], options[filterNPCTypes][types.Key] = names.Label, types.Label
-			}
-		}
-		// Markers can occur after the last damage hit in a system.
-		for _, event := range log.StructureEvents {
-			if event.Second >= first && event.Second < end {
-				location, known := locations.atName(log.Character, time.Unix(event.Second, 0))
-				system := systemFilterOption(location, known)
-				options[filterSystem][system.Key] = system.Label
-			}
-		}
+	catalog := newGraphFilterCatalog(ui.graphMetadata(), damageFilterKinds)
+	for _, group := range ui.characterGroups {
+		catalog.add(filterCharacterGroup, damageFilterOption{Key: "group:" + group.ID, Label: group.Name})
 	}
-	ui.filterOptions = map[string][]damageFilterOption{}
-	for _, kind := range damageFilterKinds {
-		for key, label := range options[kind] {
-			ui.filterOptions[kind] = append(ui.filterOptions[kind], damageFilterOption{Key: key, Label: label})
-		}
-		sort.Slice(ui.filterOptions[kind], func(i, j int) bool {
-			return compareTotalsText(ui.filterOptions[kind][i].Label, ui.filterOptions[kind][j].Label) < 0
-		})
-	}
+	catalog.add(filterCharacterGroup, damageFilterOption{Key: filterUngrouped, Label: ungroupedCharacters})
 	ui.scopedOptions = map[string]map[string][]damageFilterOption{}
 	for _, graph := range graphVisibilityOptions {
-		ui.scopedOptions[graph.id] = ui.buildScopeFilterOptions(graph.id, input)
+		options := ui.buildScopeFilterOptions(graph.id, input)
+		ui.scopedOptions[graph.id] = options
+		for kind, values := range options {
+			for _, option := range values {
+				catalog.add(kind, option)
+			}
+		}
 	}
-
+	for _, log := range input.Logs {
+		if len(log.Events) > 0 {
+			catalog.add(filterCharacters, damageFilterOption{Key: log.Character, Label: log.Character})
+		}
+		for _, event := range log.StructureEvents {
+			catalog.add(filterSystem, ui.graphMetadata().attributes(log.Character, event.Second).system)
+		}
+	}
+	ui.filterOptions = catalog.options()
+	for _, option := range ui.filterOptions[filterCharacters] {
+		if _, exists := ui.selected[option.Key]; !exists {
+			ui.selected[option.Key] = ui.damageFilterSelected(filterCharacters, option.Key)
+		}
+	}
 }

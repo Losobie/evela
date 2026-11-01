@@ -143,7 +143,6 @@ func (ui *analyzerUI) logisticsPlot(selected map[string]bool, incoming bool) plo
 	first, end, bucket := data.Start.Unix(), data.End.Unix(), int64(data.Bucket/time.Second)
 	n := int(math.Ceil(data.End.Sub(data.Start).Seconds() / data.Bucket.Seconds()))
 	groups := map[string]*plotSeries{}
-	ships := ui.shipHistory.indexByName()
 	for _, log := range ui.analysisSnapshot().Logs {
 		if !selected[log.Character] {
 			continue
@@ -160,7 +159,7 @@ func (ui *analyzerUI) logisticsPlot(selected map[string]bool, incoming bool) plo
 			if event.Kind == "Capacitor transfer" {
 				unit = "GJ"
 			}
-			for _, name := range ui.eventGroupingNames(id, log.Character, event.Kind, event.Second, ships) {
+			for _, name := range ui.eventGroupingNames(id, log.Character, event.Kind, event.Second) {
 				key := name + "\x00" + unit
 				label := name
 				if ui.eventGraphGroupings[id] != eventByType && data.SecondaryUnit != "" {

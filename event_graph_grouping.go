@@ -2,7 +2,6 @@ package main
 
 import (
 	"slices"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/widget"
@@ -61,18 +60,17 @@ func (ui *analyzerUI) eventGroupButton(id string) *widget.Button {
 // Group the log character at the event timestamp, before rolling averages.
 // Event graphs keep independent grouping choices and never read outgoing's
 // groupSelect; overlapping saved groups retain their existing semantics.
-func (ui *analyzerUI) eventGroupingNames(id, character, kind string, second int64, ships map[string]shipHistory) []string {
+func (ui *analyzerUI) eventGroupingNames(id, character, kind string, second int64) []string {
 	switch ui.eventGraphGroupings[id] {
 	case filterSystem:
-		location, known := ui.locationLookup.atName(character, time.Unix(second, 0))
-		return []string{systemFilterOption(location, known).Label}
+		return []string{ui.graphMetadata().attributes(character, second).system.Label}
 	case eventByCharacter:
 		return []string{character}
 	case eventByGroup:
 		return ui.hitCharacterGroupsFor(id, character, "")
 	case eventByShip, eventByClass:
-		ship, known := ships[characterKey(character)].atName(character, time.Unix(second, 0))
-		hull, class := shipFilterOptions(ship, known)
+		attributes := ui.graphMetadata().attributes(character, second)
+		hull, class := attributes.hull, attributes.class
 		if ui.eventGraphGroupings[id] == eventByClass {
 			return []string{class.Label}
 		}

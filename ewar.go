@@ -126,7 +126,6 @@ func (ui *analyzerUI) incomingEWarPlot(selected map[string]bool) plotData {
 	first, end, bucket := data.Start.Unix(), data.End.Unix(), int64(data.Bucket/time.Second)
 	n := int(math.Ceil(data.End.Sub(data.Start).Seconds() / data.Bucket.Seconds()))
 	groups := map[string]*plotSeries{}
-	ships := ui.shipHistory.indexByName()
 	for _, log := range ui.analysisSnapshot().Logs {
 		if !selected[log.Character] {
 			continue
@@ -139,7 +138,7 @@ func (ui *analyzerUI) incomingEWarPlot(selected map[string]bool) plotData {
 			if left >= right {
 				continue
 			}
-			for _, name := range ui.eventGroupingNames(graphIncomingEWar, log.Character, event.Effect, event.Second, ships) {
+			for _, name := range ui.eventGroupingNames(graphIncomingEWar, log.Character, event.Effect, event.Second) {
 				series := groups[name]
 				if series == nil {
 					series = &plotSeries{Name: name, Color: characterColor(name), Values: make([]float64, n)}

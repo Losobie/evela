@@ -313,7 +313,7 @@ func (ui *analyzerUI) shipClassGrouping() bool {
 }
 
 func (ui *analyzerUI) groupedShipSeries(selected map[string]bool, averageWindow time.Duration) []characterSeries {
-	return ui.view.historicalShipSeries(ui.analysisSnapshot(), ui.shipHistory, selected, ui.shipClassGrouping(), averageWindow)
+	return ui.view.historicalShipSeries(ui.analysisSnapshot(), ui.shipHistory, selected, ui.shipClassGrouping(), averageWindow, ui.graphMetadata())
 }
 
 func (ui *analyzerUI) characterRow(name, group, shipNames string) fyne.CanvasObject {
@@ -339,7 +339,7 @@ func (ui *analyzerUI) groupedCharacterList(query string) []fyne.CanvasObject {
 	var rows []fyne.CanvasObject
 	var groups []characterSeries
 	if ui.systemGrouping() {
-		groups = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, nil, filterSystem, ui.graphAverageWindow)
+		groups = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, nil, filterSystem, ui.graphAverageWindow, ui.graphMetadata())
 	} else if ui.weaponGrouping() {
 		groups = ui.view.weaponSeries(ui.analysisSnapshot(), nil, ui.groupSelect.Selected, ui.graphAverageWindow)
 	} else if ui.characterGroupGrouping() {
