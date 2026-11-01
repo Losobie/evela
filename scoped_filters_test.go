@@ -70,8 +70,8 @@ func TestScopedFiltersAddRemovePersistAndIntersect(t *testing.T) {
 		t.Fatal("outgoing visibility leaked to incoming")
 	}
 	for _, item := range ui.addFilterMenu(graphOutgoing).Items {
-		if item.Label == filterWeaponType {
-			t.Fatal("Add filter offers an already visible filter")
+		if item.Label == filterWeaponType && !item.Checked {
+			t.Fatal("Add filter does not check the visible filter")
 		}
 	}
 	ui.setFilterVisible(graphOutgoing, filterWeaponType, false)
@@ -211,4 +211,46 @@ func TestFilterBarsWrapWhileKeepingActionsAligned(t *testing.T) {
 		}
 	}
 	captureWindowPreview(t, ui.window, os.Getenv("EVELA_FILTER_WRAP_CAPTURE"))
+}
+
+func TestAddFilterCheckboxesStayOpenAndDismissOutside(t *testing.T) {
+	ui, _ := newDamageFilterTestUI(t)
+	for _, scope := range []string{globalFilterScope, graphOutgoing, graphIncoming} {
+		// Also cover the initially empty state, where the check column must exist.
+		for _, kind := range availableFilters(scope) {
+			ui.visibleFilters[scope][kind] = false
+		}
+		ui.refreshScopedFilterBars()
+		if scope != globalFilterScope {
+			ui.graphsScroll.ScrollToOffset(fyne.NewPos(0, ui.graphCards[scope].Position().Y))
+		}
+		test.Tap(ui.scopedFilterBars[scope].Objects[0].(fyne.Tappable))
+		popup := ui.graphMenuPopup
+		position := popup.Position()
+		for index, kind := range availableFilters(scope) {
+			row := popup.Items[index]
+			assertLiveVisibilityCheckmark(t, row, false)
+			test.Tap(row.(fyne.Tappable))
+			if !ui.visibleFilters[scope][kind] || !popup.Visible() || popup.Position() != position || len(ui.window.Canvas().Overlays().List()) != 1 {
+				t.Fatalf("%s/%s checkbox closed or moved menu", scope, kind)
+			}
+			assertLiveVisibilityCheckmark(t, row, true)
+		}
+		// Keyboard toggles retain the active row and update live checkbox state.
+		kind := availableFilters(scope)[len(availableFilters(scope))-1]
+		for _, want := range []bool{false, true, false} {
+			popup.TypedKey(&fyne.KeyEvent{Name: fyne.KeySpace})
+			if ui.visibleFilters[scope][kind] != want || !popup.Visible() {
+				t.Fatal("keyboard toggle lost the active checkbox or closed the menu")
+			}
+			assertLiveVisibilityCheckmark(t, popup.Items[len(popup.Items)-1], want)
+		}
+		if scope == graphIncoming {
+			captureWindowPreview(t, ui.window, os.Getenv("EVELA_FILTER_CHECKBOX_CAPTURE"))
+		}
+		test.TapCanvas(ui.window.Canvas(), fyne.NewPos(2, 2))
+		if popup.Visible() || ui.window.Canvas().Overlays().Top() != nil {
+			t.Fatal("clicking away did not dismiss Add filter")
+		}
+	}
 }

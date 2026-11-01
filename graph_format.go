@@ -69,15 +69,23 @@ func (ui *analyzerUI) initGraphFormat() {
 }
 
 func (ui *analyzerUI) graphMenuButton(label string, items func() *fyne.Menu, keepVisibilityOpen ...bool) *widget.Button {
+	var keepOpen func(*widget.PopUpMenu, *fyne.Menu)
+	if len(keepVisibilityOpen) > 0 && keepVisibilityOpen[0] {
+		keepOpen = ui.keepGraphVisibilityMenuOpen
+	}
+	return ui.toggleMenuButton(label, items, keepOpen)
+}
+
+func (ui *analyzerUI) toggleMenuButton(label string, items func() *fyne.Menu, keepOpen func(*widget.PopUpMenu, *fyne.Menu)) *widget.Button {
 	var button *widget.Button
 	button = widget.NewButtonWithIcon(label, theme.MenuDropDownIcon(), func() {
 		if ui.graphMenuPopup != nil {
 			ui.graphMenuPopup.Hide()
 		}
 		model := items()
-		sticky := len(keepVisibilityOpen) > 0 && keepVisibilityOpen[0]
+		sticky := keepOpen != nil
 		// Fyne reserves checkmark space only when the menu is constructed.
-		// Options needs that column even when every toggle starts unchecked.
+		// Toggle menus need that column even when every item starts unchecked.
 		var reserveCheckColumn *fyne.MenuItem
 		if sticky && !slices.ContainsFunc(model.Items, func(item *fyne.MenuItem) bool { return item.Checked }) {
 			reserveCheckColumn = model.Items[0]
@@ -88,7 +96,7 @@ func (ui *analyzerUI) graphMenuButton(label string, items func() *fyne.Menu, kee
 			reserveCheckColumn.Checked = false
 		}
 		if sticky {
-			ui.keepGraphVisibilityMenuOpen(menu, model)
+			keepOpen(menu, model)
 		}
 		ui.graphMenuPopup = menu
 		position := fyne.CurrentApp().Driver().AbsolutePositionForObject(button)

@@ -169,19 +169,28 @@ func (ui *analyzerUI) scopedFilterBar(scope string, trailing ...fyne.CanvasObjec
 func (ui *analyzerUI) addFilterMenu(scope string) *fyne.Menu {
 	menu := fyne.NewMenu("Add filter")
 	for _, kind := range availableFilters(scope) {
-		if ui.visibleFilters[scope][kind] {
-			continue
-		}
 		kind := kind
-		menu.Items = append(menu.Items, fyne.NewMenuItem(kind, func() { ui.setFilterVisible(scope, kind, true) }))
-	}
-	if len(menu.Items) == 0 {
-		item := fyne.NewMenuItem("All filters added", nil)
-		item.Disabled = true
+		item := fyne.NewMenuItem(kind, func() { ui.setFilterVisible(scope, kind, !ui.visibleFilters[scope][kind]) })
+		item.Checked = ui.visibleFilters[scope][kind]
 		menu.Items = append(menu.Items, item)
 	}
 	return menu
 }
+
+func (ui *analyzerUI) keepAddFilterMenuOpen(scope string, popup *widget.PopUpMenu, model *fyne.Menu) {
+	for index, item := range model.Items {
+		action := item.Action
+		item.Action = func() {
+			action()
+			item.Checked = ui.visibleFilters[scope][item.Label]
+			popup.ShowAtPosition(popup.Position())
+			for range model.Items[:index+1] {
+				popup.ActivateNext()
+			}
+		}
+	}
+}
+
 func (ui *analyzerUI) refreshScopedFilterBars() {
 	for scope := range ui.scopedFilterBars {
 		ui.refreshScopedFilterBar(scope)
@@ -215,7 +224,7 @@ func (ui *analyzerUI) refreshScopedFilterBar(scope string) {
 		remove := widget.NewButtonWithIcon("", theme.CancelIcon(), func() { ui.setFilterVisible(scope, kind, false) })
 		chips = append(chips, container.NewHBox(button, remove))
 	}
-	add := ui.graphMenuButton("Add filter", func() *fyne.Menu { return ui.addFilterMenu(scope) })
+	add := ui.toggleMenuButton("Add filter", func() *fyne.Menu { return ui.addFilterMenu(scope) }, func(popup *widget.PopUpMenu, model *fyne.Menu) { ui.keepAddFilterMenuOpen(scope, popup, model) })
 	bar.Objects = append([]fyne.CanvasObject{add}, chips...)
 	if trailing := bar.Layout.(*filterBarLayout).trailing; trailing != nil {
 		bar.Objects = append(bar.Objects, trailing)
