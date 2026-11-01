@@ -257,9 +257,13 @@ type cachedLog struct {
 	Log      *parsedLog
 }
 
-type logIndex struct{ files map[string]cachedLog }
+type logIndex struct {
+	files map[string]cachedLog
+	cache *logCache
+}
 
 type logSnapshot struct {
+	CachedFiles, ParsedFiles      int
 	Logs                          []*parsedLog
 	Characters                    []string
 	First, Last                   time.Time
@@ -282,9 +286,11 @@ func (index *logIndex) refresh(ctx context.Context, directory string, cutoff tim
 		info os.FileInfo
 	}
 	type answer struct {
-		path   string
-		cached cachedLog
-		err    error
+		path     string
+		cached   cachedLog
+		err      error
+		cacheErr error
+		reused   bool
 	}
 	var jobs []job
 	next := make(map[string]cachedLog)
@@ -317,6 +323,7 @@ func (index *logIndex) refresh(ctx context.Context, directory string, cutoff tim
 		}
 		if cached, ok := index.files[path]; ok && cached.Size == info.Size() && cached.Modified.Equal(info.ModTime()) {
 			next[path] = cached
+			snapshot.CachedFiles++
 		} else {
 			jobs = append(jobs, job{path, info})
 		}
@@ -330,14 +337,34 @@ func (index *logIndex) refresh(ctx context.Context, directory string, cutoff tim
 		go func() {
 			defer workers.Done()
 			for task := range work {
-				file, openErr := os.Open(task.path)
-				var parsed *parsedLog
-				if openErr == nil {
-					parsed, openErr = parseLog(file)
-					file.Close()
+				parsed, cacheErr := index.cache.load(ctx, task.path, task.info)
+				reused := parsed != nil
+				var openErr error
+				if parsed == nil {
+					var file *os.File
+					file, openErr = os.Open(task.path)
+					if openErr == nil {
+						parsed, openErr = parseLog(file)
+						if openErr == nil {
+							// Do not persist an incomplete read while a live log is growing.
+							current, statErr := file.Stat()
+							if statErr != nil {
+								openErr = statErr
+							} else if current.Size() != task.info.Size() || !current.ModTime().Equal(task.info.ModTime()) {
+								openErr = fmt.Errorf("log changed while being read; retrying next refresh")
+							}
+						}
+						file.Close()
+					}
+				}
+				cached := cachedLog{task.info.Size(), task.info.ModTime(), parsed}
+				if openErr == nil && !reused && ctx.Err() == nil {
+					if err := index.cache.store(ctx, task.path, cached); err != nil && cacheErr == nil {
+						cacheErr = err
+					}
 				}
 				select {
-				case answers <- answer{task.path, cachedLog{task.info.Size(), task.info.ModTime(), parsed}, openErr}:
+				case answers <- answer{path: task.path, cached: cached, err: openErr, cacheErr: cacheErr, reused: reused}:
 				case <-ctx.Done():
 					return
 				}
@@ -356,7 +383,12 @@ func (index *logIndex) refresh(ctx context.Context, directory string, cutoff tim
 	}()
 	go func() { workers.Wait(); close(answers) }()
 	done := len(next)
+	cacheWarned := false
 	for answer := range answers {
+		if answer.cacheErr != nil && !cacheWarned && ctx.Err() == nil {
+			snapshot.Warnings = append(snapshot.Warnings, "SQLite cache unavailable for a log; reading source files: "+answer.cacheErr.Error())
+			cacheWarned = true
+		}
 		if answer.err != nil {
 			snapshot.Warnings = append(snapshot.Warnings, filepath.Base(answer.path)+": "+answer.err.Error())
 			// Keep the previous successful read if a live file is temporarily locked.
@@ -365,6 +397,11 @@ func (index *logIndex) refresh(ctx context.Context, directory string, cutoff tim
 			}
 		} else {
 			next[answer.path] = answer.cached
+			if answer.reused {
+				snapshot.CachedFiles++
+			} else {
+				snapshot.ParsedFiles++
+			}
 		}
 		done++
 		if progress != nil && (done%200 == 0 || done == snapshot.Files) {

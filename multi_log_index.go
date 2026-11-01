@@ -30,6 +30,7 @@ type watchedLogFolder struct {
 // Only the log watcher owns these fields. Each folder has at most one scan in
 // flight, even if a disconnected share leaves a Windows file operation blocked.
 type multiLogIndex struct {
+	cache   *logCache
 	folders map[string]*watchedLogFolder
 	notify  chan struct{}
 	wait    time.Duration
@@ -88,7 +89,7 @@ func (index *multiLogIndex) refresh(ctx context.Context, paths []string, cutoff 
 		key := logFolderKey(path)
 		folder := index.folders[key]
 		if folder == nil {
-			folder = &watchedLogFolder{path: path, done: make(chan logFolderResult, 1)}
+			folder = &watchedLogFolder{path: path, done: make(chan logFolderResult, 1), index: logIndex{cache: index.cache}}
 			index.folders[key] = folder
 		}
 		folders = append(folders, folder)
@@ -164,6 +165,8 @@ waiting:
 		}
 		last := folder.last
 		combined.Files += last.Files
+		combined.CachedFiles += last.CachedFiles
+		combined.ParsedFiles += last.ParsedFiles
 		combined.SkippedOld += last.SkippedOld
 		combined.SkippedUndated += last.SkippedUndated
 		for _, warning := range last.Warnings {

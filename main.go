@@ -311,7 +311,13 @@ func (ui *analyzerUI) requestLoad() {
 
 // The worker owns the file cache. All widgets and view state stay on Fyne's UI thread.
 func (ui *analyzerUI) watch() {
-	index := &multiLogIndex{}
+	cachePath, cacheErr := defaultLogCachePath()
+	var cache *logCache
+	if cacheErr == nil {
+		cache, cacheErr = openLogCache(cachePath, logParserVersion)
+	}
+	defer cache.close()
+	index := &multiLogIndex{cache: cache}
 	defer index.close()
 	var directories []string
 	ticker := time.NewTicker(10 * time.Second)
@@ -343,7 +349,7 @@ func (ui *analyzerUI) watch() {
 			ui.refresh.Disable()
 			ui.progress.SetValue(0)
 			ui.progress.Show()
-			ui.status.SetText("Reading logs… unchanged files use the memory cache.")
+			ui.status.SetText("Reading logs… unchanged files use the local cache.")
 		})
 		snapshot, err := index.refresh(ctx, directories, logLoadingCutoff(time.Now(), lookbackDays), func(done, total int) {
 			fyne.Do(func() {
@@ -367,6 +373,9 @@ func (ui *analyzerUI) watch() {
 				// scan from the previous limit while that request is pending.
 				return
 			}
+			if cacheErr != nil {
+				snapshot.Warnings = append(snapshot.Warnings, "SQLite cache unavailable; using source logs: "+cacheErr.Error())
+			}
 			ui.snapshot = snapshot
 			ui.rememberLogLocations(snapshot.locationSessions())
 			directoryKey := strings.Join(directories, "\n")
@@ -381,7 +390,7 @@ func (ui *analyzerUI) watch() {
 			}
 			ui.updateRange()
 			ui.directoryInfo.SetText(fmt.Sprintf("%d log folders · %d log files loaded · %d too old · %d without filename dates · %d characters · %d duplicate exports skipped · %d files without a Listener header", len(directories), snapshot.Files, snapshot.SkippedOld, snapshot.SkippedUndated, len(snapshot.Characters), snapshot.Duplicates, snapshot.Unassigned))
-			status := "Updated " + time.Now().Format("15:04:05") + " · Logs stay on this computer."
+			status := "Updated " + time.Now().Format("15:04:05") + fmt.Sprintf(" · %d cached / %d processed logs · Logs stay on this computer.", snapshot.CachedFiles, snapshot.ParsedFiles)
 			if snapshot.Files == 0 {
 				if snapshot.SkippedOld+snapshot.SkippedUndated > 0 {
 					status += " No logs matched the loading limit. Change Settings → Log loading to include older files."

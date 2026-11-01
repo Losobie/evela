@@ -7,3 +7,7 @@ After each successful Windows build, create `evela.zip` containing only `evela.e
 # Git commits
 
 After completing and verifying each requested change, commit the changes using Git with a concise, descriptive commit message. Stage only changes belonging to the current task and preserve unrelated user changes. Do not amend or rewrite existing commits unless explicitly requested.
+
+# Parsed-log cache
+
+When changing extracted log fields, parsing semantics, source classification, relevant embedded catalogs, or the serialized `parsedLog` format, increment `logParserVersion` in `log_cache.go` so unchanged source logs are reprocessed instead of loading stale SQLite results. Database schema changes also require a migration and a `logCacheSchemaVersion` update; parser-version changes alone do not require a schema migration.
