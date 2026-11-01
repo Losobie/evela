@@ -148,7 +148,7 @@ func TestIncomingGroupingMenusAndPreferences(t *testing.T) {
 	for _, item := range ui.incomingGroupingMenu().Items {
 		labels = append(labels, item.Label)
 	}
-	if !reflect.DeepEqual(labels, []string{"Character", "Character Group", "Attacker", "Ship", "NPC", "NPC Type"}) {
+	if !reflect.DeepEqual(labels, []string{"Character", "Character Group", "Attacker", "Ship", "NPC", "NPC Type", "Weapon Type", "Weapon Strength"}) {
 		t.Fatalf("incoming choices: %v", labels)
 	}
 	if len(ui.graphOptionsMenu().Items) != 4+len(graphVisibilityOptions) {

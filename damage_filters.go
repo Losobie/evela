@@ -20,7 +20,7 @@ const (
 )
 
 var sharedDamageFilterKinds = []string{filterCharacters, filterShipType, filterShipClass, filterCharacterGroup, filterSystem}
-var damageFilterKinds = append(append([]string(nil), sharedDamageFilterKinds...), filterNPCNames, filterNPCTypes)
+var damageFilterKinds = append(append([]string(nil), sharedDamageFilterKinds...), filterNPCNames, filterNPCTypes, filterWeaponType, filterWeaponStrength)
 
 type damageFilterSelection struct {
 	Default bool            `json:"default"`
@@ -217,7 +217,8 @@ func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
 	restrictSystem := systems.restricted()
 	npcNames, npcTypes := ui.damageFilters[filterNPCNames], ui.damageFilters[filterNPCTypes]
 	restrictNPC := npcNames.restricted() || npcTypes.restricted()
-	if !restrictType && !restrictClass && !groups.restricted() && !restrictSystem && !restrictNPC {
+	restrictWeapon := ui.damageFilters[filterWeaponType].restricted() || ui.damageFilters[filterWeaponStrength].restricted()
+	if !restrictType && !restrictClass && !groups.restricted() && !restrictSystem && !restrictNPC && !restrictWeapon {
 		return nil
 	}
 	byName, members := ui.shipHistory.indexByName(), ui.characterFilterGroups()
@@ -274,7 +275,7 @@ func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
 			included[id] = npcNames.selected(names.Key) && npcTypes.selected(types.Key)
 		}
 		for _, hit := range log.Hits {
-			if !matches(hit.Second) {
+			if !matches(hit.Second) || !ui.damageFilters[filterWeaponType].selected(hitWeaponOption(hit, filterWeaponType).Key) || !ui.damageFilters[filterWeaponStrength].selected(hitWeaponOption(hit, filterWeaponStrength).Key) {
 				continue
 			}
 			if hit.Incoming && restrictNPC {
@@ -314,6 +315,9 @@ func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
 				}
 				copyLog.Points = append(copyLog.Points, point)
 			}
+		}
+		if restrictWeapon {
+			rebuildDamageFromHits(&copyLog)
 		}
 		for _, event := range log.StructureEvents {
 			if matches(event.Second) {
@@ -357,6 +361,15 @@ func (ui *analyzerUI) refreshDamageFilterOptions() {
 			location, known := locations.atName(log.Character, time.Unix(second, 0))
 			system := systemFilterOption(location, known)
 			options[filterSystem][system.Key] = system.Label
+		}
+		for _, hit := range log.Hits {
+			if hit.Second >= first && hit.Second < end {
+				registerCharacter(hit.Second)
+				for _, kind := range []string{filterWeaponType, filterWeaponStrength} {
+					option := hitWeaponOption(hit, kind)
+					options[kind][option.Key] = option.Label
+				}
+			}
 		}
 		for _, event := range log.EWar {
 			if event.Second >= first && event.Second < end {

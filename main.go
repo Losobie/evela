@@ -202,6 +202,9 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 				if ui.characterGroupGrouping() {
 					first, second = "Character group", "Members"
 				}
+				if ui.weaponGrouping() {
+					first, second = ui.groupSelect.Selected, "Members"
+				}
 				heading := []string{first, second, "Outgoing damage", "Incoming damage", "Avg out DPS", "Avg in DPS", "Hits out / in"}[id.Col]
 				if id.Col == ui.totalsSortColumn {
 					cell.icon.SetResource(theme.MoveUpIcon())
@@ -505,7 +508,10 @@ func (ui *analyzerUI) renderSelection() {
 	if ui.graphAverageWindow > 0 && !ui.shipGrouping() {
 		graphSeries = ui.view.rollingAverage(ui.analysisSnapshot(), ui.graphAverageWindow)
 	}
-	if ui.shipGrouping() {
+	if ui.weaponGrouping() {
+		ui.tableSeries = ui.view.weaponSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, 0)
+		graphSeries = ui.view.weaponSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, ui.graphAverageWindow)
+	} else if ui.shipGrouping() {
 		ui.tableSeries = ui.groupedShipSeries(selected, 0)
 		graphSeries = ui.groupedShipSeries(ui.selected, ui.graphAverageWindow)
 	} else if ui.characterGroupGrouping() {

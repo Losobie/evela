@@ -337,7 +337,9 @@ func (ui *analyzerUI) characterRow(name, group, shipNames string) fyne.CanvasObj
 func (ui *analyzerUI) groupedCharacterList(query string) []fyne.CanvasObject {
 	var rows []fyne.CanvasObject
 	var groups []characterSeries
-	if ui.characterGroupGrouping() {
+	if ui.weaponGrouping() {
+		groups = ui.view.weaponSeries(ui.analysisSnapshot(), nil, ui.groupSelect.Selected, ui.graphAverageWindow)
+	} else if ui.characterGroupGrouping() {
 		series := ui.view.activeSeries()
 		if ui.graphAverageWindow > 0 {
 			series = ui.view.rollingAverage(ui.analysisSnapshot(), ui.graphAverageWindow)

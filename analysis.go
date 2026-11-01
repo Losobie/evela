@@ -7,6 +7,7 @@ import (
 )
 
 type characterSeries struct {
+	HasMisses                    bool
 	Name                         string
 	Members                      []string
 	MemberCounts                 []int
@@ -29,7 +30,7 @@ type damageView struct {
 func (view damageView) activeSeries() []characterSeries {
 	var active []characterSeries
 	for _, series := range view.Series {
-		if series.TotalIncoming > 0 || series.TotalOutgoing > 0 || series.IncomingHits > 0 || series.OutgoingHits > 0 {
+		if series.HasMisses || series.TotalIncoming > 0 || series.TotalOutgoing > 0 || series.IncomingHits > 0 || series.OutgoingHits > 0 {
 			active = append(active, series)
 		}
 	}
@@ -58,6 +59,11 @@ func buildView(snapshot *logSnapshot, start, end time.Time, requestedBucket time
 	}
 	for _, log := range snapshot.Logs {
 		series := &view.Series[byCharacter[log.Character]]
+		for _, hit := range log.Hits {
+			if hit.WeaponStrength == "Misses" && hit.Second >= start.Unix() && hit.Second < end.Unix() {
+				series.HasMisses = true
+			}
+		}
 		for _, point := range log.Points {
 			if point.Second < start.Unix() || point.Second >= end.Unix() {
 				continue

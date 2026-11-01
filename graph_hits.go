@@ -66,6 +66,9 @@ func (ui *analyzerUI) attachIndividualHits(in, out *plotData, selected map[strin
 						source = log.Sources[hit.Source]
 					}
 					names = []string{incomingSourceGroup(source, ui.incomingGrouping).Label}
+					if weaponGroupingMode(ui.incomingGrouping) {
+						names = []string{hitWeaponOption(hit, ui.incomingGrouping).Label}
+					}
 				}
 				for _, name := range names {
 					if label, exists := incomingLabels[characterKey(name)]; exists {
@@ -83,6 +86,9 @@ func (ui *analyzerUI) attachIndividualHits(in, out *plotData, selected map[strin
 						name = class.Label
 					}
 					names = []string{name}
+				}
+				if ui.weaponGrouping() {
+					names = []string{hitWeaponOption(hit, ui.groupSelect.Selected).Label}
 				}
 				for _, name := range names {
 					outgoing[name] = append(outgoing[name], point)

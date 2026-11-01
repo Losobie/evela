@@ -19,7 +19,7 @@ const (
 
 var incomingGroupingModes = []string{
 	incomingByCharacter, incomingByCharacterGroup,
-	incomingByAttacker, incomingByShip, incomingByNPC, incomingByNPCType,
+	incomingByAttacker, incomingByShip, incomingByNPC, incomingByNPCType, filterWeaponType, filterWeaponStrength,
 }
 
 func (ui *analyzerUI) incomingGroupingMenu() *fyne.Menu {
@@ -38,6 +38,9 @@ func (ui *analyzerUI) incomingGroupingMenu() *fyne.Menu {
 }
 
 func (ui *analyzerUI) incomingGraphSeries(selected map[string]bool) []characterSeries {
+	if weaponGroupingMode(ui.incomingGrouping) {
+		return ui.view.weaponSeries(ui.analysisSnapshot(), selected, ui.incomingGrouping, ui.graphAverageWindow)
+	}
 	if ui.incomingGrouping != incomingByCharacter && ui.incomingGrouping != incomingByCharacterGroup {
 		return ui.view.incomingSourceSeries(ui.analysisSnapshot(), selected, ui.incomingGrouping, ui.graphAverageWindow)
 	}

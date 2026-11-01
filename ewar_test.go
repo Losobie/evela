@@ -108,6 +108,7 @@ func TestEWarParsingPreservesDamageAndArchiveBounds(t *testing.T) {
 	}
 	// A log with no damage still supplies the full timeline and survives dedup.
 	log.Points = nil
+	log.Hits = nil
 	snapshot := &logSnapshot{SourceFiles: map[string]cachedLog{"first": {Log: log}, "duplicate": {Log: log}}}
 	snapshot.populateLogs()
 	if snapshot.Duplicates != 1 || snapshot.First.Unix() != log.EWar[0].Second || snapshot.Last.Unix() != log.EWar[4].Second {

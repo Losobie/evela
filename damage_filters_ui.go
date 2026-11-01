@@ -74,7 +74,8 @@ func (ui *analyzerUI) damageFilterBar() fyne.CanvasObject {
 	}
 	buttons.Add(ui.graphOptionsButton)
 	ui.refreshDamageFilterControls()
-	return container.NewBorder(nil, nil, nil, buttons, widget.NewLabel("Shared filters"))
+	return container.NewVBox(container.NewBorder(nil, nil, nil, buttons, widget.NewLabel("Shared filters")),
+		container.NewBorder(nil, nil, nil, container.NewHBox(ui.damageFilterButton(filterWeaponType), ui.damageFilterButton(filterWeaponStrength)), widget.NewLabel("Damage filters")))
 }
 
 func (ui *analyzerUI) damageFilterButton(kind string) fyne.CanvasObject {

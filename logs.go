@@ -36,10 +36,11 @@ type damagePoint struct {
 }
 
 type damageHit struct {
-	Second   int64
-	Amount   float64
-	Source   int
-	Incoming bool
+	Second                     int64
+	Amount                     float64
+	Source                     int
+	Incoming                   bool
+	WeaponType, WeaponStrength string
 }
 
 type parsedLog struct {
@@ -157,12 +158,27 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		}
 		match := damageMessage.FindStringSubmatch(message)
 		if match == nil {
+			if target, weapon, incoming, ok := parseDamageMiss(message); ok {
+				sourceID := -1
+				if incoming {
+					source := incomingDamageSource(target)
+					var exists bool
+					sourceID, exists = sourceNames[source]
+					if !exists {
+						sourceID = len(result.Sources)
+						result.Sources = append(result.Sources, source)
+						sourceNames[source] = sourceID
+					}
+				}
+				result.Hits = append(result.Hits, damageHit{Second: at.Unix(), Source: sourceID, Incoming: incoming, WeaponType: weapon, WeaponStrength: "Misses"})
+			}
 			continue
 		}
 		amount, err := strconv.ParseFloat(strings.ReplaceAll(match[1], ",", ""), 64)
 		if err != nil || amount < 0 || math.IsInf(amount, 0) || math.IsNaN(amount) {
 			continue
 		}
+		weapon, strength := damageWeaponDetails(match[3])
 		second := at.Unix()
 		point := seconds[second]
 		if point == nil {
@@ -195,11 +211,11 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 			}
 			contribution.Damage += amount
 			contribution.Hits++
-			result.Hits = append(result.Hits, damageHit{Second: second, Amount: amount, Source: sourceID, Incoming: true})
+			result.Hits = append(result.Hits, damageHit{Second: second, Amount: amount, Source: sourceID, Incoming: true, WeaponType: weapon, WeaponStrength: strength})
 		} else {
 			point.Outgoing += amount
 			point.OutgoingHits++
-			result.Hits = append(result.Hits, damageHit{Second: second, Amount: amount, Source: -1})
+			result.Hits = append(result.Hits, damageHit{Second: second, Amount: amount, Source: -1, WeaponType: weapon, WeaponStrength: strength})
 			target, typeName, recognized := outgoingStructureTarget(match[3])
 			structurePending = recognized
 			if recognized {
@@ -391,6 +407,15 @@ func (snapshot *logSnapshot) populateLogs() {
 		var first, last time.Time
 		if len(log.Points) > 0 {
 			first, last = time.Unix(log.Points[0].Second, 0).UTC(), time.Unix(log.Points[len(log.Points)-1].Second, 0).UTC()
+		}
+		for _, hit := range log.Hits {
+			at := time.Unix(hit.Second, 0).UTC()
+			if first.IsZero() || at.Before(first) {
+				first = at
+			}
+			if last.IsZero() || at.After(last) {
+				last = at
+			}
 		}
 		for _, event := range log.StructureEvents {
 			at := time.Unix(event.Second, 0).UTC()
