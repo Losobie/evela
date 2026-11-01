@@ -181,3 +181,34 @@ func TestHiddenLocalSystemFilterMigratesNames(t *testing.T) {
 		t.Fatal("migration lost hidden local selection or activated it")
 	}
 }
+
+func TestFilterBarsWrapWhileKeepingActionsAligned(t *testing.T) {
+	ui, _ := newDamageFilterTestUI(t)
+	for _, width := range []float32{2400, 1200, 1600, 1200} {
+		ui.window.Resize(fyne.NewSize(width, 900))
+		ui.window.Canvas().Capture()
+		for _, scope := range []string{globalFilterScope, graphOutgoing, graphIncoming} {
+			bar := ui.scopedFilterBars[scope]
+			add, right := bar.Objects[0], bar.Objects[len(bar.Objects)-1]
+			if add.Position().X != 0 || add.Position().Y != 0 || right.Position().Y != 0 || right.Position().X+right.Size().Width > bar.Size().Width+1 {
+				t.Fatalf("%s actions not aligned at width %v: add %v right %v size %v", scope, width, add.Position(), right.Position(), bar.Size())
+			}
+			wrapped := false
+			for _, object := range bar.Objects[1 : len(bar.Objects)-1] {
+				pos, size := object.Position(), object.Size()
+				if pos.X < 0 || pos.X+size.Width > bar.Size().Width+1 || pos.Y+size.Height > bar.Size().Height+1 {
+					t.Fatalf("%s chip clipped at width %v: %v %v bar %v", scope, width, pos, size, bar.Size())
+				}
+				if pos.Y > 0 {
+					wrapped = true
+				} else if pos.X+size.Width > right.Position().X {
+					t.Fatal("chip overlaps right-hand controls")
+				}
+			}
+			if scope == graphIncoming && width == 1200 && !wrapped {
+				t.Fatal("incoming filters did not wrap")
+			}
+		}
+	}
+	captureWindowPreview(t, ui.window, os.Getenv("EVELA_FILTER_WRAP_CAPTURE"))
+}

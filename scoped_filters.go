@@ -155,8 +155,13 @@ func (ui *analyzerUI) setAllScopeFilters(scope, kind string, checked bool) {
 	ui.rebuildView()
 }
 
-func (ui *analyzerUI) scopedFilterBar(scope string) fyne.CanvasObject {
-	bar := container.NewVBox()
+func (ui *analyzerUI) scopedFilterBar(scope string, trailing ...fyne.CanvasObject) fyne.CanvasObject {
+	toolbar := &filterBarLayout{}
+	if len(trailing) > 0 {
+		toolbar.trailing = trailing[0]
+	}
+	bar := container.New(toolbar)
+	toolbar.owner = bar
 	ui.scopedFilterBars[scope] = bar
 	ui.refreshScopedFilterBar(scope)
 	return bar
@@ -188,11 +193,7 @@ func (ui *analyzerUI) refreshScopedFilterBar(scope string) {
 		return
 	}
 	ui.scopedFilterButtons[scope] = map[string]*widget.Button{}
-	chips := container.NewHBox()
-	label := "Graph filters"
-	if scope == globalFilterScope {
-		label = "Global filters"
-	}
+	var chips []fyne.CanvasObject
 	for _, kind := range availableFilters(scope) {
 		if !ui.visibleFilters[scope][kind] {
 			continue
@@ -212,10 +213,13 @@ func (ui *analyzerUI) refreshScopedFilterBar(scope string) {
 			ui.miningFilterButtons[kind] = button
 		}
 		remove := widget.NewButtonWithIcon("", theme.CancelIcon(), func() { ui.setFilterVisible(scope, kind, false) })
-		chips.Add(container.NewHBox(button, remove))
+		chips = append(chips, container.NewHBox(button, remove))
 	}
 	add := ui.graphMenuButton("Add filter", func() *fyne.Menu { return ui.addFilterMenu(scope) })
-	bar.Objects = []fyne.CanvasObject{container.NewBorder(nil, nil, widget.NewLabel(label), add, container.NewHScroll(chips))}
+	bar.Objects = append([]fyne.CanvasObject{add}, chips...)
+	if trailing := bar.Layout.(*filterBarLayout).trailing; trailing != nil {
+		bar.Objects = append(bar.Objects, trailing)
+	}
 	bar.Refresh()
 }
 func (ui *analyzerUI) scopeFilterLabel(scope, kind string) string {

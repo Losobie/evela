@@ -66,10 +66,10 @@ func (row *damageFilterRow) CreateRenderer() fyne.WidgetRenderer {
 func (row *damageFilterRow) Tapped(*fyne.PointEvent) { row.check.SetChecked(!row.check.Checked) }
 
 func (ui *analyzerUI) damageFilterBar() fyne.CanvasObject {
-	return container.NewBorder(nil, nil, nil, ui.graphOptionsButton, ui.scopedFilterBar(globalFilterScope))
+	return ui.scopedFilterBar(globalFilterScope, ui.graphOptionsButton)
 }
 func (ui *analyzerUI) incomingDamageFilterBar() fyne.CanvasObject {
-	return container.NewVBox(container.NewBorder(nil, nil, nil, ui.incomingGroupButton), ui.scopedFilterBar(graphIncoming))
+	return ui.scopedFilterBar(graphIncoming, ui.incomingGroupButton)
 }
 
 func (ui *analyzerUI) damageFilterCounts(kind string) (int, int) {
