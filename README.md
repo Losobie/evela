@@ -128,6 +128,8 @@ SQLite stores compressed complete parsed records, keyed by source-content hash a
 
 ## Build and verify
 
+Every push to `main` runs the tests and builds the Windows x64 executable through [GitHub Actions](.github/workflows/release.yml). A successful build publishes a GitHub Release tagged `build-<full commit SHA>`, with `evela.exe` and `evela.zip` attached, and marks it as the latest release. The ZIP contains only the executable. New pushes cancel older builds; a run whose commit is no longer the tip of `main` skips publishing. Rerunning the current commit updates its existing release. The workflow uses GitHub's built-in token and requires no additional secrets. Build files remain ignored by Git.
+
 Requires Go 1.23+ and Fyne's desktop build prerequisites (a C compiler; MinGW GCC on Windows).
 
 ```powershell

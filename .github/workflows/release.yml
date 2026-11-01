@@ -1,0 +1,90 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-main
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows x64 release
+    runs-on: windows-2022
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CGO_ENABLED: '1'
+      GOARCH: amd64
+      CC: gcc
+    steps:
+      - name: Check out the pushed commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Install MinGW GCC
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-gcc
+
+      - name: Add GCC to PATH
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: |
+          Join-Path $env:MSYS2_LOCATION 'mingw64\bin' >> $env:GITHUB_PATH
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build executable and ZIP
+        run: |
+          go build -ldflags="-H=windowsgui" -o evela.exe .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Compress-Archive -LiteralPath evela.exe -DestinationPath evela.zip -Force
+
+      - name: Publish release for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Also protect against manually rerunning an older workflow run.
+          $headSha = gh api "repos/$env:GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($headSha.Trim() -ne $env:GITHUB_SHA) {
+            Write-Host 'A newer commit is on main; skipping this release.'
+            exit 0
+          }
+
+          $tag = "build-$env:GITHUB_SHA"
+          $shortSha = $env:GITHUB_SHA.Substring(0, 7)
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            # Rerunning the same commit updates its existing release.
+            gh release upload $tag evela.exe evela.zip --repo $env:GITHUB_REPOSITORY --clobber
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --latest
+          } else {
+            gh release create $tag evela.exe evela.zip `
+              --repo $env:GITHUB_REPOSITORY `
+              --target $env:GITHUB_SHA `
+              --title "Evela $shortSha" `
+              --generate-notes --latest
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
