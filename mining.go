@@ -124,7 +124,7 @@ func (ui *analyzerUI) refreshMiningControls() {
 	options := map[string]map[string]bool{filterOreName: {}, filterOreType: {}}
 	first, end := ui.view.Start.Unix(), ui.view.End.Unix()
 	for _, log := range ui.snapshot.Logs {
-		for _, event := range log.Mining {
+		for _, event := range recordsInRange(log.Mining, first, end, func(event miningEvent) int64 { return event.Second }) {
 			if event.Second >= first && event.Second < end {
 				options[filterOreName][event.Ore] = true
 				options[filterOreType][oreType(event.Ore)] = true

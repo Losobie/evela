@@ -133,7 +133,7 @@ func (ui *analyzerUI) setFilterVisible(scope, kind string, visible bool) {
 	}
 	ui.saveScopedFilters()
 	ui.refreshScopedFilterBars()
-	ui.rebuildView()
+	ui.rebuildFilteredView()
 }
 func (ui *analyzerUI) setScopeFilter(scope, kind, key string, checked bool) {
 	ui.storedScopeFilter(scope, kind).set(key, checked)
@@ -141,7 +141,7 @@ func (ui *analyzerUI) setScopeFilter(scope, kind, key string, checked bool) {
 		ui.selected[key] = checked
 	}
 	ui.saveScopedFilters()
-	ui.rebuildView()
+	ui.rebuildFilteredView()
 }
 func (ui *analyzerUI) setAllScopeFilters(scope, kind string, checked bool) {
 	selection := ui.storedScopeFilter(scope, kind)
@@ -152,7 +152,7 @@ func (ui *analyzerUI) setAllScopeFilters(scope, kind string, checked bool) {
 		}
 	}
 	ui.saveScopedFilters()
-	ui.rebuildView()
+	ui.rebuildFilteredView()
 }
 
 func (ui *analyzerUI) scopedFilterBar(scope string, trailing ...fyne.CanvasObject) fyne.CanvasObject {
@@ -262,19 +262,20 @@ func (ui *analyzerUI) scopeFilterOptions(scope, kind string) []damageFilterOptio
 	return ui.scopedOptions[scope][kind]
 }
 
-func (ui *analyzerUI) buildScopeFilterOptions(scope string) map[string][]damageFilterOption {
+func (ui *analyzerUI) buildScopeFilterOptions(scope string, snapshot *logSnapshot) map[string][]damageFilterOption {
 	values := map[string]map[string]string{}
 	for _, kind := range availableFilters(scope) {
 		values[kind] = map[string]string{}
 	}
 
+	kinds := availableFilters(scope)
 	first, end := ui.view.Start.Unix(), ui.view.End.Unix()
 	ships, members := ui.shipHistory.indexByName(), ui.characterFilterGroups()
 	register := func(log *parsedLog, second int64, hit *damageHit, kindValue, ore string) {
 		if second < first || second >= end {
 			return
 		}
-		for _, kind := range availableFilters(scope) {
+		for _, kind := range kinds {
 			add := func(option damageFilterOption) { values[kind][option.Key] = option.Label }
 			switch kind {
 			case filterCharacters:
@@ -324,7 +325,7 @@ func (ui *analyzerUI) buildScopeFilterOptions(scope string) map[string][]damageF
 			}
 		}
 	}
-	for _, log := range ui.snapshot.Logs {
+	for _, log := range snapshot.Logs {
 		switch scope {
 		case graphOutgoing, graphIncoming:
 			incoming := scope == graphIncoming

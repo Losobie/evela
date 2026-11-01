@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -181,6 +182,11 @@ func TestGraphVisibilityCollapsesCardsWithoutChangingAnalysis(t *testing.T) {
 	// it later cannot reveal stale series or a stale time axis.
 	chooseGraphMenuItem(t, ui.graphOptionsMenu(), "Show Outgoing logistics")
 	ui.snapshot.Logs[0].Logistics = append(ui.snapshot.Logs[0].Logistics, logisticsEvent{Second: ui.view.Start.Unix(), Kind: "Armor repair", Amount: 200})
+	// Imported records are sorted during parsing; preserve that invariant when
+	// simulating a refreshed log by mutating the fixture directly.
+	sort.SliceStable(ui.snapshot.Logs[0].Logistics, func(i, j int) bool {
+		return ui.snapshot.Logs[0].Logistics[i].Second < ui.snapshot.Logs[0].Logistics[j].Second
+	})
 	ui.rebuildView()
 	if hits := findLogisticsSeries(t, ui.outgoingLogistics, "Armor repair").Hits; len(hits) != 3 {
 		t.Fatal("hidden graph did not refresh its data")

@@ -136,7 +136,7 @@ func (ui *analyzerUI) damageFiltersChanged() {
 	if err == nil {
 		fyne.CurrentApp().Preferences().SetString(damageFiltersPreference, string(data))
 	}
-	ui.rebuildView()
+	ui.rebuildFilteredView()
 }
 
 func (ui *analyzerUI) analysisSnapshot() *logSnapshot {
@@ -243,7 +243,8 @@ func (ui *analyzerUI) refreshDamageFilterOptions() {
 	byName := ui.shipHistory.indexByName()
 	locations := ui.locationLookup
 	first, end := ui.view.Start.Unix(), ui.view.End.Unix()
-	for _, log := range ui.snapshot.Logs {
+	input := snapshotInRange(ui.snapshot, ui.view.Start, ui.view.End, 0)
+	for _, log := range input.Logs {
 		registerCharacterName := func() {
 			options[filterCharacters][log.Character] = log.Character
 			if _, exists := ui.selected[log.Character]; !exists {
@@ -324,7 +325,7 @@ func (ui *analyzerUI) refreshDamageFilterOptions() {
 	}
 	ui.scopedOptions = map[string]map[string][]damageFilterOption{}
 	for _, graph := range graphVisibilityOptions {
-		ui.scopedOptions[graph.id] = ui.buildScopeFilterOptions(graph.id)
+		ui.scopedOptions[graph.id] = ui.buildScopeFilterOptions(graph.id, input)
 	}
 
 }

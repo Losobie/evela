@@ -4,7 +4,7 @@ import "time"
 
 // Local filters intersect global filters at the record timestamp, before buckets,
 // rolling averages, totals, and individual-hit plots are built.
-func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
+func (ui *analyzerUI) filteredDamageSnapshot(snapshot *logSnapshot) *logSnapshot {
 	restricted := false
 	for scope, kinds := range ui.visibleFilters {
 		for kind, visible := range kinds {
@@ -62,9 +62,9 @@ func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
 		}
 		return true
 	}
-	filtered := *ui.snapshot
+	filtered := *snapshot
 	filtered.Logs = nil
-	for _, log := range ui.snapshot.Logs {
+	for _, log := range snapshot.Logs {
 		copyLog := *log
 		copyLog.Hits, copyLog.Points, copyLog.IncomingSources = nil, nil, nil
 		copyLog.EWar, copyLog.Logistics, copyLog.Mining, copyLog.StructureEvents = nil, nil, nil, nil

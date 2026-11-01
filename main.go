@@ -415,7 +415,12 @@ func (ui *analyzerUI) updateRange() {
 	ui.rebuildView()
 }
 
-func (ui *analyzerUI) rebuildView() {
+func (ui *analyzerUI) rebuildView() { ui.rebuildViewWithOptions(true) }
+
+// Filter selections do not change the available options in the raw time range.
+func (ui *analyzerUI) rebuildFilteredView() { ui.rebuildViewWithOptions(false) }
+
+func (ui *analyzerUI) rebuildViewWithOptions(refreshOptions bool) {
 	if ui.bucketSelect == nil || ui.totals == nil {
 		return
 	}
@@ -424,11 +429,22 @@ func (ui *analyzerUI) rebuildView() {
 		return
 	}
 	bucket := map[string]time.Duration{"1 second": time.Second, "5 seconds": 5 * time.Second, "10 seconds": 10 * time.Second, "1 minute": time.Minute, "5 minutes": 5 * time.Minute}[ui.bucketSelect.Selected]
-	ui.locationLookup = ui.resolvedLocations()
-	ui.migrateSystemFilterNames(ui.locationLookup)
-	ui.analysis = ui.filteredDamageSnapshot()
+	refreshOptions = refreshOptions || ui.filterOptions == nil || !start.Equal(ui.view.Start) || !end.Equal(ui.view.End)
+	if refreshOptions {
+		ui.locationLookup = ui.resolvedLocations()
+		ui.migrateSystemFilterNames(ui.locationLookup)
+	}
+	// Retain the longest supported average's pre-range tail even while viewing
+	// individual hits, so switching averaging on never requires an archive scan.
+	input := snapshotInRange(ui.snapshot, start, end, max(30*time.Second, ui.graphAverageWindow))
+	ui.analysis = input
+	if filtered := ui.filteredDamageSnapshot(input); filtered != nil {
+		ui.analysis = filtered
+	}
 	ui.view = buildView(ui.analysisSnapshot(), start, end, bucket)
-	ui.refreshDamageFilterOptions()
+	if refreshOptions {
+		ui.refreshDamageFilterOptions()
+	}
 	ui.saveGraphRangePreference()
 	ui.renderSelection()
 	ui.rebuildCharacters()
