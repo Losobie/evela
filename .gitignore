@@ -1,6 +1,7 @@
 /.cache/
 /evela.exe
 /evela.test.exe
+/evela.exe~
 /test-output/
 /evela.zip
 .idea/
