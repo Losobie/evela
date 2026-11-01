@@ -78,8 +78,8 @@ func TestShipClassFormatSynchronizesGraphsLegendAndTotals(t *testing.T) {
 	if !ui.shipClassGrouping() || len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Name != "Supercarrier" || ui.outgoing.data.Series[0].Values[0] != 300 || len(ui.incoming.data.Series) != 2 || ui.incoming.data.Series[0].Values[0] != 10 {
 		t.Fatal("outgoing class format changed incoming grouping or failed to combine outgoing damage")
 	}
-	if len(ui.tableSeries) != 1 || ui.tableSeries[0].TotalOutgoing != 300 || len(ui.tableSeries[0].Members) != 2 || !strings.Contains(ui.graphFormatLabel.Text, "By ship class") {
-		t.Fatal("class format did not update the totals or active format label")
+	if len(ui.tableSeries) != 1 || ui.tableSeries[0].TotalOutgoing != 300 || len(ui.tableSeries[0].Members) != 2 {
+		t.Fatal("class format did not update the totals")
 	}
 	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+1, 80, 0))
 	if label := ui.outgoing.hoverReadings[0]; !strings.Contains(label.Text, "Supercarrier · B: 200 damage") || label.Color != characterColor("Supercarrier") {

@@ -17,12 +17,11 @@ import (
 )
 
 type analyzerUI struct {
-	graphInformationLabels map[string]*widget.Label
-	scopedOptions          map[string]map[string][]damageFilterOption
-	scopedFilters          map[string]map[string]*damageFilterSelection
-	visibleFilters         map[string]map[string]bool
-	scopedFilterBars       map[string]*fyne.Container
-	scopedFilterButtons    map[string]map[string]*widget.Button
+	scopedOptions       map[string]map[string][]damageFilterOption
+	scopedFilters       map[string]map[string]*damageFilterSelection
+	visibleFilters      map[string]map[string]bool
+	scopedFilterBars    map[string]*fyne.Container
+	scopedFilterButtons map[string]map[string]*widget.Button
 
 	window                            fyne.Window
 	snapshot                          *logSnapshot
@@ -94,7 +93,6 @@ type analyzerUI struct {
 	logLoadingDialog                  *dialog.CustomDialog
 	graphAverageWindow                time.Duration
 	graphInvulnerabilityMarkers       bool
-	graphFormatLabel                  *widget.Label
 	graphFormatButton                 *widget.Button
 	graphOptionsButton                *widget.Button
 	incomingGroupButton               *widget.Button
@@ -185,7 +183,6 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.initScopedFilters()
 	linkChartHovers(ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar, ui.mining)
 	ui.initEventGraphGrouping()
-	ui.updateGraphFormatLabel()
 	ui.totals = widget.NewTable(
 		func() (int, int) { return len(ui.tableSeries) + 1, 7 },
 		func() fyne.CanvasObject { return newTotalsCell() },
@@ -278,7 +275,7 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	filterBar := ui.damageFilterBar()
 	ui.graphCards = map[string]*widget.Card{}
 	ui.graphStack = container.NewVBox(
-		ui.newGraphCard(graphOutgoing, "Outgoing damage", container.NewBorder(container.NewVBox(ui.graphInformationLabels[graphOutgoing], ui.scopedFilterBar(graphOutgoing, ui.graphFormatButton)), nil, nil, nil, ui.graphPanContent(ui.outgoing))),
+		ui.newGraphCard(graphOutgoing, "Outgoing damage", container.NewBorder(ui.scopedFilterBar(graphOutgoing, ui.graphFormatButton), nil, nil, nil, ui.graphPanContent(ui.outgoing))),
 		ui.newGraphCard(graphOutgoingLogistics, "Outgoing logistics", container.NewBorder(ui.logisticsControls(graphOutgoingLogistics), nil, nil, nil, ui.graphPanContent(ui.outgoingLogistics))),
 		ui.newGraphCard(graphIncoming, "Incoming damage", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))),
 		ui.newGraphCard(graphIncomingLogistics, "Incoming logistics", container.NewBorder(ui.logisticsControls(graphIncomingLogistics), nil, nil, nil, ui.graphPanContent(ui.incomingLogistics))),
@@ -581,7 +578,6 @@ func (ui *analyzerUI) renderSelection() {
 		summary += fmt.Sprintf("   |   Incoming E-War %d events / %s GJ", ewarCount, shortNumber(drained))
 	}
 	ui.summary.SetText(summary)
-	ui.updateGraphFormatLabel()
 	ui.refreshDamageFilterControls()
 	ui.refreshLogisticsTypeControls()
 	ui.refreshMiningControls()

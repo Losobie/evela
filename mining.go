@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -112,7 +111,7 @@ func (ui *analyzerUI) initMining() {
 }
 
 func (ui *analyzerUI) miningControls() fyne.CanvasObject {
-	return container.NewVBox(ui.graphInformationLabels[graphMining], ui.scopedFilterBar(graphMining, ui.eventGroupButton(graphMining)))
+	return ui.scopedFilterBar(graphMining, ui.eventGroupButton(graphMining))
 }
 
 func (ui *analyzerUI) saveMiningFilters() {

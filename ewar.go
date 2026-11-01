@@ -103,7 +103,7 @@ func (ui *analyzerUI) initEWar() {
 
 func (ui *analyzerUI) ewarControls() fyne.CanvasObject {
 	metric := container.NewGridWrap(fyne.NewSize(250, ui.ewarMetric.MinSize().Height), ui.ewarMetric)
-	return container.NewVBox(ui.graphInformationLabels[graphIncomingEWar], ui.scopedFilterBar(graphIncomingEWar, container.NewHBox(metric, ui.eventGroupButton(graphIncomingEWar))))
+	return ui.scopedFilterBar(graphIncomingEWar, container.NewHBox(metric, ui.eventGroupButton(graphIncomingEWar)))
 }
 
 func (ui *analyzerUI) incomingEWarPlot(selected map[string]bool) plotData {

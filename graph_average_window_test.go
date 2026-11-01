@@ -55,9 +55,6 @@ func TestThirtySecondAverageSharedAcrossGraphsAndGroupingModes(t *testing.T) {
 	if !reflect.DeepEqual(totals, ui.tableSeries) || summary != ui.summary.Text || len(ui.graphUndo) != history {
 		t.Fatal("average changed raw totals or navigation history")
 	}
-	if !strings.Contains(ui.graphFormatLabel.Text, "30-second average") {
-		t.Fatal("active window missing from graph label")
-	}
 	for _, item := range ui.graphOptionsMenu().Items {
 		if item.Label == "10-second DPS average" && item.Checked || item.Label == "30-second DPS average" && !item.Checked {
 			t.Fatal("average choices are not mutually exclusive")

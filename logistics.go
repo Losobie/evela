@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -79,7 +78,7 @@ func (ui *analyzerUI) initLogistics() {
 }
 
 func (ui *analyzerUI) logisticsControls(id string) fyne.CanvasObject {
-	return container.NewVBox(ui.graphInformationLabels[id], ui.scopedFilterBar(id, ui.eventGroupButton(id)))
+	return ui.scopedFilterBar(id, ui.eventGroupButton(id))
 }
 
 func (ui *analyzerUI) saveLogisticsTypes(id string) {

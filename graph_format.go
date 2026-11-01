@@ -59,17 +59,9 @@ func (ui *analyzerUI) initGraphFormat() {
 			}
 		}
 	}
-	ui.graphInformationLabels = map[string]*widget.Label{}
-	for _, graph := range graphVisibilityOptions {
-		label := widget.NewLabel("")
-		label.Wrapping = fyne.TextWrapWord
-		ui.graphInformationLabels[graph.id] = label
-	}
-	ui.graphFormatLabel = ui.graphInformationLabels[graphOutgoing]
 	ui.graphFormatButton = ui.graphMenuButton("Group By", ui.graphFormatMenu)
 	ui.graphOptionsButton = ui.graphMenuButton("Options", ui.graphOptionsMenu, true)
 	ui.incomingGroupButton = ui.graphMenuButton("Group By", ui.incomingGroupingMenu)
-	ui.updateGraphFormatLabel()
 }
 
 func (ui *analyzerUI) graphMenuButton(label string, items func() *fyne.Menu, keepVisibilityOpen ...bool) *widget.Button {
@@ -182,18 +174,4 @@ func (ui *analyzerUI) graphOptionsMenu() *fyne.Menu {
 	invulnerability.Checked = ui.graphInvulnerabilityMarkers
 	items = append(items, invulnerability, fyne.NewMenuItemSeparator())
 	return fyne.NewMenu("Options", append(items, ui.graphVisibilityMenuItems()...)...)
-}
-
-func (ui *analyzerUI) updateGraphFormatLabel() {
-	changed := false
-	for id, label := range ui.graphInformationLabels {
-		text := ui.graphInformationText(id)
-		if text != label.Text {
-			label.SetText(text)
-			changed = true
-		}
-	}
-	if changed && ui.graphsScroll != nil {
-		ui.graphsScroll.Refresh()
-	}
 }

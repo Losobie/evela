@@ -132,9 +132,6 @@ func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 	if !ui.shipGrouping() || len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Values[10] != 28 || len(ui.incoming.data.Series) != 2 || ui.incoming.data.Series[0].Values[10] != 3 || ui.tableSeries[0].TotalOutgoing != 3324 || ui.summary.Text != summary {
 		t.Fatal("ship format did not combine damage correctly")
 	}
-	if strings.Contains(ui.graphFormatLabel.Text, "Linear") || !strings.Contains(ui.graphFormatLabel.Text, "ship type") {
-		t.Fatal("active format was not displayed")
-	}
 	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+float32(10.1/60)*(ui.outgoing.Size().Width-chartPlotLeft-chartPlotRight), 80, 0))
 	if label := ui.outgoing.hoverReadings[0]; !strings.Contains(label.Text, "Loki · Pilot B: 19 damage") || label.Color != characterColor("Loki") {
 		t.Fatalf("ship-type hit hover lost its character or color: %s", label.Text)
@@ -171,7 +168,7 @@ func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 	if !checked("10-second DPS average") || ui.outgoing.data.AverageWindow != 10*time.Second || ui.incoming.data.AverageWindow != 10*time.Second || math.Abs(ui.outgoing.data.Series[0].Values[10]-0.9) > 1e-10 || math.Abs(ui.incoming.data.Series[0].Values[10]-0.3) > 1e-10 {
 		t.Fatal("average option did not update both graphs with the correct rolling rates")
 	}
-	if ui.summary.Text != beforeAverage || len(ui.graphUndo) != historyLength || !strings.Contains(ui.graphFormatLabel.Text, "10-second average") {
+	if ui.summary.Text != beforeAverage || len(ui.graphUndo) != historyLength {
 		t.Fatal("averaging changed totals, zoom history or formatting")
 	}
 	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+float32(10.5/60)*(ui.outgoing.Size().Width-chartPlotLeft-chartPlotRight), 80, 0))
@@ -232,8 +229,8 @@ func TestGraphFormatPreferencesRestoreBeforeLoadingLogs(t *testing.T) {
 	choose(first, "Ship class (ship history)")
 	// A new UI reads the same saved user preferences, as on the next launch.
 	restored := newUI()
-	if restored.graphAverageWindow == 0 || !restored.shipClassGrouping() || !strings.Contains(restored.graphFormatLabel.Text, "By ship class") || !strings.Contains(restored.graphFormatLabel.Text, "10-second average") {
-		t.Fatal("startup lost the saved grouping, average or format label")
+	if restored.graphAverageWindow == 0 || !restored.shipClassGrouping() {
+		t.Fatal("startup lost the saved grouping or average")
 	}
 	for _, chart := range []*damageChart{restored.outgoing, restored.incoming} {
 		if chart.data.AverageWindow != 10*time.Second {
