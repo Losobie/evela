@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
@@ -328,8 +327,7 @@ func (ui *analyzerUI) characterRow(name, group, shipNames string) fyne.CanvasObj
 	if group == "" {
 		group = name
 	}
-	swatch := canvas.NewRectangle(characterColor(group))
-	swatch.SetMinSize(fyne.NewSize(6, 18))
+	swatch := newSeriesSwatch(group)
 	label := widget.NewLabel(shipNames)
 	label.TextStyle.Italic = true
 	return container.NewBorder(nil, nil, swatch, nil, container.NewVBox(check, label))

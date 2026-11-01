@@ -106,6 +106,7 @@ func (data plotData) valueAt(fraction float64) float64 {
 }
 
 type damageChart struct {
+	palette chartPalette
 	widget.BaseWidget
 	mu              sync.RWMutex
 	data            plotData
@@ -142,7 +143,7 @@ var _ fyne.Draggable = (*damageChart)(nil)
 var _ desktop.Mouseable = (*damageChart)(nil)
 
 func newDamageChart() *damageChart {
-	chart := &damageChart{}
+	chart := &damageChart{palette: currentChartPalette()}
 	chart.ExtendBaseWidget(chart)
 	return chart
 }
@@ -188,7 +189,8 @@ func (chart *damageChart) setData(data plotData) {
 }
 
 func (chart *damageChart) CreateRenderer() fyne.WidgetRenderer {
-	muted := color.NRGBA{150, 166, 187, 255}
+	palette := currentChartPalette()
+	muted := palette.text
 	chart.hover = canvas.NewText("Move over the graph to inspect damage", muted)
 	chart.hover.TextSize = 11
 	hoverObjects := []fyne.CanvasObject{chart.hover}
@@ -203,10 +205,10 @@ func (chart *damageChart) CreateRenderer() fyne.WidgetRenderer {
 	// or allowing text to spill across its pan buttons.
 	chart.hoverClip = container.NewHScroll(container.NewHBox(hoverObjects...))
 	chart.hoverClip.Direction = container.ScrollNone
-	chart.cursor = canvas.NewLine(color.NRGBA{170, 185, 200, 180})
+	chart.cursor = canvas.NewLine(palette.cursor)
 	chart.cursor.Hide()
-	chart.selection = canvas.NewRectangle(color.NRGBA{68, 209, 223, 55})
-	chart.selection.StrokeColor = color.NRGBA{68, 209, 223, 220}
+	chart.selection = canvas.NewRectangle(palette.selection)
+	chart.selection.StrokeColor = palette.selectionStroke
 	chart.selection.StrokeWidth = 1
 	chart.selection.Hide()
 	r := &chartRenderer{chart: chart, plot: canvas.NewRaster(chart.renderPlot)}
@@ -276,6 +278,23 @@ func (r *chartRenderer) MinSize() fyne.Size {
 func (r *chartRenderer) Objects() []fyne.CanvasObject { return r.objects }
 func (r *chartRenderer) Destroy()                     {}
 func (r *chartRenderer) Refresh() {
+	palette := currentChartPalette()
+	r.chart.mu.Lock()
+	r.chart.palette = palette
+	r.chart.mu.Unlock()
+	r.chart.hover.Color = palette.text
+	r.empty.Color = palette.text
+	r.leftUnit.Color = palette.text
+	r.rightUnit.Color = palette.text
+	for _, labels := range [][]*canvas.Text{r.xLabels, r.yLabels, r.rightLabels} {
+		for _, label := range labels {
+			label.Color = palette.text
+		}
+	}
+	r.chart.cursor.StrokeColor = palette.cursor
+	r.chart.selection.FillColor = palette.selection
+	r.chart.selection.StrokeColor = palette.selectionStroke
+
 	r.chart.mu.RLock()
 	data := r.chart.data
 	r.chart.mu.RUnlock()
@@ -378,15 +397,16 @@ func (data plotData) hoverHint() string {
 }
 
 func (chart *damageChart) renderPlot(w, h int) image.Image {
+	chart.mu.RLock()
+	defer chart.mu.RUnlock()
+	palette := chart.palette
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	draw.Draw(img, img.Bounds(), &image.Uniform{color.NRGBA{17, 23, 33, 255}}, image.Point{}, draw.Src)
-	grid := color.NRGBA{42, 53, 69, 255}
+	draw.Draw(img, img.Bounds(), &image.Uniform{palette.background}, image.Point{}, draw.Src)
+	grid := palette.grid
 	for i := 0; i <= 4; i++ {
 		drawLine(img, 0, i*(h-1)/4, w-1, i*(h-1)/4, grid)
 		drawLine(img, i*(w-1)/4, 0, i*(w-1)/4, h-1, grid)
 	}
-	chart.mu.RLock()
-	defer chart.mu.RUnlock()
 	data := chart.data
 	if data.Maximum <= 0 || !data.End.After(data.Start) {
 		return img
@@ -402,6 +422,7 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 	stroke.SetStroke(fixed.Int26_6(math.Round(lineWidth*64)), 4*64, rasterx.RoundCap, nil, rasterx.RoundGap, rasterx.Round)
 	duration := data.End.Sub(data.Start).Seconds()
 	for _, series := range data.Series {
+		ink := palette.seriesColor(series.Color)
 		if data.IndividualHits {
 			for _, hit := range series.Hits {
 				if hit.Second < data.Start.Unix() || hit.Second >= data.End.Unix() {
@@ -409,7 +430,7 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 				}
 				x := float64(hit.Second-data.Start.Unix()) / duration * float64(w-1)
 				y := float64(h-1) * (1 - data.seriesFraction(series, hit.Damage))
-				drawHitPoint(img, x+0.5, y+0.5, 2.5*lineWidth/1.25, series.Color)
+				drawHitPoint(img, x+0.5, y+0.5, 2.5*lineWidth/1.25, ink)
 			}
 			continue
 		}
@@ -417,7 +438,7 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 			continue
 		}
 		stroke.Clear()
-		stroke.SetColor(series.Color)
+		stroke.SetColor(ink)
 		var last fixed.Point26_6
 		for bin, value := range series.Values {
 			x := float64(bin)*data.Bucket.Seconds()/duration*float64(w-1) + 0.5
@@ -434,7 +455,7 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 		stroke.Stop(false)
 		stroke.Draw()
 	}
-	markerColor := color.NRGBA{255, 70, 70, 255}
+	markerColor := palette.marker
 	for _, marker := range data.Markers {
 		if marker.At.Before(data.Start) || !marker.At.Before(data.End) {
 			continue
@@ -525,6 +546,7 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionTime *time.Time) (time.Time, bool) {
 	chart.mu.RLock()
 	data := chart.data
+	palette := chart.palette
 	chart.mu.RUnlock()
 	if (inspectionTime == nil && len(data.Series) == 0 && len(data.Markers) == 0) || data.Bucket <= 0 || !data.End.After(data.Start) || chart.hover == nil {
 		return time.Time{}, false
@@ -653,7 +675,7 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 		}
 		label := chart.hoverReadings[i]
 		label.Text = fmt.Sprintf("· %s: %s %s", reading.name, rate, unit)
-		label.Color = reading.color
+		label.Color = palette.seriesColor(reading.color)
 		label.Show()
 	}
 	chart.hoverClip.Refresh()

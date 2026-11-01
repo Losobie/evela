@@ -118,7 +118,7 @@ func main() {
 
 	application := app.NewWithID("io.evela.damage-analyzer")
 	application.SetIcon(fyne.NewStaticResource("icon.svg", applicationIcon))
-	application.Settings().SetTheme(theme.DarkTheme())
+	applySavedAppearance(application)
 	window := application.NewWindow("Evela · EVE Online log analyzer")
 	ui := newAnalyzerUI(window)
 	window.SetContent(ui.content())
@@ -264,10 +264,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.bucketSelect.SetSelected("Auto")
 	ui.loadGraphRangePreference()
 	ui.initGraphRangeShortcuts()
-	window.SetMainMenu(fyne.NewMainMenu(fyne.NewMenu("Settings",
-		fyne.NewMenuItem("Log loading…", ui.openLogLoadingSettings),
-		fyne.NewMenuItem("Character groups…", ui.openCharacterGroupSettings),
-		fyne.NewMenuItem("ESI configuration…", ui.openESISettings))))
+	window.SetMainMenu(fyne.NewMainMenu(ui.settingsMenu()))
 	return ui
 }
 

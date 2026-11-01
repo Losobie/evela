@@ -30,11 +30,26 @@ func newCharacterGroupRow() *characterGroupRow {
 }
 
 func (row *characterGroupRow) CreateRenderer() fyne.WidgetRenderer {
-	return widget.NewSimpleRenderer(container.NewStack(row.background, row.label))
+	return &characterGroupRowRenderer{WidgetRenderer: widget.NewSimpleRenderer(container.NewStack(row.background, row.label)), row: row}
 }
-func (row *characterGroupRow) setSelected(selected bool) {
+
+type characterGroupRowRenderer struct {
+	fyne.WidgetRenderer
+	row *characterGroupRow
+}
+
+func (renderer *characterGroupRowRenderer) Refresh() {
+	renderer.row.refreshSelectionColor()
+	renderer.WidgetRenderer.Refresh()
+}
+
+func (row *characterGroupRow) refreshSelectionColor() {
 	row.background.FillColor = row.Theme().Color(theme.ColorNameSelection, fyne.CurrentApp().Settings().ThemeVariant())
 	row.background.CornerRadius = row.Theme().Size(theme.SizeNameSelectionRadius)
+}
+
+func (row *characterGroupRow) setSelected(selected bool) {
+	row.refreshSelectionColor()
 	if selected {
 		row.background.Show()
 	} else {
