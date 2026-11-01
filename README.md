@@ -144,3 +144,17 @@ An optional read-only integration test checks a real archive:
 $env:EVELA_TEST_LOGS = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'EVE\logs\gamelogs'
 go test -run TestLocalLogs -v
 ```
+
+## Interactive profiling
+
+Set `EVELA_PROFILE_ADDR=127.0.0.1:6060` before launching `evela.exe` to enable Go pprof diagnostics on that loopback address. Normal launches start no profiling server. CPU profiles and execution traces are captured on demand; blocking and mutex samples are collected while profiling is enabled. Use the application normally while recording:
+
+```powershell
+$env:EVELA_PROFILE_ADDR = "127.0.0.1:6060"
+Start-Process -FilePath .\evela.exe
+Invoke-WebRequest 'http://127.0.0.1:6060/debug/pprof/profile?seconds=60' -OutFile .cache/live.cpu
+Invoke-WebRequest 'http://127.0.0.1:6060/debug/pprof/trace?seconds=10' -OutFile .cache/live.trace
+go tool pprof -top .\evela.exe .cache/live.cpu
+```
+
+Keep Evela open until captures finish. Closing the application stops its diagnostic server. Profiles remain local in the requested output directory. Remove `EVELA_PROFILE_ADDR` from the launching shell before starting a normal session.

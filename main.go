@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -105,6 +107,13 @@ type analyzerUI struct {
 }
 
 func main() {
+	stopProfiling, err := startPerformanceProfiler(os.Getenv("EVELA_PROFILE_ADDR"))
+	if err != nil {
+		log.Printf("Performance profiler unavailable: %v", err)
+	} else {
+		defer stopProfiling()
+	}
+
 	application := app.NewWithID("io.evela.damage-analyzer")
 	application.SetIcon(fyne.NewStaticResource("icon.svg", applicationIcon))
 	application.Settings().SetTheme(theme.DarkTheme())
