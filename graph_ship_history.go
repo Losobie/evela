@@ -10,6 +10,16 @@ import (
 // Attribute each hit before bucketing or averaging. A character may change hull
 // inside a bucket; averaging must keep a hit with its original ship as it tails off.
 func (view damageView) historicalShipSeries(snapshot *logSnapshot, history shipHistory, selected map[string]bool, byClass bool, averageWindow time.Duration) []characterSeries {
+	mode := eventByShip
+	if byClass {
+		mode = eventByClass
+	}
+	return view.historicalAttributeSeries(snapshot, history, locationResolver{}, selected, mode, averageWindow)
+}
+
+func (view damageView) historicalAttributeSeries(snapshot *logSnapshot, history shipHistory, locations locationResolver, selected map[string]bool, mode string, averageWindow time.Duration) []characterSeries {
+	byClass := mode == eventByClass
+
 	if view.Bucket < time.Second || !view.End.After(view.Start) {
 		return nil
 	}
@@ -44,6 +54,9 @@ func (view damageView) historicalShipSeries(snapshot *logSnapshot, history shipH
 			continue
 		}
 		for _, point := range log.Points {
+			if point.Incoming == 0 && point.Outgoing == 0 && point.IncomingHits == 0 && point.OutgoingHits == 0 {
+				continue
+			}
 			left, right := max(first, point.Second), min(end, point.Second+window)
 			if left >= right {
 				continue
@@ -66,6 +79,10 @@ func (view damageView) historicalShipSeries(snapshot *logSnapshot, history shipH
 				} else {
 					name = hullName
 				}
+			}
+			if mode == filterSystem {
+				location, known := locations.atName(log.Character, time.Unix(point.Second, 0))
+				name = systemFilterOption(location, known).Label
 			}
 			group := groups[name]
 			if group == nil {

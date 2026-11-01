@@ -19,7 +19,7 @@ const (
 
 var incomingGroupingModes = []string{
 	incomingByCharacter, incomingByCharacterGroup,
-	incomingByAttacker, incomingByShip, incomingByNPC, incomingByNPCType, filterWeaponType, filterWeaponStrength,
+	incomingByAttacker, incomingByShip, incomingByNPC, incomingByNPCType, filterWeaponType, filterWeaponStrength, eventByShip, eventByClass, filterSystem,
 }
 
 func (ui *analyzerUI) incomingGroupingMenu() *fyne.Menu {
@@ -38,6 +38,9 @@ func (ui *analyzerUI) incomingGroupingMenu() *fyne.Menu {
 }
 
 func (ui *analyzerUI) incomingGraphSeries(selected map[string]bool) []characterSeries {
+	if ui.incomingGrouping == eventByShip || ui.incomingGrouping == eventByClass || ui.incomingGrouping == filterSystem {
+		return ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, ui.incomingGrouping, ui.graphAverageWindow)
+	}
 	if weaponGroupingMode(ui.incomingGrouping) {
 		return ui.view.weaponSeries(ui.analysisSnapshot(), selected, ui.incomingGrouping, ui.graphAverageWindow)
 	}
@@ -49,7 +52,7 @@ func (ui *analyzerUI) incomingGraphSeries(selected map[string]bool) []characterS
 		series = ui.view.rollingAverage(ui.analysisSnapshot(), ui.graphAverageWindow)
 	}
 	if ui.incomingGrouping == incomingByCharacterGroup {
-		return ui.groupCharacterSeriesFor(series, selected, "")
+		return ui.groupCharacterSeriesIn(graphIncoming, series, selected, "")
 	}
 	var result []characterSeries
 	for _, character := range series {

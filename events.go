@@ -216,7 +216,7 @@ func (ui *analyzerUI) refreshEvents() {
 	selected := map[string]bool{}
 	for _, log := range ui.snapshot.Logs {
 		selected[log.Character] = ui.damageFilterSelected(filterCharacters, log.Character) &&
-			characterGroupsSelected(ui.damageFilters[filterCharacterGroup], members[characterKey(log.Character)])
+			characterGroupsSelected(ui.globalFilter(filterCharacterGroup), members[characterKey(log.Character)])
 	}
 	ui.events.setRange(ui.snapshot, ui.view.Start, ui.view.End, selected)
 }

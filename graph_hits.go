@@ -13,16 +13,19 @@ type plotHit struct {
 }
 
 func (ui *analyzerUI) hitCharacterGroups(character, filterID string) []string {
+	return ui.hitCharacterGroupsFor(graphOutgoing, character, filterID)
+}
+func (ui *analyzerUI) hitCharacterGroupsFor(scope, character, filterID string) []string {
 	var names []string
 	for _, group := range ui.characterGroups {
 		if filterID != "" && group.ID != filterID {
 			continue
 		}
-		if ui.damageFilters[filterCharacterGroup].selected("group:"+group.ID) && group.contains(character) {
+		if ui.globalFilter(filterCharacterGroup).selected("group:"+group.ID) && ui.scopeFilter(scope, filterCharacterGroup).selected("group:"+group.ID) && group.contains(character) {
 			names = append(names, group.Name)
 		}
 	}
-	if len(names) == 0 && filterID == "" && ui.damageFilters[filterCharacterGroup].selected(filterUngrouped) {
+	if len(names) == 0 && filterID == "" && ui.globalFilter(filterCharacterGroup).selected(filterUngrouped) && ui.scopeFilter(scope, filterCharacterGroup).selected(filterUngrouped) {
 		names = append(names, ungroupedCharacters)
 	}
 	return names
@@ -51,7 +54,7 @@ func (ui *analyzerUI) attachIndividualHits(in, out *plotData, selected map[strin
 		}
 		inNames := []string{log.Character}
 		if ui.incomingGrouping == incomingByCharacterGroup {
-			inNames = ui.hitCharacterGroups(log.Character, "")
+			inNames = ui.hitCharacterGroupsFor(graphIncoming, log.Character, "")
 		}
 		add := func(hit damageHit) {
 			if hit.Second < first || hit.Second >= end {
@@ -66,6 +69,19 @@ func (ui *analyzerUI) attachIndividualHits(in, out *plotData, selected map[strin
 						source = log.Sources[hit.Source]
 					}
 					names = []string{incomingSourceGroup(source, ui.incomingGrouping).Label}
+					if ui.incomingGrouping == eventByShip || ui.incomingGrouping == eventByClass {
+						ship, known := ships[characterKey(log.Character)].atName(log.Character, time.Unix(hit.Second, 0))
+						hull, class := shipFilterOptions(ship, known)
+						name := hull.Label
+						if ui.incomingGrouping == eventByClass {
+							name = class.Label
+						}
+						names = []string{name}
+					}
+					if ui.incomingGrouping == filterSystem {
+						location, known := ui.locationLookup.atName(log.Character, time.Unix(hit.Second, 0))
+						names = []string{systemFilterOption(location, known).Label}
+					}
 					if weaponGroupingMode(ui.incomingGrouping) {
 						names = []string{hitWeaponOption(hit, ui.incomingGrouping).Label}
 					}
@@ -86,6 +102,10 @@ func (ui *analyzerUI) attachIndividualHits(in, out *plotData, selected map[strin
 						name = class.Label
 					}
 					names = []string{name}
+				}
+				if ui.systemGrouping() {
+					location, known := ui.locationLookup.atName(log.Character, time.Unix(hit.Second, 0))
+					names = []string{systemFilterOption(location, known).Label}
 				}
 				if ui.weaponGrouping() {
 					names = []string{hitWeaponOption(hit, ui.groupSelect.Selected).Label}

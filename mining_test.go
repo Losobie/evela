@@ -85,6 +85,7 @@ func newMiningTestUI(t *testing.T) *analyzerUI {
 	window := application.NewWindow("Mining preview")
 	t.Cleanup(window.Close)
 	ui := newAnalyzerUI(window)
+	enableLegacyTestFilters(ui)
 	log, err := parseLog(strings.NewReader(miningTestLog))
 	if err != nil {
 		t.Fatal(err)
@@ -152,7 +153,7 @@ func TestMiningGraphFiltersGroupsPersistenceAndVisibility(t *testing.T) {
 	ui.characterGroups = []characterGroup{{ID: "fleet", Name: "Mining fleet", Members: []string{"Miner"}}, {ID: "other", Name: "Other fleet", Members: []string{"Miner"}}}
 	before := ui.outgoing.data
 	chooseGraphMenuItem(t, ui.eventGroupingMenu(graphMining), eventByGroup)
-	if len(ui.eventGroupingMenu(graphMining).Items) != 4 || len(ui.mining.data.Series) != 2 || !reflect.DeepEqual(before, ui.outgoing.data) {
+	if len(ui.eventGroupingMenu(graphMining).Items) != 7 || len(ui.mining.data.Series) != 2 || !reflect.DeepEqual(before, ui.outgoing.data) {
 		t.Fatal("grouping did not stay independent or lost overlapping memberships")
 	}
 	ui.setDamageFilterOption(filterCharacterGroup, "group:other", false)

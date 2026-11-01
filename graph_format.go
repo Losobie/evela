@@ -43,7 +43,7 @@ func (ui *analyzerUI) initGraphFormat() {
 	// Restore before the first view is built. Assigning directly avoids firing
 	// grouping callbacks while the totals table is still being constructed.
 	switch preferences.String(graphGroupingPreference) {
-	case filterWeaponType, filterWeaponStrength:
+	case filterWeaponType, filterWeaponStrength, filterSystem:
 		ui.groupSelect.Selected = preferences.String(graphGroupingPreference)
 	case "ship-type":
 		ui.groupSelect.Selected = "Ship history"
@@ -119,7 +119,7 @@ func (ui *analyzerUI) saveGraphFormatPreferences() {
 	} else if ui.characterGroupGrouping() {
 		grouping = "character-groups"
 	}
-	if ui.weaponGrouping() {
+	if ui.weaponGrouping() || ui.systemGrouping() {
 		grouping = ui.groupSelect.Selected
 	}
 	preferences.SetString(graphGroupingPreference, grouping)
@@ -136,7 +136,7 @@ func (ui *analyzerUI) graphFormatMenu() *fyne.Menu {
 	groups := fyne.NewMenuItem("Character Group", func() { ui.groupSelect.SetSelected(characterGroupsMode) })
 	groups.Checked = ui.groupSelect.Selected == characterGroupsMode
 	menu := fyne.NewMenu("Group By", characters, ships, classes, groups)
-	for _, mode := range []string{filterWeaponType, filterWeaponStrength} {
+	for _, mode := range []string{filterWeaponType, filterWeaponStrength, filterSystem} {
 		mode := mode
 		item := fyne.NewMenuItem(mode, func() { ui.groupSelect.SetSelected(mode) })
 		item.Checked = ui.groupSelect.Selected == mode

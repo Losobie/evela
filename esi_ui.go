@@ -321,6 +321,7 @@ func (ui *analyzerUI) characterRow(name, group, shipNames string) fyne.CanvasObj
 	check.SetChecked(ui.selected[name])
 	check.OnChanged = func(checked bool) {
 		ui.selected[name] = checked
+		ui.syncCharacterFilter()
 		ui.renderSelection()
 		ui.rebuildCharacters()
 	}
@@ -337,7 +338,9 @@ func (ui *analyzerUI) characterRow(name, group, shipNames string) fyne.CanvasObj
 func (ui *analyzerUI) groupedCharacterList(query string) []fyne.CanvasObject {
 	var rows []fyne.CanvasObject
 	var groups []characterSeries
-	if ui.weaponGrouping() {
+	if ui.systemGrouping() {
+		groups = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, nil, filterSystem, ui.graphAverageWindow)
+	} else if ui.weaponGrouping() {
 		groups = ui.view.weaponSeries(ui.analysisSnapshot(), nil, ui.groupSelect.Selected, ui.graphAverageWindow)
 	} else if ui.characterGroupGrouping() {
 		series := ui.view.activeSeries()
@@ -363,6 +366,7 @@ func (ui *analyzerUI) groupedCharacterList(query string) []fyne.CanvasObject {
 			for _, name := range members {
 				ui.selected[name] = true
 			}
+			ui.syncCharacterFilter()
 			ui.rebuildCharacters()
 			ui.renderSelection()
 		})

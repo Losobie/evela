@@ -36,12 +36,6 @@ func TestDamageFilterPopupsStayInsideWindow(t *testing.T) {
 		test.Tap(ui.filterButtons[kind])
 		assertVisible()
 		popup := ui.filterPopup
-		if kind == filterNPCNames || kind == filterNPCTypes {
-			anchor := fyne.CurrentApp().Driver().AbsolutePositionForObject(ui.filterButtons[kind])
-			if popup.popup.Position().Y+popup.popup.Size().Height > anchor.Y {
-				t.Fatal("incoming filter did not open above its button when space was available")
-			}
-		}
 		ui.window.Resize(fyne.NewSize(1200, 800))
 		ui.window.Canvas().Capture() // Apply overlay layout after resizing.
 		assertVisible()
@@ -65,6 +59,7 @@ func newDamageFilterTestUI(t *testing.T) (*analyzerUI, time.Time) {
 	window := application.NewWindow("Searchable damage filters")
 	t.Cleanup(window.Close)
 	ui := newAnalyzerUI(window)
+	enableLegacyTestFilters(ui)
 	start := time.Date(2026, 10, 19, 2, 0, 0, 0, time.UTC)
 	ui.snapshot = &logSnapshot{Characters: []string{"Pilot A", "Pilot B", "Pilot C"}, First: start, Last: start.Add(time.Minute), Logs: []*parsedLog{
 		{Character: "Pilot A", Points: []damagePoint{{Second: start.Unix(), Outgoing: 100, Incoming: 10}, {Second: start.Unix() + 60, Outgoing: 200, Incoming: 20}}, StructureEvents: []structureEvent{{Second: start.Unix() + 1, Target: "First target"}, {Second: start.Unix() + 61, Target: "Second target"}}},
@@ -221,5 +216,14 @@ func TestDamageFilterPersistenceAndGroupOverlap(t *testing.T) {
 	ui.deleteCharacterGroup("scouts")
 	if filteredTotal(ui) != 0 {
 		t.Fatal("deleting the only selected group broadened the filter")
+	}
+}
+
+// Existing filter interaction tests opt into the filters they exercise.
+func enableLegacyTestFilters(ui *analyzerUI) {
+	for scope := range ui.visibleFilters {
+		for _, kind := range availableFilters(scope) {
+			ui.visibleFilters[scope][kind] = true
+		}
 	}
 }

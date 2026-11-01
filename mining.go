@@ -12,7 +12,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -113,27 +112,9 @@ func (ui *analyzerUI) initMining() {
 }
 
 func (ui *analyzerUI) miningControls() fyne.CanvasObject {
-	buttons := container.NewHBox()
-	for _, kind := range miningFilterKinds {
-		category := kind
-		var button *widget.Button
-		button = widget.NewButtonWithIcon(category+": All", theme.MenuDropDownIcon(), func() {
-			ui.openSelectionFilter(category, button, func() []damageFilterOption { return ui.miningFilterOptions[category] },
-				func(key string) bool { return ui.miningFilters[category].selected(key) },
-				func(key string, checked bool) { ui.miningFilters[category].set(key, checked); ui.saveMiningFilters() },
-				func(checked bool) {
-					ui.miningFilters[category].Default, ui.miningFilters[category].Values = checked, map[string]bool{}
-					ui.saveMiningFilters()
-				})
-		})
-		ui.miningFilterButtons[category] = button
-		buttons.Add(button)
-	}
-	buttons.Add(ui.eventGroupButton(graphMining))
 	note := widget.NewLabel("Ore units · mined, compressed and waste shown separately")
 	note.Truncation = fyne.TextTruncateEllipsis
-	ui.refreshMiningControls()
-	return container.NewVBox(note, container.NewBorder(nil, nil, nil, buttons))
+	return container.NewVBox(container.NewBorder(nil, nil, nil, ui.eventGroupButton(graphMining), note), ui.scopedFilterBar(graphMining))
 }
 
 func (ui *analyzerUI) saveMiningFilters() {
@@ -198,14 +179,18 @@ func (ui *analyzerUI) miningPlot(selected map[string]bool) plotData {
 			continue
 		}
 		for _, event := range log.Mining {
-			if !ui.miningFilters[filterOreName].selected(event.Ore) || !ui.miningFilters[filterOreType].selected(oreType(event.Ore)) || !ui.miningFilters[filterMiningMessage].selected(event.Kind) {
+			if !ui.scopeFilter(graphMining, filterOreName).selected(event.Ore) || !ui.scopeFilter(graphMining, filterOreType).selected(oreType(event.Ore)) || !ui.scopeFilter(graphMining, filterMiningMessage).selected(event.Kind) {
 				continue
 			}
 			left, right := max(first, event.Second), min(end, event.Second+window)
 			if left >= right {
 				continue
 			}
-			names := ui.eventGroupingNames(graphMining, log.Character, oreType(event.Ore), event.Second, ships)
+			kind := oreType(event.Ore)
+			if ui.eventGraphGroupings[graphMining] == eventByOreName {
+				kind = event.Ore
+			}
+			names := ui.eventGroupingNames(graphMining, log.Character, kind, event.Second, ships)
 			for _, name := range names {
 				label := name + " · " + event.Kind
 				series := groups[label]

@@ -15,13 +15,14 @@ const (
 	eventByShip      = "Ship type (ship history)"
 	eventByClass     = "Ship class (ship history)"
 	eventByOreType   = "Ore Type"
+	eventByOreName   = "Ore Name"
 )
 
-var eventGroupingModes = []string{eventByType, eventByCharacter, eventByGroup, eventByShip, eventByClass}
+var eventGroupingModes = []string{eventByType, eventByCharacter, eventByGroup, eventByShip, eventByClass, filterSystem}
 
 func eventGroupingOptions(id string) []string {
 	if id == graphMining {
-		return []string{eventByCharacter, eventByGroup, eventByShip, eventByOreType}
+		return []string{eventByCharacter, eventByGroup, eventByShip, eventByClass, filterSystem, eventByOreName, eventByOreType}
 	}
 	return eventGroupingModes
 }
@@ -62,10 +63,13 @@ func (ui *analyzerUI) eventGroupButton(id string) *widget.Button {
 // groupSelect; overlapping saved groups retain their existing semantics.
 func (ui *analyzerUI) eventGroupingNames(id, character, kind string, second int64, ships map[string]shipHistory) []string {
 	switch ui.eventGraphGroupings[id] {
+	case filterSystem:
+		location, known := ui.locationLookup.atName(character, time.Unix(second, 0))
+		return []string{systemFilterOption(location, known).Label}
 	case eventByCharacter:
 		return []string{character}
 	case eventByGroup:
-		return ui.hitCharacterGroups(character, "")
+		return ui.hitCharacterGroupsFor(id, character, "")
 	case eventByShip, eventByClass:
 		ship, known := ships[characterKey(character)].atName(character, time.Unix(second, 0))
 		hull, class := shipFilterOptions(ship, known)

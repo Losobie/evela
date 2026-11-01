@@ -12,7 +12,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -82,18 +81,13 @@ func (ui *analyzerUI) initLogistics() {
 func (ui *analyzerUI) logisticsControls(id string) fyne.CanvasObject {
 	note := widget.NewLabel("Repairs: HP · Capacitor: GJ · averaged rates per second")
 	note.Truncation = fyne.TextTruncateEllipsis
-	button := widget.NewButtonWithIcon("Type: All", theme.MenuDropDownIcon(), func() {
-		ui.openSelectionFilter("Type", ui.logisticsTypeButtons[id], func() []damageFilterOption { return logisticsTypeOptions },
-			func(key string) bool { return ui.logisticsTypes[id].selected(key) },
-			func(key string, checked bool) { ui.setLogisticsType(id, key, checked) },
-			func(checked bool) { ui.setAllLogisticsTypes(id, checked) })
-	})
-	ui.logisticsTypeButtons[id] = button
-	ui.refreshLogisticsTypeControls()
-	return container.NewBorder(nil, nil, nil, container.NewHBox(button, ui.eventGroupButton(id)), note)
+	return container.NewVBox(container.NewBorder(nil, nil, nil, ui.eventGroupButton(id), note), ui.scopedFilterBar(id))
 }
 
 func (ui *analyzerUI) saveLogisticsTypes(id string) {
+	ui.visibleFilters[id][filterLogisticsType] = true
+	ui.saveScopedFilters()
+	ui.refreshScopedFilterBars()
 	data, _ := json.Marshal(ui.logisticsTypes[id])
 	fyne.CurrentApp().Preferences().SetString("graph.logistics.types."+id, string(data))
 	ui.renderSelection()
@@ -133,7 +127,7 @@ func (ui *analyzerUI) logisticsPlot(selected map[string]bool, incoming bool) plo
 		id, direction = graphIncomingLogistics, "incoming"
 	}
 	data := plotData{Start: ui.view.Start, End: ui.view.End, Bucket: ui.view.Bucket, RateUnit: "HP/s", HitUnit: "HP", IndividualHits: ui.graphAverageWindow == 0}
-	types := ui.logisticsTypes[id]
+	types := ui.scopeFilter(id, filterLogisticsType)
 	repairs, capacitor := types.selected("Shield repair") || types.selected("Armor repair"), types.selected("Capacitor transfer")
 	if capacitor && !repairs {
 		data.RateUnit, data.HitUnit = "GJ/s", "GJ"

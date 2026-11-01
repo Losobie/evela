@@ -148,7 +148,7 @@ func (ui *analyzerUI) persistCharacterGroups(selectedID string) {
 }
 
 func (ui *analyzerUI) characterGroupingOptions() []string {
-	options := []string{"Characters", "Ship history", "Ship class history", characterGroupsMode, filterWeaponType, filterWeaponStrength}
+	options := []string{"Characters", "Ship history", "Ship class history", characterGroupsMode, filterWeaponType, filterWeaponStrength, filterSystem}
 	for _, group := range ui.characterGroups {
 		options = append(options, "Group: "+group.Name)
 	}
@@ -171,7 +171,7 @@ func (ui *analyzerUI) characterGroupGrouping() bool {
 }
 
 func (ui *analyzerUI) anyGrouping() bool {
-	return ui.shipGrouping() || ui.characterGroupGrouping() || ui.weaponGrouping()
+	return ui.shipGrouping() || ui.characterGroupGrouping() || ui.weaponGrouping() || ui.systemGrouping()
 }
 
 func (ui *analyzerUI) characterMatchesGroupFilter(name string) bool {
@@ -210,13 +210,16 @@ func (ui *analyzerUI) groupCustomCharacterSeries(series []characterSeries, selec
 }
 
 func (ui *analyzerUI) groupCharacterSeriesFor(series []characterSeries, selected map[string]bool, filterID string) []characterSeries {
+	return ui.groupCharacterSeriesIn(graphOutgoing, series, selected, filterID)
+}
+func (ui *analyzerUI) groupCharacterSeriesIn(scope string, series []characterSeries, selected map[string]bool, filterID string) []characterSeries {
 	groups := map[string]*characterSeries{}
 	memberGroups := map[string][]string{}
 	for _, group := range ui.characterGroups {
 		if filterID != "" && filterID != group.ID {
 			continue
 		}
-		if !ui.damageFilters[filterCharacterGroup].selected("group:" + group.ID) {
+		if !ui.globalFilter(filterCharacterGroup).selected("group:"+group.ID) || !ui.scopeFilter(scope, filterCharacterGroup).selected("group:"+group.ID) {
 			continue
 		}
 		for _, name := range group.Members {
@@ -228,7 +231,7 @@ func (ui *analyzerUI) groupCharacterSeriesFor(series []characterSeries, selected
 			continue
 		}
 		names := memberGroups[characterKey(character.Name)]
-		if len(names) == 0 && filterID == "" && ui.damageFilters[filterCharacterGroup].selected(filterUngrouped) {
+		if len(names) == 0 && filterID == "" && ui.globalFilter(filterCharacterGroup).selected(filterUngrouped) && ui.scopeFilter(scope, filterCharacterGroup).selected(filterUngrouped) {
 			names = []string{ungroupedCharacters}
 		}
 		for _, name := range names {
@@ -286,4 +289,8 @@ func charactersWithLogEntries(snapshot *logSnapshot, start, end time.Time) map[s
 		}
 	}
 	return names
+}
+
+func (ui *analyzerUI) systemGrouping() bool {
+	return ui.groupSelect != nil && ui.groupSelect.Selected == filterSystem
 }

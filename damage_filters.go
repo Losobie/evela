@@ -86,34 +86,52 @@ func (ui *analyzerUI) damageFilterSelected(kind, key string) bool {
 			return value
 		}
 	}
-	return ui.damageFilters[kind].selected(key)
+	for _, candidate := range sharedDamageFilterKinds {
+		if candidate == kind {
+			return ui.globalFilter(kind).selected(key)
+		}
+	}
+	return ui.scopeFilter(graphIncoming, kind).selected(key)
 }
 
+func (ui *analyzerUI) legacyFilterScopes(kind string) []string {
+	for _, candidate := range sharedDamageFilterKinds {
+		if candidate == kind {
+			return []string{globalFilterScope}
+		}
+	}
+	if kind == filterNPCNames || kind == filterNPCTypes {
+		return []string{graphIncoming}
+	}
+	return []string{graphOutgoing, graphIncoming}
+}
 func (ui *analyzerUI) setDamageFilterOption(kind, key string, checked bool) {
-	ui.damageFilters[kind].set(key, checked)
+	for _, scope := range ui.legacyFilterScopes(kind) {
+		ui.visibleFilters[scope][kind] = true
+		ui.storedScopeFilter(scope, kind).set(key, checked)
+	}
 	if kind == filterCharacters {
 		ui.selected[key] = checked
 	}
 	ui.damageFiltersChanged()
 }
-
 func (ui *analyzerUI) setAllDamageFilterOptions(kind string, checked bool) {
-	selection := ui.damageFilters[kind]
-	selection.Default, selection.Values = checked, map[string]bool{}
+	for _, scope := range ui.legacyFilterScopes(kind) {
+		ui.visibleFilters[scope][kind] = true
+		selection := ui.storedScopeFilter(scope, kind)
+		selection.Default, selection.Values = checked, map[string]bool{}
+	}
 	if kind == filterCharacters {
-		// All covers the complete option list, including search-hidden options,
-		// while preserving character choices outside the current time window.
-		for _, option := range ui.filterOptions[kind] {
-			ui.selected[option.Key] = checked
-		}
-		for name, value := range ui.selected {
-			selection.set(name, value)
+		for name := range ui.selected {
+			ui.selected[name] = checked
 		}
 	}
 	ui.damageFiltersChanged()
 }
 
 func (ui *analyzerUI) damageFiltersChanged() {
+	ui.saveScopedFilters()
+	ui.refreshScopedFilterBars()
 	data, err := json.Marshal(ui.damageFilters)
 	if err == nil {
 		fyne.CurrentApp().Preferences().SetString(damageFiltersPreference, string(data))
@@ -190,143 +208,27 @@ func systemFilterOption(location locationPeriod, known bool) damageFilterOption 
 // Logs supply names without requiring ESI. Preserve selections when a later ESI
 // observation supplies the ID for a previously name-only system option.
 func (ui *analyzerUI) migrateSystemFilterNames(locations locationResolver) {
-	selection := ui.damageFilters[filterSystem]
-	if selection == nil {
-		return
+	selections := []*damageFilterSelection{ui.damageFilters[filterSystem]}
+	for _, graph := range graphVisibilityOptions {
+		selections = append(selections, ui.storedScopeFilter(graph.id, filterSystem))
 	}
 	changed := false
-	for name, id := range locations.systems {
-		key := "system-name:" + name
-		if checked, exists := selection.Values[key]; exists {
-			selection.set(fmt.Sprintf("system:%d", id), checked)
-			delete(selection.Values, key)
-			changed = true
+	for _, selection := range selections {
+		if selection == nil {
+			continue
+		}
+		for name, id := range locations.systems {
+			key := "system-name:" + name
+			if checked, exists := selection.Values[key]; exists {
+				selection.set(fmt.Sprintf("system:%d", id), checked)
+				delete(selection.Values, key)
+				changed = true
+			}
 		}
 	}
 	if changed {
-		if data, err := json.Marshal(ui.damageFilters); err == nil {
-			fyne.CurrentApp().Preferences().SetString(damageFiltersPreference, string(data))
-		}
+		ui.saveScopedFilters()
 	}
-}
-
-func (ui *analyzerUI) filteredDamageSnapshot() *logSnapshot {
-	shipType, shipClass, groups := ui.damageFilters[filterShipType], ui.damageFilters[filterShipClass], ui.damageFilters[filterCharacterGroup]
-	restrictType, restrictClass := shipType.restricted(), shipClass.restricted()
-	systems := ui.damageFilters[filterSystem]
-	restrictSystem := systems.restricted()
-	npcNames, npcTypes := ui.damageFilters[filterNPCNames], ui.damageFilters[filterNPCTypes]
-	restrictNPC := npcNames.restricted() || npcTypes.restricted()
-	restrictWeapon := ui.damageFilters[filterWeaponType].restricted() || ui.damageFilters[filterWeaponStrength].restricted()
-	if !restrictType && !restrictClass && !groups.restricted() && !restrictSystem && !restrictNPC && !restrictWeapon {
-		return nil
-	}
-	byName, members := ui.shipHistory.indexByName(), ui.characterFilterGroups()
-	locations := ui.locationLookup
-	filtered := *ui.snapshot
-	filtered.Logs = nil
-	for _, log := range ui.snapshot.Logs {
-		if !characterGroupsSelected(groups, members[characterKey(log.Character)]) {
-			continue
-		}
-		matches := func(second int64) bool {
-			at := time.Unix(second, 0)
-			if restrictSystem {
-				location, known := locations.atName(log.Character, at)
-				if !systems.selected(systemFilterOption(location, known).Key) {
-					return false
-				}
-			}
-			if !restrictType && !restrictClass {
-				return true
-			}
-			ship, known := byName[characterKey(log.Character)].atName(log.Character, at)
-			hull, class := shipFilterOptions(ship, known)
-			return shipType.selected(hull.Key) && shipClass.selected(class.Key)
-		}
-		copyLog := *log
-		copyLog.Points, copyLog.StructureEvents = nil, nil
-		copyLog.IncomingSources = nil
-		copyLog.Hits = nil
-		copyLog.EWar = nil
-		copyLog.Logistics = nil
-		copyLog.Mining = nil
-		for _, event := range log.Mining {
-			if matches(event.Second) {
-				copyLog.Mining = append(copyLog.Mining, event)
-			}
-		}
-		for _, event := range log.Logistics {
-			if matches(event.Second) {
-				copyLog.Logistics = append(copyLog.Logistics, event)
-			}
-		}
-		for _, event := range log.EWar {
-			if matches(event.Second) {
-				copyLog.EWar = append(copyLog.EWar, event)
-			}
-		}
-		// Rebuild incoming values from source contributions before bucketing and
-		// averaging. Outgoing values and structure markers use only shared filters.
-		incoming := map[int64]incomingSourcePoint{}
-		included := make([]bool, len(log.Sources))
-		for id, source := range log.Sources {
-			names, types := npcFilterOptions(source)
-			included[id] = npcNames.selected(names.Key) && npcTypes.selected(types.Key)
-		}
-		for _, hit := range log.Hits {
-			if !matches(hit.Second) || !ui.damageFilters[filterWeaponType].selected(hitWeaponOption(hit, filterWeaponType).Key) || !ui.damageFilters[filterWeaponStrength].selected(hitWeaponOption(hit, filterWeaponStrength).Key) {
-				continue
-			}
-			if hit.Incoming && restrictNPC {
-				allowed := npcNames.selected(filterOtherSources) && npcTypes.selected(filterOtherSources)
-				if hit.Source >= 0 && hit.Source < len(included) {
-					allowed = included[hit.Source]
-				}
-				if !allowed {
-					continue
-				}
-			}
-			copyLog.Hits = append(copyLog.Hits, hit)
-		}
-		for _, contribution := range log.IncomingSources {
-			if included[contribution.Source] && matches(contribution.Second) {
-				copyLog.IncomingSources = append(copyLog.IncomingSources, contribution)
-				if restrictNPC {
-					point := incoming[contribution.Second]
-					point.Damage += contribution.Damage
-					point.Hits += contribution.Hits
-					incoming[contribution.Second] = point
-				}
-			}
-		}
-		for _, point := range log.Points {
-			if matches(point.Second) {
-				if restrictNPC {
-					if len(log.IncomingSources) == 0 {
-						// Unattributed synthetic/legacy data is never guessed to be NPC.
-						if !npcNames.selected(filterOtherSources) || !npcTypes.selected(filterOtherSources) {
-							point.Incoming, point.IncomingHits = 0, 0
-						}
-					} else {
-						value := incoming[point.Second]
-						point.Incoming, point.IncomingHits = value.Damage, value.Hits
-					}
-				}
-				copyLog.Points = append(copyLog.Points, point)
-			}
-		}
-		if restrictWeapon {
-			rebuildDamageFromHits(&copyLog)
-		}
-		for _, event := range log.StructureEvents {
-			if matches(event.Second) {
-				copyLog.StructureEvents = append(copyLog.StructureEvents, event)
-			}
-		}
-		filtered.Logs = append(filtered.Logs, &copyLog)
-	}
-	return &filtered
 }
 
 func (ui *analyzerUI) refreshDamageFilterOptions() {
@@ -420,4 +322,9 @@ func (ui *analyzerUI) refreshDamageFilterOptions() {
 			return compareTotalsText(ui.filterOptions[kind][i].Label, ui.filterOptions[kind][j].Label) < 0
 		})
 	}
+	ui.scopedOptions = map[string]map[string][]damageFilterOption{}
+	for _, graph := range graphVisibilityOptions {
+		ui.scopedOptions[graph.id] = ui.buildScopeFilterOptions(graph.id)
+	}
+
 }

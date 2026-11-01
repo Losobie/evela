@@ -6,7 +6,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -67,30 +66,10 @@ func (row *damageFilterRow) CreateRenderer() fyne.WidgetRenderer {
 func (row *damageFilterRow) Tapped(*fyne.PointEvent) { row.check.SetChecked(!row.check.Checked) }
 
 func (ui *analyzerUI) damageFilterBar() fyne.CanvasObject {
-	ui.filterButtons = map[string]*widget.Button{}
-	buttons := container.NewHBox()
-	for _, kind := range sharedDamageFilterKinds {
-		buttons.Add(ui.damageFilterButton(kind))
-	}
-	buttons.Add(ui.graphOptionsButton)
-	ui.refreshDamageFilterControls()
-	return container.NewVBox(container.NewBorder(nil, nil, nil, buttons, widget.NewLabel("Shared filters")),
-		container.NewBorder(nil, nil, nil, container.NewHBox(ui.damageFilterButton(filterWeaponType), ui.damageFilterButton(filterWeaponStrength)), widget.NewLabel("Damage filters")))
+	return container.NewBorder(nil, nil, nil, ui.graphOptionsButton, ui.scopedFilterBar(globalFilterScope))
 }
-
-func (ui *analyzerUI) damageFilterButton(kind string) fyne.CanvasObject {
-	category := kind
-	button := widget.NewButtonWithIcon(category+": 999/999", theme.MenuDropDownIcon(), func() { ui.openDamageFilter(category) })
-	size := button.MinSize()
-	button.SetText(category + ": All")
-	ui.filterButtons[category] = button
-	return container.NewGridWrap(size, button)
-}
-
 func (ui *analyzerUI) incomingDamageFilterBar() fyne.CanvasObject {
-	buttons := container.NewHBox(ui.damageFilterButton(filterNPCNames), ui.damageFilterButton(filterNPCTypes), ui.incomingGroupButton)
-	ui.refreshDamageFilterControls()
-	return container.NewBorder(nil, nil, nil, buttons, widget.NewLabel("Incoming sources"))
+	return container.NewVBox(container.NewBorder(nil, nil, nil, ui.incomingGroupButton), ui.scopedFilterBar(graphIncoming))
 }
 
 func (ui *analyzerUI) damageFilterCounts(kind string) (int, int) {
@@ -105,26 +84,21 @@ func (ui *analyzerUI) damageFilterCounts(kind string) (int, int) {
 }
 
 func (ui *analyzerUI) refreshDamageFilterControls() {
-	for kind, button := range ui.filterButtons {
-		selected, total := ui.damageFilterCounts(kind)
-		text := "All"
-		if selected == 0 && (total > 0 || !ui.damageFilters[kind].selected("")) {
-			text = "None"
-		} else if selected < total {
-			text = fmt.Sprintf("%d/%d", selected, total)
+	for scope, buttons := range ui.scopedFilterButtons {
+		for kind, button := range buttons {
+			button.SetText(ui.scopeFilterLabel(scope, kind))
 		}
-		button.SetText(kind + ": " + text)
 	}
 	if popup := ui.filterPopup; popup != nil && popup.popup.Visible() {
 		popup.refresh()
 	}
 }
-
 func (ui *analyzerUI) openDamageFilter(kind string) {
-	ui.openSelectionFilter(kind, ui.filterButtons[kind], func() []damageFilterOption { return ui.filterOptions[kind] },
-		func(key string) bool { return ui.damageFilterSelected(kind, key) },
-		func(key string, checked bool) { ui.setDamageFilterOption(kind, key, checked) },
-		func(checked bool) { ui.setAllDamageFilterOptions(kind, checked) })
+	scope := globalFilterScope
+	if kind == filterNPCNames || kind == filterNPCTypes {
+		scope = graphIncoming
+	}
+	ui.openScopedFilter(scope, kind, ui.filterButtons[kind])
 }
 
 func (ui *analyzerUI) openSelectionFilter(kind string, anchor fyne.CanvasObject, options func() []damageFilterOption, selected func(string) bool, setSelected func(string, bool), setAll func(bool)) {

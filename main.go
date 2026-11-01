@@ -17,6 +17,12 @@ import (
 )
 
 type analyzerUI struct {
+	scopedOptions       map[string]map[string][]damageFilterOption
+	scopedFilters       map[string]map[string]*damageFilterSelection
+	visibleFilters      map[string]map[string]bool
+	scopedFilterBars    map[string]*fyne.Container
+	scopedFilterButtons map[string]map[string]*widget.Button
+
 	window                            fyne.Window
 	snapshot                          *logSnapshot
 	view                              damageView
@@ -175,6 +181,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.initEWar()
 	ui.initLogistics()
 	ui.initMining()
+	ui.initScopedFilters()
 	linkChartHovers(ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar, ui.mining)
 	ui.initEventGraphGrouping()
 	ui.totals = widget.NewTable(
@@ -202,7 +209,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 				if ui.characterGroupGrouping() {
 					first, second = "Character group", "Members"
 				}
-				if ui.weaponGrouping() {
+				if ui.weaponGrouping() || ui.systemGrouping() {
 					first, second = ui.groupSelect.Selected, "Members"
 				}
 				heading := []string{first, second, "Outgoing damage", "Incoming damage", "Avg out DPS", "Avg in DPS", "Hits out / in"}[id.Col]
@@ -269,7 +276,7 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	filterBar := ui.damageFilterBar()
 	ui.graphCards = map[string]*widget.Card{}
 	ui.graphStack = container.NewVBox(
-		ui.newGraphCard(graphOutgoing, "Outgoing damage", container.NewBorder(container.NewBorder(nil, nil, nil, ui.graphFormatButton, ui.graphFormatLabel), nil, nil, nil, ui.graphPanContent(ui.outgoing))),
+		ui.newGraphCard(graphOutgoing, "Outgoing damage", container.NewBorder(container.NewVBox(container.NewBorder(nil, nil, nil, ui.graphFormatButton, ui.graphFormatLabel), ui.scopedFilterBar(graphOutgoing)), nil, nil, nil, ui.graphPanContent(ui.outgoing))),
 		ui.newGraphCard(graphOutgoingLogistics, "Outgoing logistics", container.NewBorder(ui.logisticsControls(graphOutgoingLogistics), nil, nil, nil, ui.graphPanContent(ui.outgoingLogistics))),
 		ui.newGraphCard(graphIncoming, "Incoming damage", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))),
 		ui.newGraphCard(graphIncomingLogistics, "Incoming logistics", container.NewBorder(ui.logisticsControls(graphIncomingLogistics), nil, nil, nil, ui.graphPanContent(ui.incomingLogistics))),
@@ -469,6 +476,7 @@ func (ui *analyzerUI) selectRangeCharacters(selected bool) {
 			ui.selected[series.Name] = selected
 		}
 	}
+	ui.syncCharacterFilter()
 	ui.rebuildCharacters()
 	ui.renderSelection()
 }
@@ -508,7 +516,10 @@ func (ui *analyzerUI) renderSelection() {
 	if ui.graphAverageWindow > 0 && !ui.shipGrouping() {
 		graphSeries = ui.view.rollingAverage(ui.analysisSnapshot(), ui.graphAverageWindow)
 	}
-	if ui.weaponGrouping() {
+	if ui.systemGrouping() {
+		ui.tableSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, filterSystem, 0)
+		graphSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, filterSystem, ui.graphAverageWindow)
+	} else if ui.weaponGrouping() {
 		ui.tableSeries = ui.view.weaponSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, 0)
 		graphSeries = ui.view.weaponSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, ui.graphAverageWindow)
 	} else if ui.shipGrouping() {
