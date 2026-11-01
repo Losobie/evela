@@ -51,14 +51,21 @@ jobs:
         run: |
           Join-Path $env:MSYS2_LOCATION 'mingw64\bin' >> $env:GITHUB_PATH
 
-      - name: Run tests
-        run: go test ./...
+      - name: Download Go modules
+        timeout-minutes: 5
+        run: go mod download -x
 
       - name: Build executable and ZIP
+        timeout-minutes: 15
         run: |
-          go build -ldflags="-H=windowsgui" -o evela.exe .
+          # A cold Fyne/CGO build takes time; -v shows package progress.
+          go build -v -ldflags="-H=windowsgui" -o evela.exe .
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Compress-Archive -LiteralPath evela.exe -DestinationPath evela.zip -Force
+
+      - name: Run tests
+        timeout-minutes: 10
+        run: go test -v -timeout 5m ./...
 
       - name: Publish release for this commit
         env:
