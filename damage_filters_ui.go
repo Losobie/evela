@@ -69,7 +69,7 @@ func (ui *analyzerUI) damageFilterBar() fyne.CanvasObject {
 	return ui.scopedFilterBar(globalFilterScope, ui.graphOptionsButton)
 }
 func (ui *analyzerUI) incomingDamageFilterBar() fyne.CanvasObject {
-	return ui.scopedFilterBar(graphIncoming, ui.incomingGroupButton)
+	return container.NewVBox(ui.graphInformationLabels[graphIncoming], ui.scopedFilterBar(graphIncoming, ui.incomingGroupButton))
 }
 
 func (ui *analyzerUI) damageFilterCounts(kind string) (int, int) {

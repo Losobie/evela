@@ -59,9 +59,13 @@ func (ui *analyzerUI) initGraphFormat() {
 			}
 		}
 	}
-	ui.graphFormatLabel = widget.NewLabel("")
-	ui.graphFormatLabel.Wrapping = fyne.TextWrapWord
-	ui.graphFormatLabel.Truncation = fyne.TextTruncateEllipsis
+	ui.graphInformationLabels = map[string]*widget.Label{}
+	for _, graph := range graphVisibilityOptions {
+		label := widget.NewLabel("")
+		label.Wrapping = fyne.TextWrapWord
+		ui.graphInformationLabels[graph.id] = label
+	}
+	ui.graphFormatLabel = ui.graphInformationLabels[graphOutgoing]
 	ui.graphFormatButton = ui.graphMenuButton("Group By", ui.graphFormatMenu)
 	ui.graphOptionsButton = ui.graphMenuButton("Options", ui.graphOptionsMenu, true)
 	ui.incomingGroupButton = ui.graphMenuButton("Group By", ui.incomingGroupingMenu)
@@ -181,27 +185,15 @@ func (ui *analyzerUI) graphOptionsMenu() *fyne.Menu {
 }
 
 func (ui *analyzerUI) updateGraphFormatLabel() {
-	if ui.graphFormatLabel == nil {
-		return
-	}
-	grouping := "By character"
-	if ui.shipGrouping() {
-		grouping = "By ship type · history at event time"
-	}
-	if ui.shipClassGrouping() {
-		grouping = "By ship class · history at event time"
-	}
-	if ui.characterGroupGrouping() {
-		grouping = "By character group"
-		if ui.selectedCharacterGroupID() != "" {
-			grouping = ui.groupSelect.Selected
+	changed := false
+	for id, label := range ui.graphInformationLabels {
+		text := ui.graphInformationText(id)
+		if text != label.Text {
+			label.SetText(text)
+			changed = true
 		}
 	}
-	text := "Linear · " + grouping
-	if ui.graphAverageWindow > 0 {
-		text += fmt.Sprintf(" · %d-second average", int(ui.graphAverageWindow/time.Second))
-	} else {
-		text += " · individual hits"
+	if changed && ui.graphsScroll != nil {
+		ui.graphsScroll.Refresh()
 	}
-	ui.graphFormatLabel.SetText(text)
 }

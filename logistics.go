@@ -79,9 +79,7 @@ func (ui *analyzerUI) initLogistics() {
 }
 
 func (ui *analyzerUI) logisticsControls(id string) fyne.CanvasObject {
-	note := widget.NewLabel("Repairs: HP · Capacitor: GJ · averaged rates per second")
-	note.Truncation = fyne.TextTruncateEllipsis
-	return container.NewVBox(note, ui.scopedFilterBar(id, ui.eventGroupButton(id)))
+	return container.NewVBox(ui.graphInformationLabels[id], ui.scopedFilterBar(id, ui.eventGroupButton(id)))
 }
 
 func (ui *analyzerUI) saveLogisticsTypes(id string) {

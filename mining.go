@@ -112,9 +112,7 @@ func (ui *analyzerUI) initMining() {
 }
 
 func (ui *analyzerUI) miningControls() fyne.CanvasObject {
-	note := widget.NewLabel("Ore units · mined, compressed and waste shown separately")
-	note.Truncation = fyne.TextTruncateEllipsis
-	return container.NewVBox(note, ui.scopedFilterBar(graphMining, ui.eventGroupButton(graphMining)))
+	return container.NewVBox(ui.graphInformationLabels[graphMining], ui.scopedFilterBar(graphMining, ui.eventGroupButton(graphMining)))
 }
 
 func (ui *analyzerUI) saveMiningFilters() {

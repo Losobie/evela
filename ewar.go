@@ -102,10 +102,8 @@ func (ui *analyzerUI) initEWar() {
 }
 
 func (ui *analyzerUI) ewarControls() fyne.CanvasObject {
-	note := widget.NewLabel("Averages: events/s or GJ/s · unlogged effects unavailable")
-	note.Truncation = fyne.TextTruncateEllipsis
 	metric := container.NewGridWrap(fyne.NewSize(250, ui.ewarMetric.MinSize().Height), ui.ewarMetric)
-	return container.NewVBox(note, ui.scopedFilterBar(graphIncomingEWar, container.NewHBox(metric, ui.eventGroupButton(graphIncomingEWar))))
+	return container.NewVBox(ui.graphInformationLabels[graphIncomingEWar], ui.scopedFilterBar(graphIncomingEWar, container.NewHBox(metric, ui.eventGroupButton(graphIncomingEWar))))
 }
 
 func (ui *analyzerUI) incomingEWarPlot(selected map[string]bool) plotData {

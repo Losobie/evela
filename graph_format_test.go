@@ -132,7 +132,7 @@ func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 	if !ui.shipGrouping() || len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Values[10] != 28 || len(ui.incoming.data.Series) != 2 || ui.incoming.data.Series[0].Values[10] != 3 || ui.tableSeries[0].TotalOutgoing != 3324 || ui.summary.Text != summary {
 		t.Fatal("ship format did not combine damage correctly")
 	}
-	if !strings.Contains(ui.graphFormatLabel.Text, "Linear") || !strings.Contains(ui.graphFormatLabel.Text, "ship type") {
+	if strings.Contains(ui.graphFormatLabel.Text, "Linear") || !strings.Contains(ui.graphFormatLabel.Text, "ship type") {
 		t.Fatal("active format was not displayed")
 	}
 	ui.outgoing.MouseMoved(testMouseEvent(chartPlotLeft+float32(10.1/60)*(ui.outgoing.Size().Width-chartPlotLeft-chartPlotRight), 80, 0))
