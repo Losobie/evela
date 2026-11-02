@@ -82,8 +82,8 @@ func (ui *analyzerUI) attachIndividualHits(in, out *plotData, selected map[strin
 						location, known := ui.locationLookup.atName(log.Character, time.Unix(hit.Second, 0))
 						names = []string{systemFilterOption(location, known).Label}
 					}
-					if weaponGroupingMode(ui.incomingGrouping) {
-						names = []string{hitWeaponOption(hit, ui.incomingGrouping).Label}
+					if damageAttributeGroupingMode(ui.incomingGrouping) {
+						names = []string{hitDamageAttributeOption(hit, ui.incomingGrouping).Label}
 					}
 				}
 				for _, name := range names {
@@ -107,8 +107,8 @@ func (ui *analyzerUI) attachIndividualHits(in, out *plotData, selected map[strin
 					location, known := ui.locationLookup.atName(log.Character, time.Unix(hit.Second, 0))
 					names = []string{systemFilterOption(location, known).Label}
 				}
-				if ui.weaponGrouping() {
-					names = []string{hitWeaponOption(hit, ui.groupSelect.Selected).Label}
+				if ui.damageAttributeGrouping() {
+					names = []string{hitDamageAttributeOption(hit, ui.groupSelect.Selected).Label}
 				}
 				for _, name := range names {
 					outgoing[name] = append(outgoing[name], point)

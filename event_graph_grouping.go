@@ -20,6 +20,9 @@ const (
 var eventGroupingModes = []string{eventByType, eventByCharacter, eventByGroup, eventByShip, eventByClass, filterSystem}
 
 func eventGroupingOptions(id string) []string {
+	if id == graphOutgoingLogistics {
+		return append(append([]string(nil), eventGroupingModes...), filterTarget, filterTargetType)
+	}
 	if id == graphMining {
 		return []string{eventByCharacter, eventByGroup, eventByShip, eventByClass, filterSystem, eventByOreName, eventByOreType}
 	}

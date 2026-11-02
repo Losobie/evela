@@ -14,7 +14,7 @@ type graphMetadata struct {
 	characters      map[string]*graphCharacterMetadata
 	shipOptions     map[graphShipIdentity][2]damageFilterOption
 	systems         map[graphSystemIdentity]damageFilterOption
-	weapons         map[[2]string]damageFilterOption
+	damageOptions   map[[2]string]damageFilterOption
 	sources         map[damageSource][4]damageFilterOption
 }
 type graphCharacterMetadata struct {
@@ -37,7 +37,7 @@ type graphSystemIdentity struct {
 
 func (ui *analyzerUI) graphMetadata() *graphMetadata {
 	if ui.metadata == nil {
-		ui.metadata = &graphMetadata{snapshot: ui.snapshot, attributeValues: map[graphAttributes]*graphAttributes{}, groupNames: map[string]string{}, ships: ui.shipHistory.indexByName(), members: ui.characterFilterGroups(), locations: ui.locationLookup, characters: map[string]*graphCharacterMetadata{}, shipOptions: map[graphShipIdentity][2]damageFilterOption{}, systems: map[graphSystemIdentity]damageFilterOption{}, weapons: map[[2]string]damageFilterOption{}, sources: map[damageSource][4]damageFilterOption{}}
+		ui.metadata = &graphMetadata{snapshot: ui.snapshot, attributeValues: map[graphAttributes]*graphAttributes{}, groupNames: map[string]string{}, ships: ui.shipHistory.indexByName(), members: ui.characterFilterGroups(), locations: ui.locationLookup, characters: map[string]*graphCharacterMetadata{}, shipOptions: map[graphShipIdentity][2]damageFilterOption{}, systems: map[graphSystemIdentity]damageFilterOption{}, damageOptions: map[[2]string]damageFilterOption{}, sources: map[damageSource][4]damageFilterOption{}}
 		for _, group := range ui.characterGroups {
 			ui.metadata.groupNames["group:"+group.ID] = group.Name
 		}
@@ -105,16 +105,19 @@ func (metadata *graphMetadata) attributes(name string, second int64) graphAttrib
 	character.times[second] = shared
 	return *shared
 }
-func (metadata *graphMetadata) weapon(hit damageHit, kind string) damageFilterOption {
+func (metadata *graphMetadata) damageAttribute(hit damageHit, kind string) damageFilterOption {
 	value := hit.WeaponType
+	if targetGroupingMode(kind) {
+		value = targetValue(hit.Target, hit.TargetType, kind)
+	}
 	if kind == filterWeaponStrength {
 		value = hit.WeaponStrength
 	}
 	key := [2]string{kind, value}
-	option, ok := metadata.weapons[key]
+	option, ok := metadata.damageOptions[key]
 	if !ok {
-		option = weaponOption(value, kind)
-		metadata.weapons[key] = option
+		option = namedDamageOption(value, kind)
+		metadata.damageOptions[key] = option
 	}
 	return option
 }

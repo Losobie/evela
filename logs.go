@@ -41,6 +41,7 @@ type damageHit struct {
 	Source                     int
 	Incoming                   bool
 	WeaponType, WeaponStrength string
+	Target, TargetType         string
 }
 
 type parsedLog struct {
@@ -170,7 +171,11 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 						sourceNames[source] = sourceID
 					}
 				}
-				result.Hits = append(result.Hits, damageHit{Second: at.Unix(), Source: sourceID, Incoming: incoming, WeaponType: weapon, WeaponStrength: "Misses"})
+				hit := damageHit{Second: at.Unix(), Source: sourceID, Incoming: incoming, WeaponType: weapon, WeaponStrength: "Misses"}
+				if !incoming {
+					hit.Target, hit.TargetType = loggedTarget(target)
+				}
+				result.Hits = append(result.Hits, hit)
 			}
 			continue
 		}
@@ -215,7 +220,8 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		} else {
 			point.Outgoing += amount
 			point.OutgoingHits++
-			result.Hits = append(result.Hits, damageHit{Second: second, Amount: amount, Source: -1, WeaponType: weapon, WeaponStrength: strength})
+			targetName, targetType := damageTarget(match[3], weapon, strength)
+			result.Hits = append(result.Hits, damageHit{Second: second, Amount: amount, Source: -1, WeaponType: weapon, WeaponStrength: strength, Target: targetName, TargetType: targetType})
 			target, typeName, recognized := outgoingStructureTarget(match[3])
 			structurePending = recognized
 			if recognized {

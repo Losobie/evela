@@ -219,7 +219,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 				if ui.characterGroupGrouping() {
 					first, second = "Character group", "Members"
 				}
-				if ui.weaponGrouping() || ui.systemGrouping() {
+				if ui.damageAttributeGrouping() || ui.systemGrouping() {
 					first, second = ui.groupSelect.Selected, "Members"
 				}
 				heading := []string{first, second, "Outgoing damage", "Incoming damage", "Avg out DPS", "Avg in DPS", "Hits out / in"}[id.Col]
@@ -563,9 +563,9 @@ func (ui *analyzerUI) renderSelection() {
 	if ui.systemGrouping() {
 		ui.tableSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, filterSystem, 0, ui.graphMetadata())
 		graphSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, filterSystem, ui.graphAverageWindow, ui.graphMetadata())
-	} else if ui.weaponGrouping() {
-		ui.tableSeries = ui.view.weaponSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, 0)
-		graphSeries = ui.view.weaponSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, ui.graphAverageWindow)
+	} else if ui.damageAttributeGrouping() {
+		ui.tableSeries = ui.view.damageAttributeSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, 0)
+		graphSeries = ui.view.damageAttributeSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, ui.graphAverageWindow)
 	} else if ui.shipGrouping() {
 		ui.tableSeries = ui.groupedShipSeries(selected, 0)
 		graphSeries = ui.groupedShipSeries(ui.selected, ui.graphAverageWindow)

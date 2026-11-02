@@ -26,6 +26,7 @@ func sameRecords[T any](a, b []T) bool { return len(a) == len(b) && (len(a) == 0
 type graphRecordFilter struct {
 	characters, groups, shipType, shipClass, system *damageFilterSelection
 	weaponType, weaponStrength, effect              *damageFilterSelection
+	target, targetType                              *damageFilterSelection
 	sources                                         [4]*damageFilterSelection
 }
 
@@ -45,6 +46,9 @@ func (ui *analyzerUI) compileRecordFilter(scope string) graphRecordFilter {
 		filter.weaponType = active(filterWeaponType)
 		filter.weaponStrength = active(filterWeaponStrength)
 	}
+	if scope == graphOutgoing || scope == graphOutgoingLogistics {
+		filter.target, filter.targetType = active(filterTarget), active(filterTargetType)
+	}
 	if scope == graphIncoming {
 		for index, kind := range []string{filterAttacker, filterAttackerShip, filterNPCNames, filterNPCTypes} {
 			filter.sources[index] = active(kind)
@@ -59,7 +63,7 @@ func (filter graphRecordFilter) commonActive() bool {
 	return filter.characters != nil || filter.groups != nil || filter.shipType != nil || filter.shipClass != nil || filter.system != nil
 }
 func (filter graphRecordFilter) active() bool {
-	return filter.commonActive() || filter.weaponType != nil || filter.weaponStrength != nil || filter.effect != nil || filter.sources != [4]*damageFilterSelection{}
+	return filter.commonActive() || filter.target != nil || filter.targetType != nil || filter.weaponType != nil || filter.weaponStrength != nil || filter.effect != nil || filter.sources != [4]*damageFilterSelection{}
 }
 func (filter graphRecordFilter) characterAllowed(metadata *graphMetadata, name string) bool {
 	if !filter.characters.selected(name) {
@@ -77,8 +81,12 @@ func (filter graphRecordFilter) timeAllowed(metadata *graphMetadata, name string
 	attributes := metadata.attributes(name, second)
 	return filter.shipType.selected(attributes.hull.Key) && filter.shipClass.selected(attributes.class.Key) && filter.system.selected(attributes.system.Key)
 }
-func (filter graphRecordFilter) weaponAllowed(metadata *graphMetadata, hit damageHit) bool {
-	return (filter.weaponType == nil || filter.weaponType.selected(metadata.weapon(hit, filterWeaponType).Key)) && (filter.weaponStrength == nil || filter.weaponStrength.selected(metadata.weapon(hit, filterWeaponStrength).Key))
+func (filter graphRecordFilter) damageAllowed(metadata *graphMetadata, hit damageHit) bool {
+	return (filter.weaponType == nil || filter.weaponType.selected(metadata.damageAttribute(hit, filterWeaponType).Key)) && (filter.weaponStrength == nil || filter.weaponStrength.selected(metadata.damageAttribute(hit, filterWeaponStrength).Key)) && filter.targetAllowed(metadata, hit.Target, hit.TargetType)
+}
+func (filter graphRecordFilter) targetAllowed(metadata *graphMetadata, name, typeName string) bool {
+	hit := damageHit{Target: name, TargetType: typeName}
+	return (filter.target == nil || filter.target.selected(metadata.damageAttribute(hit, filterTarget).Key)) && (filter.targetType == nil || filter.targetType.selected(metadata.damageAttribute(hit, filterTargetType).Key))
 }
 func (filter graphRecordFilter) sourceAllowed(metadata *graphMetadata, log *parsedLog, id int) bool {
 	if filter.sources == [4]*damageFilterSelection{} {
@@ -133,7 +141,7 @@ func (ui *analyzerUI) filteredDamageSnapshot(snapshot *logSnapshot) *logSnapshot
 					if !global.active() && !plan.active() {
 						return true
 					}
-					return common[scope](hit.Second) && plan.weaponAllowed(metadata, hit) && (!hit.Incoming || plan.sourceAllowed(metadata, log, hit.Source))
+					return common[scope](hit.Second) && plan.damageAllowed(metadata, hit) && (!hit.Incoming || plan.sourceAllowed(metadata, log, hit.Source))
 				})
 				if !sameRecords(log.Hits, copyLog.Hits) {
 					rebuildDamageFromHits(&copyLog)
@@ -142,7 +150,7 @@ func (ui *analyzerUI) filteredDamageSnapshot(snapshot *logSnapshot) *logSnapshot
 				// Legacy/synthetic summaries have no raw hits. Preserve their existing
 				// attribution rules, without treating an unknown source as a known NPC.
 				copyLog.IncomingSources = selectRecords(log.IncomingSources, func(point incomingSourcePoint) bool {
-					return common[graphIncoming](point.Second) && incoming.weaponAllowed(metadata, damageHit{}) && incoming.sourceAllowed(metadata, log, point.Source)
+					return common[graphIncoming](point.Second) && incoming.damageAllowed(metadata, damageHit{}) && incoming.sourceAllowed(metadata, log, point.Source)
 				})
 				values := map[int64]incomingSourcePoint{}
 				for _, point := range copyLog.IncomingSources {
@@ -153,10 +161,10 @@ func (ui *analyzerUI) filteredDamageSnapshot(snapshot *logSnapshot) *logSnapshot
 				}
 				copyLog.Points = make([]damagePoint, 0, len(log.Points))
 				for _, point := range log.Points {
-					if !common[graphOutgoing](point.Second) || !outgoing.weaponAllowed(metadata, damageHit{}) {
+					if !common[graphOutgoing](point.Second) || !outgoing.damageAllowed(metadata, damageHit{}) {
 						point.Outgoing, point.OutgoingHits = 0, 0
 					}
-					if !common[graphIncoming](point.Second) || !incoming.weaponAllowed(metadata, damageHit{}) {
+					if !common[graphIncoming](point.Second) || !incoming.damageAllowed(metadata, damageHit{}) {
 						point.Incoming, point.IncomingHits = 0, 0
 					} else if len(log.IncomingSources) > 0 {
 						value := values[point.Second]
@@ -173,20 +181,29 @@ func (ui *analyzerUI) filteredDamageSnapshot(snapshot *logSnapshot) *logSnapshot
 				return common[graphIncomingEWar](event.Second) && plan.effect.selected(event.Effect)
 			})
 		}
-		if global.commonActive() || plans[graphIncomingLogistics].commonActive() || plans[graphOutgoingLogistics].commonActive() {
+		if global.commonActive() || plans[graphIncomingLogistics].commonActive() || plans[graphOutgoingLogistics].active() {
 			copyLog.Logistics = selectRecords(log.Logistics, func(event logisticsEvent) bool {
 				scope := graphOutgoingLogistics
 				if event.Incoming {
 					scope = graphIncomingLogistics
 				}
-				return common[scope](event.Second)
+				return common[scope](event.Second) && plans[scope].targetAllowed(metadata, event.Target, event.TargetType)
 			})
 		}
 		if global.commonActive() || plans[graphMining].commonActive() {
 			copyLog.Mining = selectRecords(log.Mining, func(event miningEvent) bool { return common[graphMining](event.Second) })
 		}
-		if global.commonActive() || outgoing.commonActive() {
-			copyLog.StructureEvents = selectRecords(log.StructureEvents, func(event structureEvent) bool { return common[graphOutgoing](event.Second) })
+		if global.commonActive() || outgoing.commonActive() || outgoing.target != nil || outgoing.targetType != nil {
+			copyLog.StructureEvents = selectRecords(log.StructureEvents, func(event structureEvent) bool {
+				if !common[graphOutgoing](event.Second) {
+					return false
+				}
+				if outgoing.target == nil && outgoing.targetType == nil {
+					return true
+				}
+				name, typeName := loggedTarget(event.Target)
+				return outgoing.targetAllowed(metadata, name, typeName)
+			})
 		}
 		filtered.Logs = append(filtered.Logs, &copyLog)
 	}

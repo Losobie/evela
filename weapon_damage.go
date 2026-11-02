@@ -33,9 +33,9 @@ func cutLastDamageDetail(s string) (string, string, bool) {
 
 func parseDamageMiss(message string) (target, weapon string, incoming, ok bool) {
 	body := message
-	if i := strings.LastIndex(body, " - "); i >= 0 {
-		weapon = strings.TrimSpace(body[i+3:])
-		body = strings.TrimSpace(body[:i])
+	if i := strings.LastIndex(body, " completely - "); i >= 0 {
+		weapon = strings.TrimSpace(body[i+len(" completely - "):])
+		body = strings.TrimSpace(body[:i+len(" completely")])
 	}
 	if strings.HasSuffix(body, " misses you completely") {
 		return strings.TrimSuffix(body, " misses you completely"), weapon, true, true
@@ -51,23 +51,26 @@ func parseDamageMiss(message string) (target, weapon string, incoming, ok bool) 
 	return "", "", false, false
 }
 
-func weaponGroupingMode(mode string) bool {
-	return mode == filterWeaponType || mode == filterWeaponStrength
+func damageAttributeGroupingMode(mode string) bool {
+	return mode == filterWeaponType || mode == filterWeaponStrength || targetGroupingMode(mode)
 }
-func weaponOption(value, kind string) damageFilterOption {
+func namedDamageOption(value, kind string) damageFilterOption {
 	if value == "" {
 		return damageFilterOption{Key: "unknown", Label: "Unknown " + strings.ToLower(kind)}
 	}
 	return damageFilterOption{Key: "name:" + value, Label: value}
 }
-func hitWeaponOption(hit damageHit, mode string) damageFilterOption {
-	if mode == filterWeaponStrength {
-		return weaponOption(hit.WeaponStrength, mode)
+func hitDamageAttributeOption(hit damageHit, mode string) damageFilterOption {
+	if targetGroupingMode(mode) {
+		return namedDamageOption(targetValue(hit.Target, hit.TargetType, mode), mode)
 	}
-	return weaponOption(hit.WeaponType, mode)
+	if mode == filterWeaponStrength {
+		return namedDamageOption(hit.WeaponStrength, mode)
+	}
+	return namedDamageOption(hit.WeaponType, mode)
 }
-func (ui *analyzerUI) weaponGrouping() bool {
-	return ui.groupSelect != nil && weaponGroupingMode(ui.groupSelect.Selected)
+func (ui *analyzerUI) damageAttributeGrouping() bool {
+	return ui.groupSelect != nil && damageAttributeGroupingMode(ui.groupSelect.Selected)
 }
 
 func rebuildDamageFromHits(log *parsedLog) {

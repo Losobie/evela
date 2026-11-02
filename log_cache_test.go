@@ -92,7 +92,8 @@ func TestSQLiteCacheRoundTripsAllParsedEventTypes(t *testing.T) {
 	folder := t.TempDir()
 	content := sampleLog + logisticsTestLog + miningTestLog +
 		"[ 2026.10.20 02:00:01 ] (notify) Jumping from Jita to Amarr.\n" +
-		"[ 2026.10.20 02:00:02 ] (combat) 466 to Blood Raiders Stronghold - Ogre I - Penetrates\n"
+		"[ 2026.10.20 02:00:02 ] (combat) 912 to Grijawlva[SNOOO](Phoenix Navy Issue) - 425mm Railgun II - Penetrates\n" +
+		"[ 2026.10.20 02:00:03 ] (combat) 120 remote shield boosted to Grijawlva[SNOOO](Phoenix Navy Issue)\n"
 	writeCacheLog(t, folder, "20261020_all.txt", content)
 	cache := testLogCache(t, filepath.Join(t.TempDir(), "logs.sqlite"), logParserVersion)
 	first := cacheScan(t, &logIndex{cache: cache}, folder, time.Time{})
@@ -101,6 +102,16 @@ func TestSQLiteCacheRoundTripsAllParsedEventTypes(t *testing.T) {
 		t.Fatal("persistent serialization lost parsed data")
 	}
 	for _, log := range second.Logs {
+		foundHit, foundLogistics := false, false
+		for _, hit := range log.Hits {
+			foundHit = foundHit || hit.Target == "Grijawlva" && hit.TargetType == "Phoenix Navy Issue"
+		}
+		for _, event := range log.Logistics {
+			foundLogistics = foundLogistics || event.Target == "Grijawlva" && event.TargetType == "Phoenix Navy Issue"
+		}
+		if !foundHit || !foundLogistics {
+			t.Fatal("persistent cache lost target fields")
+		}
 		if len(log.Hits) == 0 || len(log.Mining) == 0 || len(log.Logistics) == 0 || len(log.EWar) == 0 || len(log.LocationEvents) == 0 {
 			t.Fatal("fixture does not exercise all event families")
 		}

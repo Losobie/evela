@@ -17,11 +17,12 @@ import (
 var logisticsTypeOptions = []damageFilterOption{{Key: "Shield repair", Label: "Shield"}, {Key: "Armor repair", Label: "Armor"}, {Key: "Capacitor transfer", Label: "Capacitor"}}
 
 type logisticsEvent struct {
-	Second   int64
-	Kind     string
-	Amount   float64
-	Incoming bool
-	Message  string
+	Second             int64
+	Kind               string
+	Amount             float64
+	Incoming           bool
+	Message            string
+	Target, TargetType string
 }
 
 // Incoming remote assistance uses "by" (also accept explicit "from");
@@ -45,7 +46,11 @@ func parseLogistics(message string, second int64) (logisticsEvent, bool) {
 	case "shield boosted":
 		kind = "Shield repair"
 	}
-	return logisticsEvent{Second: second, Kind: kind, Amount: amount, Incoming: !strings.EqualFold(match[3], "to"), Message: strings.Clone(message)}, true
+	event := logisticsEvent{Second: second, Kind: kind, Amount: amount, Incoming: !strings.EqualFold(match[3], "to"), Message: strings.Clone(message)}
+	if !event.Incoming {
+		event.Target, event.TargetType = loggedTarget(match[4])
+	}
+	return event, true
 }
 
 func (ui *analyzerUI) initLogistics() {
@@ -159,7 +164,11 @@ func (ui *analyzerUI) logisticsPlot(selected map[string]bool, incoming bool) plo
 			if event.Kind == "Capacitor transfer" {
 				unit = "GJ"
 			}
-			for _, name := range ui.eventGroupingNames(id, log.Character, event.Kind, event.Second) {
+			names := ui.eventGroupingNames(id, log.Character, event.Kind, event.Second)
+			if mode := ui.eventGraphGroupings[id]; targetGroupingMode(mode) {
+				names = []string{namedDamageOption(targetValue(event.Target, event.TargetType, mode), mode).Label}
+			}
+			for _, name := range names {
 				key := name + "\x00" + unit
 				label := name
 				if ui.eventGraphGroupings[id] != eventByType && data.SecondaryUnit != "" {

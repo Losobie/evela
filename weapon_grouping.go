@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (view damageView) weaponSeries(snapshot *logSnapshot, selected map[string]bool, mode string, averageWindow time.Duration) []characterSeries {
+func (view damageView) damageAttributeSeries(snapshot *logSnapshot, selected map[string]bool, mode string, averageWindow time.Duration) []characterSeries {
 	if view.Bucket < time.Second || !view.End.After(view.Start) {
 		return nil
 	}
@@ -38,6 +38,9 @@ func (view damageView) weaponSeries(snapshot *logSnapshot, selected map[string]b
 			continue
 		}
 		for _, hit := range log.Hits {
+			if targetGroupingMode(mode) && hit.Incoming {
+				continue
+			}
 			point := damagePoint{Second: hit.Second}
 			if hit.Incoming {
 				point.Incoming = hit.Amount
@@ -54,7 +57,7 @@ func (view damageView) weaponSeries(snapshot *logSnapshot, selected map[string]b
 			if left >= right {
 				continue
 			}
-			name := hitWeaponOption(hit, mode).Label
+			name := hitDamageAttributeOption(hit, mode).Label
 			hullName := name
 			group := groups[name]
 			if group == nil {

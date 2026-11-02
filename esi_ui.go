@@ -338,8 +338,8 @@ func (ui *analyzerUI) groupedCharacterList(query string) []fyne.CanvasObject {
 	var groups []characterSeries
 	if ui.systemGrouping() {
 		groups = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, nil, filterSystem, ui.graphAverageWindow, ui.graphMetadata())
-	} else if ui.weaponGrouping() {
-		groups = ui.view.weaponSeries(ui.analysisSnapshot(), nil, ui.groupSelect.Selected, ui.graphAverageWindow)
+	} else if ui.damageAttributeGrouping() {
+		groups = ui.view.damageAttributeSeries(ui.analysisSnapshot(), nil, ui.groupSelect.Selected, ui.graphAverageWindow)
 	} else if ui.characterGroupGrouping() {
 		series := ui.view.activeSeries()
 		if ui.graphAverageWindow > 0 {

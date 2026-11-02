@@ -8,10 +8,11 @@ type graphFilterCatalog struct {
 	characters map[string]bool
 	weapons    map[[2]string]bool
 	sources    map[damageSource]bool
+	targets    map[[2]string]bool
 }
 
 func newGraphFilterCatalog(metadata *graphMetadata, kinds []string) *graphFilterCatalog {
-	catalog := &graphFilterCatalog{values: map[string]map[string]string{}, metadata: metadata, characters: map[string]bool{}, weapons: map[[2]string]bool{}, sources: map[damageSource]bool{}}
+	catalog := &graphFilterCatalog{values: map[string]map[string]string{}, metadata: metadata, characters: map[string]bool{}, weapons: map[[2]string]bool{}, sources: map[damageSource]bool{}, targets: map[[2]string]bool{}}
 	for _, kind := range kinds {
 		catalog.values[kind] = map[string]string{}
 	}
@@ -40,11 +41,14 @@ func (catalog *graphFilterCatalog) common(character string, second int64) {
 	catalog.add(filterSystem, attributes.system)
 }
 func (catalog *graphFilterCatalog) damage(hit damageHit, source damageSource, incoming bool) {
+	if !incoming {
+		catalog.target(hit.Target, hit.TargetType)
+	}
 	key := [2]string{hit.WeaponType, hit.WeaponStrength}
 	if !catalog.weapons[key] {
 		catalog.weapons[key] = true
-		catalog.add(filterWeaponType, catalog.metadata.weapon(hit, filterWeaponType))
-		catalog.add(filterWeaponStrength, catalog.metadata.weapon(hit, filterWeaponStrength))
+		catalog.add(filterWeaponType, catalog.metadata.damageAttribute(hit, filterWeaponType))
+		catalog.add(filterWeaponStrength, catalog.metadata.damageAttribute(hit, filterWeaponStrength))
 	}
 	if incoming && !catalog.sources[source] {
 		catalog.sources[source] = true
@@ -52,6 +56,17 @@ func (catalog *graphFilterCatalog) damage(hit damageHit, source damageSource, in
 		for index, kind := range []string{filterAttacker, filterAttackerShip, filterNPCNames, filterNPCTypes} {
 			catalog.add(kind, options[index])
 		}
+	}
+}
+func (catalog *graphFilterCatalog) target(name, typeName string) {
+	key := [2]string{name, typeName}
+	if catalog.targets[key] {
+		return
+	}
+	catalog.targets[key] = true
+	hit := damageHit{Target: name, TargetType: typeName}
+	for _, kind := range []string{filterTarget, filterTargetType} {
+		catalog.add(kind, catalog.metadata.damageAttribute(hit, kind))
 	}
 }
 func (catalog *graphFilterCatalog) options() map[string][]damageFilterOption {
@@ -116,6 +131,9 @@ func (ui *analyzerUI) buildScopeFilterOptions(scope string, snapshot *logSnapsho
 			for _, event := range log.Logistics {
 				if event.Incoming == (scope == graphIncomingLogistics) {
 					register(event.Second)
+					if !event.Incoming {
+						catalog.target(event.Target, event.TargetType)
+					}
 				}
 			}
 		}

@@ -24,10 +24,12 @@ func availableFilters(scope string) []string {
 	result := append([]string(nil), sharedDamageFilterKinds...)
 	switch scope {
 	case graphOutgoing:
-		result = append(result, filterWeaponType, filterWeaponStrength)
+		result = append(result, filterWeaponType, filterWeaponStrength, filterTarget, filterTargetType)
 	case graphIncoming:
 		result = append(result, filterWeaponType, filterWeaponStrength, filterAttacker, filterAttackerShip, filterNPCNames, filterNPCTypes)
-	case graphOutgoingLogistics, graphIncomingLogistics:
+	case graphOutgoingLogistics:
+		result = append(result, filterLogisticsType, filterTarget, filterTargetType)
+	case graphIncomingLogistics:
 		result = append(result, filterLogisticsType)
 	case graphIncomingEWar:
 		result = append(result, filterEffectType)
@@ -62,7 +64,7 @@ func (ui *analyzerUI) initScopedFilters() {
 			if ui.scopedFilters[scope][kind] == nil {
 				selection := &damageFilterSelection{Default: true}
 				// Preserve previously active restrictions, without cluttering new installs.
-				if scope == graphIncoming && (kind == filterNPCNames || kind == filterNPCTypes) || (scope == graphIncoming || scope == graphOutgoing) && weaponGroupingMode(kind) {
+				if scope == graphIncoming && (kind == filterNPCNames || kind == filterNPCTypes) || (scope == graphIncoming || scope == graphOutgoing) && (kind == filterWeaponType || kind == filterWeaponStrength) {
 					data, _ := json.Marshal(ui.damageFilters[kind])
 					_ = json.Unmarshal(data, &selection)
 				}

@@ -148,7 +148,7 @@ func (ui *analyzerUI) persistCharacterGroups(selectedID string) {
 }
 
 func (ui *analyzerUI) characterGroupingOptions() []string {
-	options := []string{"Characters", "Ship history", "Ship class history", characterGroupsMode, filterWeaponType, filterWeaponStrength, filterSystem}
+	options := []string{"Characters", "Ship history", "Ship class history", characterGroupsMode, filterWeaponType, filterWeaponStrength, filterTarget, filterTargetType, filterSystem}
 	for _, group := range ui.characterGroups {
 		options = append(options, "Group: "+group.Name)
 	}
@@ -171,7 +171,7 @@ func (ui *analyzerUI) characterGroupGrouping() bool {
 }
 
 func (ui *analyzerUI) anyGrouping() bool {
-	return ui.shipGrouping() || ui.characterGroupGrouping() || ui.weaponGrouping() || ui.systemGrouping()
+	return ui.shipGrouping() || ui.characterGroupGrouping() || ui.damageAttributeGrouping() || ui.systemGrouping()
 }
 
 func (ui *analyzerUI) characterMatchesGroupFilter(name string) bool {
