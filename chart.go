@@ -802,6 +802,27 @@ func (drag *chartRangeDrag) selectedRange() (time.Time, time.Time) {
 	return start, end
 }
 
+func selectionDuration(duration time.Duration) string {
+	unit := func(count int64, name string) string {
+		if count != 1 {
+			name += "s"
+		}
+		return fmt.Sprintf("%d %s", count, name)
+	}
+	hours, minutes := int64(duration/time.Hour), int64(duration/time.Minute)%60
+	if hours > 0 {
+		label := unit(hours, "hour")
+		if minutes > 0 {
+			label += " " + unit(minutes, "minute")
+		}
+		return label
+	}
+	if minutes > 0 {
+		return unit(minutes, "minute")
+	}
+	return unit(int64(duration/time.Second), "second")
+}
+
 func (chart *damageChart) updateRangeSelection() {
 	if chart.selection == nil || chart.drag == nil {
 		return
@@ -817,7 +838,7 @@ func (chart *damageChart) updateRangeSelection() {
 	chart.selection.Resize(fyne.NewSize(right-left, max(float32(1), chart.Size().Height-chartPlotTop-chartPlotBottom)))
 	chart.selection.Show()
 	start, end := drag.selectedRange()
-	chart.setHoverHint("Select " + start.UTC().Format("Jan 02 15:04:05") + " – " + end.UTC().Format("Jan 02 15:04:05") + " EVE time · release to zoom")
+	chart.setHoverHint("Select " + start.UTC().Format("Jan 02 15:04:05") + " – " + end.UTC().Format("Jan 02 15:04:05") + " EVE time · (" + selectionDuration(end.Sub(start)) + ") · release to zoom")
 }
 
 func (chart *damageChart) cancelRangeDrag() {

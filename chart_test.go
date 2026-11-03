@@ -3,6 +3,7 @@ package main
 import (
 	"image/png"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -90,6 +91,9 @@ func TestDamageChartSelectionRefreshAndEventOrdering(t *testing.T) {
 	from, to := fyne.NewPos(312, 80), fyne.NewPos(812, 80)
 	// Touch events can start without a desktop MouseDown.
 	chart.Dragged(testDragEvent(from, to))
+	if !strings.Contains(chart.hover.Text, "EVE time · (50 seconds) · release to zoom") {
+		t.Fatalf("selection duration missing from readout: %s", chart.hover.Text)
+	}
 	chart.DragEnd()
 	if calls != 1 {
 		t.Fatal("drag without MouseDown did not select")
