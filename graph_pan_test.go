@@ -1,85 +1,152 @@
 package main
 
 import (
+	"math"
 	"testing"
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/test"
-	"fyne.io/fyne/v2/widget"
+	"fyne.io/fyne/v2/driver/desktop"
 )
 
-func graphPanButtons(root fyne.CanvasObject) []*graphPanButton {
-	var buttons []*graphPanButton
-	switch object := root.(type) {
-	case *graphPanButton:
-		buttons = append(buttons, object)
-	case *fyne.Container:
-		for _, child := range object.Objects {
-			buttons = append(buttons, graphPanButtons(child)...)
-		}
-	case *widget.Card:
-		buttons = append(buttons, graphPanButtons(object.Content)...)
-	case *container.Scroll:
-		buttons = append(buttons, graphPanButtons(object.Content)...)
-	}
-	return buttons
+func panGraphFraction(chart *damageChart, from, to float32) {
+	width := chart.Size().Width - chartPlotLeft - chart.plotRight()
+	a, b := chartPlotLeft+width*from, chartPlotLeft+width*to
+	chart.MouseDown(testMouseEvent(a, 80, desktop.MouseButtonSecondary))
+	chart.MouseMoved(testMouseEvent(b, 80, desktop.MouseButtonSecondary))
+	chart.MouseUp(testMouseEvent(b, 80, desktop.MouseButtonSecondary))
 }
 
-func TestGraphPanButtonsSynchronizeAndShareUndoHistory(t *testing.T) {
+func TestRightDragPanUpdatesAllGraphsAndOneUndoStep(t *testing.T) {
 	ui, _ := newGraphHistoryTestUI(t)
 	initial := graphHistoryState(ui)
-	ui.graphAverageWindow = dpsAverageWindow
-	ui.renderSelection()
-	buttons := graphPanButtons(ui.tabs.Items[0].Content)
-	if len(buttons) != 2*len(graphVisibilityOptions) {
-		t.Fatalf("expected left/right buttons on every graph, got %d", len(buttons))
-	}
-	for index, chart := range []*damageChart{ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar, ui.mining} {
-		back, forward := buttons[index*2], buttons[index*2+1]
-		if back.forward || !forward.forward || back.Size().Width > 32 || back.Size().Height != chart.Size().Height {
-			t.Fatal("pan controls are not narrow full-height buttons beside the graph")
+	charts := []*damageChart{ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar, ui.mining}
+	for _, chart := range charts {
+		ui.restoreGraphRange(initial)
+		ui.clearGraphRangeHistory()
+		width := chart.Size().Width - chartPlotLeft - chart.plotRight()
+		if chart.OnPanRange == nil {
+			t.Fatal("graph has no pan callback")
 		}
-		driver := fyne.CurrentApp().Driver()
-		chartLeft := driver.AbsolutePositionForObject(chart).X
-		if driver.AbsolutePositionForObject(back).X+back.Size().Width > chartLeft || driver.AbsolutePositionForObject(forward).X < chartLeft+chart.Size().Width {
-			t.Fatal("pan controls overlap the plot instead of sitting beside it")
+		a, b, c := chartPlotLeft+width*.75, chartPlotLeft+width*.625, chartPlotLeft+width*.5
+		chart.MouseDown(testMouseEvent(a, 80, desktop.MouseButtonSecondary))
+		chart.MouseMoved(testMouseEvent(b, 80, desktop.MouseButtonSecondary))
+		if !ui.view.Start.Equal(initial.Start.Add(450*time.Second)) || chart.pan == nil {
+			t.Fatal("right-move events did not pan live, or redraw cancelled gesture")
+		}
+		chart.MouseMoved(testMouseEvent(c, 80, desktop.MouseButtonSecondary))
+		want := graphRangeState{Start: initial.Start.Add(15 * time.Minute), End: initial.End.Add(15 * time.Minute), Preset: "Custom"}
+		assertGraphHistoryState(t, ui, want, 180)
+		if chart.selection.Visible() || len(ui.graphUndo) != 1 || chart.pan == nil {
+			t.Fatal("pan zoomed, highlighted a selection, or split history")
+		}
+		if !ui.mining.data.Start.Equal(want.Start) {
+			t.Fatal("mining was not synchronized")
+		}
+		chart.MouseUp(testMouseEvent(c, 80, desktop.MouseButtonSecondary))
+		chart.DragEnd()
+		if chart.pan != nil || len(ui.graphUndo) != 1 {
+			t.Fatal("release left pan active or duplicated history")
+		}
+		sendGraphShortcut(ui, &fyne.ShortcutUndo{})
+		assertGraphHistoryState(t, ui, initial, 1180)
+		sendGraphShortcut(ui, &fyne.ShortcutRedo{})
+		assertGraphHistoryState(t, ui, want, 180)
+		panGraphFraction(chart, .5, .75)
+		if !ui.view.Start.Equal(initial.Start) || ui.view.End.Sub(ui.view.Start) != time.Hour || len(ui.graphUndo) != 2 {
+			t.Fatal("reverse pan resized range or did not start a separate undo step")
 		}
 	}
-	test.Tap(buttons[1]) // Outgoing graph: forward a quarter of one hour.
-	first := graphRangeState{Start: initial.Start.Add(15 * time.Minute), End: initial.End.Add(15 * time.Minute), Preset: "Custom"}
-	assertGraphHistoryState(t, ui, first, 180)
-	if len(ui.graphUndo) != 1 || ui.graphUndo[0].Before.Preset != "Last hour" || ui.tableSeries[0].TotalOutgoing != 180 {
-		t.Fatal("pan did not record the previous preset or update damage totals")
+	// Without side buttons, each chart spans the width of its card's content.
+	for _, graph := range graphVisibilityOptions {
+		card := ui.graphCards[graph.id]
+		var chart *damageChart
+		switch graph.id {
+		case graphOutgoing:
+			chart = ui.outgoing
+		case graphIncoming:
+			chart = ui.incoming
+		case graphOutgoingLogistics:
+			chart = ui.outgoingLogistics
+		case graphIncomingLogistics:
+			chart = ui.incomingLogistics
+		case graphIncomingEWar:
+			chart = ui.ewar
+		case graphMining:
+			chart = ui.mining
+		}
+		if math.Abs(float64(chart.Size().Width-card.Content.Size().Width)) > 1 {
+			t.Fatal("graph is still narrowed by side controls")
+		}
 	}
-	test.Tap(buttons[4]) // Incoming graph: move both graphs back to the original bounds.
-	returned := graphRangeState{Start: initial.Start, End: initial.End, Preset: "Custom"}
-	assertGraphHistoryState(t, ui, returned, 1180)
-	if len(ui.graphUndo) != 2 {
-		t.Fatal("each pan should add exactly one history entry")
+}
+
+func TestRightDragPanEmptyRangesAndRedoBranch(t *testing.T) {
+	ui, start := newGraphHistoryTestUI(t)
+	for i := 0; i < 4; i++ {
+		panGraphFraction(ui.incoming, .75, .5)
+	}
+	if !ui.view.Start.Equal(start.Add(time.Hour)) || len(ui.outgoing.data.Series) != 0 || len(ui.tableSeries) != 0 {
+		t.Fatal("pan did not reach an empty range")
 	}
 	sendGraphShortcut(ui, &fyne.ShortcutUndo{})
-	assertGraphHistoryState(t, ui, first, 180)
-	sendGraphShortcut(ui, &fyne.ShortcutUndo{})
-	assertGraphHistoryState(t, ui, initial, 1180)
-	sendGraphShortcut(ui, &fyne.ShortcutRedo{})
-	assertGraphHistoryState(t, ui, first, 180)
-	sendGraphShortcut(ui, &fyne.ShortcutRedo{})
-	assertGraphHistoryState(t, ui, returned, 1180)
-	dragGraphFraction(ui.incoming, .25, .75)
-	zoom := graphHistoryState(ui)
-	sendGraphShortcut(ui, &fyne.ShortcutUndo{})
-	assertGraphHistoryState(t, ui, returned, 1180)
-	sendGraphShortcut(ui, &fyne.ShortcutRedo{})
-	assertGraphHistoryState(t, ui, zoom, 30)
-	if ui.graphAverageWindow == 0 || ui.incoming.data.AverageWindow != 10*time.Second {
-		t.Fatal("panning or undo changed graph formatting")
+	if ui.view.Series[0].TotalOutgoing != 150 {
+		t.Fatal("undo did not restore data")
 	}
-	ui.updateRange()
-	assertGraphHistoryState(t, ui, zoom, 30)
-	if len(ui.graphUndo) != 3 {
-		t.Fatal("refresh discarded panning history")
+	panGraphFraction(ui.outgoing, .5, .75)
+	if len(ui.graphRedo) != 0 {
+		t.Fatal("new pan retained old redo branch")
+	}
+	before := graphHistoryState(ui)
+	sendGraphShortcut(ui, &fyne.ShortcutRedo{})
+	if graphHistoryState(ui) != before {
+		t.Fatal("redo followed abandoned branch")
+	}
+}
+
+func TestRightDragPanCancellationAndIgnoredInput(t *testing.T) {
+	ui, start := newGraphHistoryTestUI(t)
+	chart := ui.outgoing
+	initial := graphHistoryState(ui)
+	width := chart.Size().Width - chartPlotLeft - chart.plotRight()
+	for _, position := range []fyne.Position{fyne.NewPos(10, 80), fyne.NewPos(chartPlotLeft+10, 10)} {
+		chart.MouseDown(testMouseEvent(position.X, position.Y, desktop.MouseButtonSecondary))
+		chart.MouseMoved(testMouseEvent(chartPlotLeft+width*.3, 80, desktop.MouseButtonSecondary))
+		chart.MouseUp(testMouseEvent(chartPlotLeft+width*.3, 80, desktop.MouseButtonSecondary))
+		if graphHistoryState(ui) != initial {
+			t.Fatal("pan began outside plot")
+		}
+	}
+	a := chartPlotLeft + width*.5
+	chart.MouseDown(testMouseEvent(a, 80, desktop.MouseButtonSecondary))
+	chart.MouseMoved(testMouseEvent(a+2, 160, desktop.MouseButtonSecondary))
+	if graphHistoryState(ui) != initial {
+		t.Fatal("click jitter/vertical movement panned")
+	}
+	scrollGraph(chart, .5, -25)
+	if graphHistoryState(ui) != initial {
+		t.Fatal("wheel interrupted right drag")
+	}
+	chart.MouseMoved(testMouseEvent(a-width*.25, 80, desktop.MouseButtonSecondary))
+	panned := graphHistoryState(ui)
+	chart.MouseOut()
+	chart.MouseMoved(testMouseEvent(a+width*.25, 80, 0))
+	if chart.pan != nil || graphHistoryState(ui) != panned {
+		t.Fatal("leaving graph left a stuck pan")
+	}
+	// External navigation cancels the captured time axis.
+	chart.MouseDown(testMouseEvent(a, 80, desktop.MouseButtonSecondary))
+	ui.applyGraphRange(start, start.Add(30*time.Minute))
+	chart.MouseMoved(testMouseEvent(a+width*.25, 80, desktop.MouseButtonSecondary))
+	if chart.pan != nil || ui.view.End.Sub(ui.view.Start) != 30*time.Minute {
+		t.Fatal("external range change did not cancel pan")
+	}
+	chart.MouseUp(testMouseEvent(a, 80, desktop.MouseButtonSecondary))
+	// Resizing invalidates the original pixel scale as well.
+	chart.MouseDown(testMouseEvent(a, 80, desktop.MouseButtonSecondary))
+	chart.Resize(fyne.NewSize(chart.Size().Width+100, chart.Size().Height))
+	if chart.pan != nil {
+		t.Fatal("resizing did not cancel pan")
 	}
 }
 
@@ -100,32 +167,5 @@ func TestGraphPanRoundsSymmetricallyAndKeepsWidth(t *testing.T) {
 				t.Fatal("opposite pans did not return to exactly the same window")
 			}
 		})
-	}
-}
-
-func TestGraphPanCanCrossEmptyRangesAndReplaceRedoBranch(t *testing.T) {
-	ui, start := newGraphHistoryTestUI(t)
-	buttons := graphPanButtons(ui.tabs.Items[0].Content)
-	for count := 0; count < 4; count++ {
-		test.Tap(buttons[5])
-	}
-	if !ui.view.Start.Equal(start.Add(time.Hour)) || ui.view.End.Sub(ui.view.Start) != time.Hour || len(ui.outgoing.data.Series) != 0 || len(ui.tableSeries) != 0 {
-		t.Fatal("panning into an empty range clamped the window or retained old data")
-	}
-	if buttons[0].Disabled() || buttons[1].Disabled() {
-		t.Fatal("empty range disabled the way back to damage data")
-	}
-	sendGraphShortcut(ui, &fyne.ShortcutUndo{})
-	if ui.view.Series[0].TotalOutgoing != 150 {
-		t.Fatal("undo did not restore damage after an empty window")
-	}
-	test.Tap(buttons[0])
-	branch := graphHistoryState(ui)
-	if len(ui.graphRedo) != 0 {
-		t.Fatal("new pan kept the abandoned redo branch")
-	}
-	sendGraphShortcut(ui, &fyne.ShortcutRedo{})
-	if graphHistoryState(ui) != branch {
-		t.Fatal("redo escaped onto an abandoned panning branch")
 	}
 }

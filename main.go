@@ -264,6 +264,9 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.bucketSelect.SetSelected("Auto")
 	ui.loadGraphRangePreference()
 	ui.initGraphRangeShortcuts()
+	for _, chart := range []*damageChart{ui.outgoing, ui.incoming, ui.outgoingLogistics, ui.incomingLogistics, ui.ewar, ui.mining} {
+		chart.OnPanRange = ui.applyGraphPanRange
+	}
 	window.SetMainMenu(fyne.NewMainMenu(ui.settingsMenu()))
 	return ui
 }
@@ -283,12 +286,12 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	filterBar := ui.damageFilterBar()
 	ui.graphCards = map[string]*widget.Card{}
 	ui.graphStack = container.NewVBox(
-		ui.newGraphCard(graphOutgoing, "Outgoing damage", container.NewBorder(ui.scopedFilterBar(graphOutgoing, ui.graphFormatButton), nil, nil, nil, ui.graphPanContent(ui.outgoing))),
-		ui.newGraphCard(graphOutgoingLogistics, "Outgoing logistics", container.NewBorder(ui.logisticsControls(graphOutgoingLogistics), nil, nil, nil, ui.graphPanContent(ui.outgoingLogistics))),
-		ui.newGraphCard(graphIncoming, "Incoming damage", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.graphPanContent(ui.incoming))),
-		ui.newGraphCard(graphIncomingLogistics, "Incoming logistics", container.NewBorder(ui.logisticsControls(graphIncomingLogistics), nil, nil, nil, ui.graphPanContent(ui.incomingLogistics))),
-		ui.newGraphCard(graphIncomingEWar, "Incoming E-War", container.NewBorder(ui.ewarControls(), nil, nil, nil, ui.graphPanContent(ui.ewar))),
-		ui.newGraphCard(graphMining, "Mining", container.NewBorder(ui.miningControls(), nil, nil, nil, ui.graphPanContent(ui.mining))))
+		ui.newGraphCard(graphOutgoing, "Outgoing damage", container.NewBorder(ui.scopedFilterBar(graphOutgoing, ui.graphFormatButton), nil, nil, nil, ui.outgoing)),
+		ui.newGraphCard(graphOutgoingLogistics, "Outgoing logistics", container.NewBorder(ui.logisticsControls(graphOutgoingLogistics), nil, nil, nil, ui.outgoingLogistics)),
+		ui.newGraphCard(graphIncoming, "Incoming damage", container.NewBorder(ui.incomingDamageFilterBar(), nil, nil, nil, ui.incoming)),
+		ui.newGraphCard(graphIncomingLogistics, "Incoming logistics", container.NewBorder(ui.logisticsControls(graphIncomingLogistics), nil, nil, nil, ui.incomingLogistics)),
+		ui.newGraphCard(graphIncomingEWar, "Incoming E-War", container.NewBorder(ui.ewarControls(), nil, nil, nil, ui.ewar)),
+		ui.newGraphCard(graphMining, "Mining", container.NewBorder(ui.miningControls(), nil, nil, nil, ui.mining)))
 	ui.graphsScroll = container.NewVScroll(ui.graphStack)
 	ui.graphsEmpty = newGraphsEmptyState()
 	ui.applyGraphVisibility()

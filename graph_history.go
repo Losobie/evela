@@ -59,7 +59,7 @@ func (ui *analyzerUI) panGraphRange(forward bool) {
 		return
 	}
 	// UTC fields and logs resolve to whole seconds. Round symmetrically so
-	// opposite button presses return to exactly the same range at any width.
+	// opposite programmatic pans return to exactly the same range at any width.
 	shift := (width/4 + time.Second/2).Truncate(time.Second)
 	if shift < time.Second {
 		shift = time.Second

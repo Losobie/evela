@@ -44,9 +44,9 @@ func (group *chartHoverGroup) refresh() {
 		data := chart.data
 		chart.mu.RUnlock()
 		width := chart.Size().Width - chartPlotLeft - data.plotRight()
-		if !active || chart.drag != nil || width <= 0 || !data.End.After(data.Start) || at.Before(data.Start) || at.After(data.End) {
+		if !active || chart.drag != nil || chart.pan != nil || width <= 0 || !data.End.After(data.Start) || at.Before(data.Start) || at.After(data.End) {
 			chart.cursor.Hide()
-			if chart.drag == nil {
+			if chart.drag == nil && chart.pan == nil {
 				chart.setHoverHint(data.hoverHint())
 			}
 			continue
@@ -62,7 +62,7 @@ func (group *chartHoverGroup) refresh() {
 
 func (group *chartHoverGroup) hoverTime() (time.Time, bool) {
 	chart := group.source
-	if chart == nil || !chart.hovered || chart.drag != nil {
+	if chart == nil || !chart.hovered || chart.drag != nil || chart.pan != nil {
 		return time.Time{}, false
 	}
 	chart.mu.RLock()

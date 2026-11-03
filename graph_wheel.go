@@ -11,7 +11,7 @@ import (
 var _ fyne.Scrollable = (*damageChart)(nil)
 
 func (chart *damageChart) Scrolled(event *fyne.ScrollEvent) {
-	if chart.OnWheelZoom == nil || chart.drag != nil {
+	if chart.OnWheelZoom == nil || chart.drag != nil || chart.pan != nil {
 		return
 	}
 	delta := float64(event.Scrolled.DY)
@@ -22,7 +22,7 @@ func (chart *damageChart) Scrolled(event *fyne.ScrollEvent) {
 	position := event.Position
 	if event.AbsolutePosition != (fyne.Position{}) {
 		// Resolve the window pointer against this chart on every wheel event,
-		// including when it sits inside cards, tabs and the pan-button layout.
+		// including when it sits inside cards and tabs.
 		position = event.AbsolutePosition.Subtract(fyne.CurrentApp().Driver().AbsolutePositionForObject(chart))
 	}
 	if width <= 0 || position.X < chartPlotLeft || position.X > chartPlotLeft+width || position.Y < chartPlotTop || position.Y > chart.Size().Height-chartPlotBottom {

@@ -119,9 +119,11 @@ type damageChart struct {
 	cursor          *canvas.Line
 	selection       *canvas.Rectangle
 	drag            *chartRangeDrag
+	pan             *chartPanDrag
 	dragBlocked     bool
 	OnRangeSelected func(time.Time, time.Time)
 	OnWheelZoom     func(time.Time, time.Time)
+	OnPanRange      func(time.Time, time.Time, bool)
 }
 
 type chartRangeDrag struct {
@@ -136,7 +138,7 @@ const (
 	chartPlotRight     float32 = 14
 	chartPlotBottom    float32 = 27
 	chartDragThreshold float32 = 4
-	chartHint                  = "Wheel or drag to zoom · Undo: Ctrl+Z / Back · Redo: Ctrl+Y / Forward · EVE time"
+	chartHint                  = "Wheel/left-drag: zoom · Right-drag: pan · Undo: Ctrl+Z / Back · Redo: Ctrl+Y / Forward · EVE time"
 )
 
 var _ fyne.Draggable = (*damageChart)(nil)
@@ -149,6 +151,9 @@ func newDamageChart() *damageChart {
 }
 
 func (chart *damageChart) setData(data plotData) {
+	if chart.pan != nil && (!chart.pan.LastStart.Equal(data.Start) || !chart.pan.LastEnd.Equal(data.End)) {
+		chart.pan = nil
+	}
 	// A refresh with the same time axis may update the data during a drag.
 	// A changed axis cancels it so the gesture cannot select the wrong times.
 	if chart.drag != nil && (!chart.drag.Start.Equal(data.Start) || !chart.drag.End.Equal(data.End)) {
@@ -202,7 +207,7 @@ func (chart *damageChart) CreateRenderer() fyne.WidgetRenderer {
 		hoverObjects = append(hoverObjects, reading)
 	}
 	// Clip long readouts to the existing header instead of resizing the graph
-	// or allowing text to spill across its pan buttons.
+	// or allowing text to spill beyond the plot.
 	chart.hoverClip = container.NewHScroll(container.NewHBox(hoverObjects...))
 	chart.hoverClip.Direction = container.ScrollNone
 	chart.cursor = canvas.NewLine(palette.cursor)
@@ -245,6 +250,9 @@ type chartRenderer struct {
 
 func (r *chartRenderer) Layout(size fyne.Size) {
 	w, h := fyne.Max(size.Width-chartPlotLeft-r.chart.plotRight(), 1), fyne.Max(size.Height-chartPlotTop-chartPlotBottom, 1)
+	if r.chart.pan != nil && r.chart.pan.Width != w {
+		r.chart.pan = nil
+	}
 	if r.chart.drag != nil && r.chart.drag.Width != w {
 		r.chart.cancelRangeDrag()
 		r.chart.dragBlocked = true
@@ -366,7 +374,7 @@ func (r *chartRenderer) Refresh() {
 		r.chart.updateRangeSelection()
 	} else {
 		r.chart.selection.Hide()
-		if r.chart.hovered && r.chart.drag == nil && r.chart.hoverGroup == nil {
+		if r.chart.hovered && r.chart.drag == nil && r.chart.pan == nil && r.chart.hoverGroup == nil {
 			r.chart.updateHover(r.chart.hoverPosition)
 		}
 	}
@@ -513,6 +521,7 @@ func drawLine(img *image.RGBA, x0, y0, x1, y1 int, ink color.NRGBA) {
 
 func (chart *damageChart) MouseIn(event *desktop.MouseEvent) { chart.MouseMoved(event) }
 func (chart *damageChart) MouseOut() {
+	chart.pan = nil
 	chart.hovered = false
 	if chart.hoverGroup != nil {
 		chart.hoverGroup.leave(chart)
@@ -524,6 +533,13 @@ func (chart *damageChart) MouseOut() {
 }
 func (chart *damageChart) MouseMoved(event *desktop.MouseEvent) {
 	chart.hoverPosition, chart.hovered = event.Position, true
+	if chart.pan != nil {
+		if event.Button == desktop.MouseButtonSecondary {
+			chart.updatePan(event.Position)
+			return
+		}
+		chart.pan = nil // A release outside this widget must not leave a stuck pan.
+	}
 	if chart.drag != nil {
 		return
 	}
@@ -717,7 +733,13 @@ func (chart *damageChart) beginRangeDrag(position fyne.Position) bool {
 }
 
 func (chart *damageChart) MouseDown(event *desktop.MouseEvent) {
+	chart.pan = nil
 	chart.cancelRangeDrag()
+	if event.Button == desktop.MouseButtonSecondary {
+		chart.dragBlocked = true
+		chart.beginPan(event.Position)
+		return
+	}
 	chart.dragBlocked = event.Button != desktop.MouseButtonPrimary
 	if !chart.dragBlocked {
 		chart.dragBlocked = !chart.beginRangeDrag(event.Position)
@@ -725,6 +747,10 @@ func (chart *damageChart) MouseDown(event *desktop.MouseEvent) {
 }
 
 func (chart *damageChart) MouseUp(event *desktop.MouseEvent) {
+	if event.Button == desktop.MouseButtonSecondary {
+		chart.updatePan(event.Position)
+		chart.pan = nil
+	}
 	if event.Button == desktop.MouseButtonPrimary {
 		// Some drivers send MouseUp before DragEnd; GLFW sends it afterwards.
 		// Finishing clears the gesture, so either order applies the range once.
@@ -738,6 +764,10 @@ func (chart *damageChart) MouseUp(event *desktop.MouseEvent) {
 }
 
 func (chart *damageChart) Dragged(event *fyne.DragEvent) {
+	if chart.pan != nil {
+		chart.updatePan(event.Position)
+		return
+	}
 	if chart.dragBlocked {
 		return
 	}
@@ -799,6 +829,11 @@ func (chart *damageChart) cancelRangeDrag() {
 }
 
 func (chart *damageChart) DragEnd() {
+	if chart.pan != nil {
+		chart.pan = nil
+		chart.dragBlocked = false
+		return
+	}
 	drag := chart.drag
 	chart.cancelRangeDrag()
 	chart.dragBlocked = false
