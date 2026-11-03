@@ -204,7 +204,7 @@ func TestMiningAverageLookbackAndPartialBuckets(t *testing.T) {
 	ui.miningFilters[filterMiningMessage].set(miningMined, true)
 	ui.graphAverageWindow = dpsAverageWindow
 	ui.applyGraphRange(start.Add(time.Second), start.Add(13*time.Second))
-	ui.bucketSelect.SetSelected("5 seconds")
+	setTestGraphBucket(ui, 5*time.Second)
 	series := findLogisticsSeries(t, ui.mining, "Miner · Ore mined")
 	// First bucket: 154*5 + 100*5 + 276*4, divided by 10 seconds and 5 seconds.
 	want := []float64{47.48, 49.92, 13.8}

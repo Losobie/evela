@@ -156,10 +156,9 @@ func TestGraphRangeRedoBranchesAndManualChanges(t *testing.T) {
 	}
 	sendGraphShortcut(ui, &fyne.ShortcutRedo{})
 	assertGraphHistoryState(t, ui, branch, 60)
-	ui.bucketSelect.SetSelected("5 seconds")
 	ui.updateRange()
 	if len(ui.graphUndo) != 2 {
-		t.Fatal("interval change or refresh erased range history")
+		t.Fatal("refresh erased range history")
 	}
 	sendGraphShortcut(ui, &fyne.ShortcutUndo{})
 	assertGraphHistoryState(t, ui, first, 90)

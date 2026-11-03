@@ -34,7 +34,7 @@ type analyzerUI struct {
 	selected                          map[string]bool
 	path                              *widget.Entry
 	start, end                        *dateTimePicker
-	rangeSelect, bucketSelect         *widget.Select
+	rangeSelect                       *widget.Select
 	status, summary, directoryInfo    *widget.Label
 	progress                          *widget.ProgressBar
 	refresh                           *widget.Button
@@ -177,7 +177,6 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 		}
 	}
 	ui.start.OnChanged, ui.end.OnChanged = markCustom, markCustom
-	ui.bucketSelect = widget.NewSelect([]string{"Auto", "1 second", "5 seconds", "10 seconds", "1 minute", "5 minutes"}, func(_ string) { ui.rebuildView() })
 	ui.characters = container.NewVBox()
 	ui.characterSearch = widget.NewEntry()
 	ui.characterSearch.SetPlaceHolder("Find a character…")
@@ -261,7 +260,6 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 		ui.totals.SetColumnWidth(col, width)
 	}
 	ui.events = newEventsViewer(window)
-	ui.bucketSelect.SetSelected("Auto")
 	ui.loadGraphRangePreference()
 	ui.initGraphRangeShortcuts()
 	for _, chart := range []*damageChart{ui.outgoing, ui.incoming, ui.outgoingLogistics, ui.incomingLogistics, ui.ewar, ui.mining} {
@@ -277,11 +275,10 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	progressSlot := container.NewGridWrap(fyne.NewSize(140, ui.progress.MinSize().Height), ui.progress)
 	details := widget.NewButton("Details…", func() { ui.showRefreshDetails("Log refresh", ui.status.Text+"\n\n"+ui.directoryInfo.Text) })
 	heading := container.NewHBox(layout.NewSpacer(), progressSlot, ui.auto, ui.refresh, details)
-	filters := container.NewGridWithColumns(4,
+	filters := container.NewGridWithColumns(3,
 		container.NewBorder(widget.NewLabel("Time range"), nil, nil, nil, ui.rangeSelect),
 		container.NewBorder(widget.NewLabel("Start · EVE time"), nil, nil, nil, ui.start),
-		container.NewBorder(widget.NewLabel("End · EVE time · exclusive"), nil, nil, nil, ui.end),
-		container.NewBorder(widget.NewLabel("Graph interval"), nil, nil, nil, ui.bucketSelect))
+		container.NewBorder(widget.NewLabel("End · EVE time · exclusive"), nil, nil, nil, ui.end))
 	controls := container.NewVBox(heading, filters, widget.NewSeparator())
 	filterBar := ui.damageFilterBar()
 	ui.graphCards = map[string]*widget.Card{}
@@ -446,14 +443,13 @@ func (ui *analyzerUI) rebuildView() { ui.metadata = nil; ui.rebuildViewWithOptio
 func (ui *analyzerUI) rebuildFilteredView() { ui.rebuildViewWithOptions(false) }
 
 func (ui *analyzerUI) rebuildViewWithOptions(refreshOptions bool) {
-	if ui.bucketSelect == nil || ui.totals == nil {
+	if ui.totals == nil {
 		return
 	}
 	start, end, err := parseRange(strings.TrimSpace(ui.start.Text), strings.TrimSpace(ui.end.Text))
 	if err != nil {
 		return
 	}
-	bucket := map[string]time.Duration{"1 second": time.Second, "5 seconds": 5 * time.Second, "10 seconds": 10 * time.Second, "1 minute": time.Minute, "5 minutes": 5 * time.Minute}[ui.bucketSelect.Selected]
 	if ui.metadata != nil && ui.metadata.snapshot != ui.snapshot {
 		ui.metadata = nil
 		refreshOptions = true
@@ -473,7 +469,7 @@ func (ui *analyzerUI) rebuildViewWithOptions(refreshOptions bool) {
 	if filtered := ui.filteredDamageSnapshot(input); filtered != nil {
 		ui.analysis = filtered
 	}
-	ui.view = buildView(ui.analysisSnapshot(), start, end, bucket)
+	ui.view = buildView(ui.analysisSnapshot(), start, end, 0)
 	if refreshOptions {
 		ui.refreshDamageFilterOptions()
 	}

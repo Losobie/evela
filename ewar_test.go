@@ -141,7 +141,7 @@ func TestEWarPlotUnitsAveragingFiltersAndNavigation(t *testing.T) {
 		t.Fatalf("missing average lookback: %g", got)
 	}
 	ui.applyGraphRange(start, start.Add(12*time.Second))
-	ui.bucketSelect.SetSelected("5 seconds")
+	setTestGraphBucket(ui, 5*time.Second)
 	values := ewarSeries(t, ui, "Energy neutralizer").Values
 	if math.Abs(values[0]-15) > 1e-10 || math.Abs(values[1]-13) > 1e-10 || values[2] != 0 || ui.ewar.data.RateUnit != "GJ/s" {
 		t.Fatalf("incorrect coarse/partial bucket average: %v", values)
@@ -250,14 +250,13 @@ func TestEWarGraphLayoutAndHover(t *testing.T) {
 		t.Fatalf("average hover units: %q", got)
 	}
 	ui.applyGraphRange(start, start.Add(1000*time.Second))
-	ui.bucketSelect.SetSelected("5 minutes")
+	setTestGraphBucket(ui, 5*time.Minute)
 	ui.ewarMetric.SetSelected(ewarEvents)
 	ui.ewar.MouseMoved(testMouseEvent(chartPlotLeft, 60, 0))
 	if got := ui.ewar.hoverReadings[0].Text; strings.Contains(got, ": 0.0 events/s") || !strings.Contains(got, "events/s") {
 		t.Fatalf("small event rate rounded away: %q", got)
 	}
 	ui.ewarMetric.SetSelected(ewarCapacitor)
-	ui.bucketSelect.SetSelected("Auto")
 	ui.ewar.OnWheelZoom(start, start.Add(3*time.Second))
 	if !ui.incoming.data.End.Equal(ui.ewar.data.End) || !ui.outgoing.data.End.Equal(ui.ewar.data.End) {
 		t.Fatal("wheel zoom did not synchronize all graphs")

@@ -72,7 +72,6 @@ func newDamageFilterTestUI(t *testing.T) (*analyzerUI, time.Time) {
 		2: {{CharacterID: 2, CharacterName: "Pilot B", TypeID: 1, TypeName: "Loki", GroupID: 963, ClassName: "Strategic Cruiser", FirstSeen: start, LastSeen: start.Add(30 * time.Second)}},
 	}
 	ui.characterGroups = []characterGroup{{ID: "fleet", Name: "Fleet", Members: []string{"Pilot A", "Pilot B"}}, {ID: "scouts", Name: "Scouts", Members: []string{"Pilot A"}}}
-	ui.bucketSelect.SetSelected("1 second")
 	ui.applyGraphRange(start, start.Add(2*time.Minute))
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))

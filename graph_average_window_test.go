@@ -11,6 +11,12 @@ import (
 	"fyne.io/fyne/v2/test"
 )
 
+// Exercise coarse/partial-bucket arithmetic directly; the UI always uses Auto.
+func setTestGraphBucket(ui *analyzerUI, bucket time.Duration) {
+	ui.view = buildView(ui.analysisSnapshot(), ui.view.Start, ui.view.End, bucket)
+	ui.renderSelection()
+}
+
 func TestThirtySecondAverageSharedAcrossGraphsAndGroupingModes(t *testing.T) {
 	app := test.NewTempApp(t)
 	window := app.NewWindow("Thirty second average")
@@ -30,7 +36,6 @@ func TestThirtySecondAverageSharedAcrossGraphsAndGroupingModes(t *testing.T) {
 	ui.snapshot = &logSnapshot{Characters: []string{log.Character}, Logs: []*parsedLog{log}, First: start.Add(-29 * time.Second), Last: start}
 	ui.selected[log.Character] = true
 	ui.ewarMetric.SetSelected(ewarCapacitor)
-	ui.bucketSelect.SetSelected("1 second")
 	ui.applyGraphRange(start, start.Add(33*time.Second))
 	applyTestShipRecords(ui, []shipRecord{{CharacterName: log.Character, TypeID: 1, TypeName: "Hulk", ClassName: "Exhumer", CheckedAt: time.Now()}})
 	window.SetContent(ui.content())
@@ -82,7 +87,7 @@ func TestThirtySecondAverageSharedAcrossGraphsAndGroupingModes(t *testing.T) {
 		t.Fatalf("hover average window: %q", ui.outgoing.hoverReadings[0].Text)
 	}
 	// Coarse and partial buckets retain the per-second denominator and lookback.
-	ui.bucketSelect.SetSelected("5 seconds")
+	setTestGraphBucket(ui, 5*time.Second)
 	values := ui.outgoing.data.Series[0].Values
 	if math.Abs(values[0]-16) > 1e-9 || math.Abs(values[len(values)-1]) > 1e-9 {
 		t.Fatalf("coarse or partial thirty-second buckets: %v", values)

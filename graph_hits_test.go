@@ -36,7 +36,7 @@ func TestIndividualHitsPreserveDamageAcrossBucketsGroupsAndFilters(t *testing.T)
 	if math.Abs(ui.incoming.data.Maximum-70*1.08) > 1e-10 {
 		t.Fatal("point axis used bucket totals instead of individual damage")
 	}
-	ui.bucketSelect.SetSelected("5 seconds")
+	setTestGraphBucket(ui, 5*time.Second)
 	if got := plottedHits(ui.incoming.data); !reflect.DeepEqual(got, want) {
 		t.Fatalf("graph interval changed individual hits: %v", got)
 	}
@@ -96,7 +96,7 @@ func TestIndividualHitsUseHistoricalShipsAtTheirOwnTimestamp(t *testing.T) {
 		{CharacterID: 1, CharacterName: "Pilot A", TypeID: 1, TypeName: "Loki", FirstSeen: start, LastSeen: start},
 		{CharacterID: 1, CharacterName: "Pilot A", TypeID: 2, TypeName: "Thrasher", FirstSeen: start.Add(time.Second), LastSeen: start.Add(2 * time.Second)},
 	}}
-	ui.bucketSelect.SetSelected("5 seconds")
+	setTestGraphBucket(ui, 5*time.Second)
 	ui.groupSelect.SetSelected("Ship history")
 	ui.rebuildView()
 	if got := plottedHits(ui.outgoing.data); !reflect.DeepEqual(got, map[string][]float64{"Loki": {10, 15}, "Thrasher": {20}}) {

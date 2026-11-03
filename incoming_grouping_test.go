@@ -101,7 +101,7 @@ func TestIncomingSourceGroupingFiltersAverageAndRangeHistory(t *testing.T) {
 		t.Fatalf("averaging lost event attribution/lookback: %v", got)
 	}
 	ui.applyGraphRange(start, start.Add(6*time.Second))
-	ui.bucketSelect.SetSelected("5 seconds")
+	setTestGraphBucket(ui, 5*time.Second)
 	if got := incomingRates(ui, 0); math.Abs(got["Alpha[ONE](Raven)"]-13) > 1e-10 {
 		t.Fatalf("coarse bucket average: %v", got)
 	}

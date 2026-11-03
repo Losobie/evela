@@ -167,7 +167,6 @@ func TestGraphGroupingUsesHistoryWithoutCurrentConnections(t *testing.T) {
 		2: {{CharacterID: 2, CharacterName: "B", TypeID: 3, TypeName: "Cormorant", ClassName: "Destroyer", FirstSeen: start, LastSeen: start.Add(2 * time.Second)}},
 	}
 	ui.selected["A"], ui.selected["B"] = true, true
-	ui.bucketSelect.SetSelected("1 second")
 	ui.applyGraphRange(start, start.Add(10*time.Second))
 	ui.groupSelect.SetSelected("Ship class history")
 	window.SetContent(ui.content())

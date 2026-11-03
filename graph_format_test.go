@@ -99,7 +99,6 @@ func TestGraphFormatMenuSynchronizesGraphsGroupingAndRefresh(t *testing.T) {
 		{Character: "Pilot B", Points: []damagePoint{{Second: start.Unix() + 10, Outgoing: 19, Incoming: 4}, {Second: start.Unix() + 20, Outgoing: 199, Incoming: 19}, {Second: start.Unix() + 30, Outgoing: 1999, Incoming: 199}}},
 	}}
 	ui.selected["Pilot A"], ui.selected["Pilot B"] = true, true
-	ui.bucketSelect.SetSelected("1 second")
 	ui.applyGraphRange(start, start.Add(time.Minute))
 	applyTestShipRecords(ui, []shipRecord{{CharacterName: "Pilot A", TypeID: 29990, TypeName: "Loki", CheckedAt: time.Now()}, {CharacterName: "Pilot B", TypeID: 29990, TypeName: "Loki", CheckedAt: time.Now()}})
 	window.SetContent(ui.content())

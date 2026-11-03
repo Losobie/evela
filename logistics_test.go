@@ -154,7 +154,7 @@ func TestLogisticsPlotsKeepDirectionsUnitsAndAveragesSeparate(t *testing.T) {
 		t.Fatal("incoming capacitor average wrong")
 	}
 	ui.applyGraphRange(start, start.Add(12*time.Second))
-	ui.bucketSelect.SetSelected("5 seconds")
+	setTestGraphBucket(ui, 5*time.Second)
 	if values := findLogisticsSeries(t, ui.outgoingLogistics, "Armor repair").Values; math.Abs(values[0]-15) > 1e-10 || math.Abs(values[1]-13) > 1e-10 || values[2] != 0 {
 		t.Fatalf("coarse/partial armor buckets: %v", values)
 	}

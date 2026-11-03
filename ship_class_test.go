@@ -60,7 +60,6 @@ func TestShipClassFormatSynchronizesGraphsLegendAndTotals(t *testing.T) {
 		{Character: "B", Points: []damagePoint{{Second: start.Unix(), Outgoing: 200, Incoming: 20, OutgoingHits: 1}}},
 	}}
 	ui.selected["A"], ui.selected["B"] = true, true
-	ui.bucketSelect.SetSelected("1 second")
 	ui.applyGraphRange(start, start.Add(20*time.Second))
 	records := []shipRecord{
 		{CharacterName: "A", TypeID: 1, TypeName: "Nyx", ClassName: "Supercarrier", CheckedAt: time.Now()},

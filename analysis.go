@@ -43,7 +43,7 @@ func buildView(snapshot *logSnapshot, start, end time.Time, requestedBucket time
 	if seconds <= 0 {
 		return view
 	}
-	// Bound rendering/memory for broad date ranges. The actual interval is shown.
+	// Bound rendering/memory for broad date ranges. Zero requests Auto.
 	minBucket := time.Duration(math.Ceil(seconds/1200)) * time.Second
 	if view.Bucket < minBucket {
 		view.Bucket = minBucket

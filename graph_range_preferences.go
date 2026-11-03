@@ -53,7 +53,7 @@ func (ui *analyzerUI) saveGraphRangePreference() {
 		return
 	}
 	preferences := fyne.CurrentApp().Preferences()
-	// Refreshes and interval changes rebuild the view without changing the
+	// Refreshes rebuild the view without changing the
 	// selected range. Avoid rewriting the preference for those updates.
 	if preferences.String(graphRangePreference) != string(data) {
 		preferences.SetString(graphRangePreference, string(data))
