@@ -34,6 +34,9 @@ func (group *chartHoverGroup) refresh() {
 	if active {
 		if selectedTime, ok := group.source.updateHoverReadout(group.source.hoverPosition, nil); ok {
 			inspectionTime = selectedTime
+		} else {
+			// Empty source graphs still share the pointer's timestamp.
+			group.source.updateHoverReadout(group.source.hoverPosition, &inspectionTime)
 		}
 	}
 	for _, chart := range group.charts {
@@ -52,7 +55,9 @@ func (group *chartHoverGroup) refresh() {
 			continue
 		}
 		x := chartPlotLeft + float32(float64(at.Sub(data.Start))/float64(data.End.Sub(data.Start)))*width
-		chart.updateHoverReadout(fyne.NewPos(x, chartPlotTop), &inspectionTime)
+		if chart != group.source {
+			chart.updateHoverReadout(fyne.NewPos(x, chartPlotTop), &inspectionTime)
+		}
 		chart.cursor.Position1 = fyne.NewPos(x, chartPlotTop)
 		chart.cursor.Position2 = fyne.NewPos(x, chart.Size().Height-chartPlotBottom)
 		chart.cursor.Show()

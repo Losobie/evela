@@ -117,6 +117,7 @@ type damageChart struct {
 	hovered         bool
 	hoverGroup      *chartHoverGroup
 	cursor          *canvas.Line
+	hoverDot        *canvas.Circle
 	selection       *canvas.Rectangle
 	drag            *chartRangeDrag
 	pan             *chartPanDrag
@@ -212,6 +213,11 @@ func (chart *damageChart) CreateRenderer() fyne.WidgetRenderer {
 	chart.hoverClip.Direction = container.ScrollNone
 	chart.cursor = canvas.NewLine(palette.cursor)
 	chart.cursor.Hide()
+	chart.hoverDot = canvas.NewCircle(palette.text)
+	chart.hoverDot.StrokeColor = palette.background
+	chart.hoverDot.StrokeWidth = 1.5
+	chart.hoverDot.Resize(fyne.NewSize(8, 8))
+	chart.hoverDot.Hide()
 	chart.selection = canvas.NewRectangle(palette.selection)
 	chart.selection.StrokeColor = palette.selectionStroke
 	chart.selection.StrokeWidth = 1
@@ -219,7 +225,7 @@ func (chart *damageChart) CreateRenderer() fyne.WidgetRenderer {
 	r := &chartRenderer{chart: chart, plot: canvas.NewRaster(chart.renderPlot)}
 	r.empty = canvas.NewText("No damage in this range for the selected characters", muted)
 	r.empty.TextSize = 13
-	r.objects = []fyne.CanvasObject{r.plot, chart.selection, chart.cursor, chart.hoverClip, r.empty}
+	r.objects = []fyne.CanvasObject{r.plot, chart.selection, chart.cursor, chart.hoverDot, chart.hoverClip, r.empty}
 	for i := 0; i < 5; i++ {
 		y, x := canvas.NewText("", muted), canvas.NewText("", muted)
 		y.TextSize, x.TextSize = 11, 11
@@ -522,6 +528,9 @@ func drawLine(img *image.RGBA, x0, y0, x1, y1 int, ink color.NRGBA) {
 func (chart *damageChart) MouseIn(event *desktop.MouseEvent) { chart.MouseMoved(event) }
 func (chart *damageChart) MouseOut() {
 	chart.pan = nil
+	if chart.hoverDot != nil {
+		chart.hoverDot.Hide()
+	}
 	chart.hovered = false
 	if chart.hoverGroup != nil {
 		chart.hoverGroup.leave(chart)
@@ -560,6 +569,9 @@ func (chart *damageChart) updateHover(position fyne.Position) {
 // A shared inspection time bypasses this graph's nearest-hit search so all
 // graphs describe the same instant while retaining their own values and units.
 func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionTime *time.Time) (time.Time, bool) {
+	if chart.hoverDot != nil {
+		chart.hoverDot.Hide()
+	}
 	chart.mu.RLock()
 	data := chart.data
 	palette := chart.palette
@@ -578,11 +590,16 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 		bin = int(inspectionTime.Sub(data.Start) / data.Bucket)
 	}
 	bin = min(bin, int((data.End.Sub(data.Start)-1)/data.Bucket))
+	targetLine := chartLineHover{series: -1, hit: -1}
+	if inspectionTime == nil {
+		targetLine = closestChartLine(data, chart.Size(), position)
+	}
 	type reading struct {
-		name  string
-		value float64
-		color color.NRGBA
-		unit  string
+		name      string
+		value     float64
+		color     color.NRGBA
+		unit      string
+		preferred bool
 	}
 	var readings []reading
 	hoverTime := data.Start.Add(time.Duration(bin) * data.Bucket)
@@ -592,6 +609,8 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 		target := float64(data.Start.Unix()) + elapsed
 		if inspectionTime != nil {
 			nearest, found = inspectionTime.Unix(), true
+		} else if targetLine.found {
+			nearest, found = data.Series[targetLine.series].Hits[targetLine.hit].Second, true
 		} else {
 			for _, series := range data.Series {
 				index := sort.Search(len(series.Hits), func(i int) bool { return float64(series.Hits[i].Second) >= target })
@@ -609,7 +628,7 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 		}
 		if found {
 			hoverTime = time.Unix(nearest, 0).UTC()
-			for _, series := range data.Series {
+			for seriesIndex, series := range data.Series {
 				index := sort.Search(len(series.Hits), func(i int) bool { return series.Hits[i].Second >= nearest })
 				for ; index < len(series.Hits) && series.Hits[index].Second == nearest; index++ {
 					hit := series.Hits[index]
@@ -620,13 +639,17 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 					if hit.Detail != "" {
 						name += " · " + hit.Detail
 					}
-					readings = append(readings, reading{name, hit.Damage, series.Color, series.Unit})
+					readings = append(readings, reading{name, hit.Damage, series.Color, series.Unit, targetLine.found && seriesIndex == targetLine.series && index == targetLine.hit})
 				}
 			}
 		}
 	} else {
-		for _, series := range data.Series {
-			if bin >= 0 && bin < len(series.Values) {
+		for seriesIndex, series := range data.Series {
+			valueBin := bin
+			if targetLine.found && seriesIndex == targetLine.series && len(series.Values) > 0 {
+				valueBin = min(valueBin, len(series.Values)-1)
+			}
+			if valueBin >= 0 && valueBin < len(series.Values) {
 				name := series.Name
 				count := series.MemberCount
 				if bin < len(series.MemberCounts) {
@@ -635,14 +658,26 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 				if count > 1 {
 					name = fmt.Sprintf("%s (%d)", name, count)
 				}
-				readings = append(readings, reading{name, series.Values[bin], series.Color, series.Unit})
+				readings = append(readings, reading{name, series.Values[valueBin], series.Color, series.Unit, targetLine.found && seriesIndex == targetLine.series})
 			}
 		}
 	}
 	if inspectionTime != nil {
 		hoverTime = *inspectionTime
 	}
-	sort.SliceStable(readings, func(i, j int) bool { return readings[i].value > readings[j].value })
+	sort.SliceStable(readings, func(i, j int) bool {
+		if readings[i].preferred != readings[j].preferred {
+			return readings[i].preferred
+		}
+		return readings[i].value > readings[j].value
+	})
+	if targetLine.found && chart.hoverDot != nil {
+		chart.hoverDot.FillColor = palette.seriesColor(data.Series[targetLine.series].Color)
+		chart.hoverDot.StrokeColor = palette.background
+		chart.hoverDot.Move(targetLine.position.Subtract(fyne.NewPos(4, 4)))
+		chart.hoverDot.Show()
+		chart.hoverDot.Refresh()
+	}
 	chart.hover.Text = hoverTime.Format("Jan 02 15:04:05") + " EVE time"
 	for _, marker := range data.Markers {
 		markerX := float64(marker.At.Sub(data.Start)) / float64(data.End.Sub(data.Start)) * float64(w)
@@ -703,6 +738,9 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 }
 
 func (chart *damageChart) setHoverHint(text string) {
+	if chart.hoverDot != nil {
+		chart.hoverDot.Hide()
+	}
 	if chart.hover == nil {
 		return
 	}
