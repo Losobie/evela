@@ -69,10 +69,11 @@ var loadNPCCatalog = sync.OnceValue(func() *npcCatalog {
 })
 
 type damageSource struct {
-	Name            string
-	Character, Hull string
-	NPC             bool
-	TypeID, GroupID int
+	Name                                     string
+	Character, Hull                          string
+	NPC                                      bool
+	TypeID, GroupID                          int
+	Location, Corporation, CorporationTicker string
 }
 
 // Sources are interned per log; contributions retain individual attackers even
@@ -92,13 +93,16 @@ var damageHitQualities = map[string]bool{
 
 func incomingDamageSource(target string) damageSource {
 	target = strings.TrimSpace(target)
+	target, _, _ = damageWithoutDeflection(target)
 	// Player-owned ships and structures carry a corporation/hull suffix. Never
 	// identify one as an NPC by a partial name match before that suffix.
 	if suffix := playerDamageSource.FindStringSubmatch(target); suffix != nil {
 		source := damageSource{Name: strings.Clone(suffix[1]), Hull: strings.Clone(strings.TrimSpace(suffix[3]))}
+		entity := parseCombatEntity(suffix[1])
+		source.Location, source.Corporation, source.CorporationTicker = entity.Location, entity.Corporation, entity.CorporationTicker
 		structure := strings.ToLower(structureTypeQuotes.Replace(source.Hull))
 		if !playerStructureTypes[structure] && !legacyPlayerStructureTypes[structure] {
-			source.Character = strings.Clone(strings.TrimSpace(suffix[2]))
+			source.Character = entity.Name
 		}
 		return source
 	}

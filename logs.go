@@ -36,12 +36,15 @@ type damagePoint struct {
 }
 
 type damageHit struct {
-	Second                     int64
-	Amount                     float64
-	Source                     int
-	Incoming                   bool
-	WeaponType, WeaponStrength string
-	Target, TargetType         string
+	Second                                                     int64
+	Amount                                                     float64
+	Source                                                     int
+	Incoming                                                   bool
+	WeaponType, WeaponStrength                                 string
+	Target, TargetType                                         string
+	TargetLocation, TargetCorporation, TargetCorporationTicker string
+	DeflectionAmount                                           float64
+	HasDeflection                                              bool
 }
 
 type parsedLog struct {
@@ -173,7 +176,7 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 				}
 				hit := damageHit{Second: at.Unix(), Source: sourceID, Incoming: incoming, WeaponType: weapon, WeaponStrength: "Misses"}
 				if !incoming {
-					hit.Target, hit.TargetType = loggedTarget(target)
+					hit.setTarget(parseCombatEntity(target))
 				}
 				result.Hits = append(result.Hits, hit)
 			}
@@ -183,7 +186,8 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		if err != nil || amount < 0 || math.IsInf(amount, 0) || math.IsNaN(amount) {
 			continue
 		}
-		weapon, strength := damageWeaponDetails(match[3])
+		detail, deflection, hasDeflection := damageWithoutDeflection(match[3])
+		weapon, strength := damageWeaponDetails(detail)
 		second := at.Unix()
 		point := seconds[second]
 		if point == nil {
@@ -195,7 +199,7 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 			point.IncomingHits++
 			sourceID, exists := sourceIDs[match[3]]
 			if !exists {
-				source := incomingDamageSource(match[3])
+				source := incomingDamageSource(detail)
 				// Different weapons and hit qualities still belong to one source.
 				sourceID, exists = sourceNames[source]
 				if !exists {
@@ -216,13 +220,14 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 			}
 			contribution.Damage += amount
 			contribution.Hits++
-			result.Hits = append(result.Hits, damageHit{Second: second, Amount: amount, Source: sourceID, Incoming: true, WeaponType: weapon, WeaponStrength: strength})
+			result.Hits = append(result.Hits, damageHit{Second: second, Amount: amount, Source: sourceID, Incoming: true, WeaponType: weapon, WeaponStrength: strength, DeflectionAmount: deflection, HasDeflection: hasDeflection})
 		} else {
 			point.Outgoing += amount
 			point.OutgoingHits++
-			targetName, targetType := damageTarget(match[3], weapon, strength)
-			result.Hits = append(result.Hits, damageHit{Second: second, Amount: amount, Source: -1, WeaponType: weapon, WeaponStrength: strength, Target: targetName, TargetType: targetType})
-			target, typeName, recognized := outgoingStructureTarget(match[3])
+			hit := damageHit{Second: second, Amount: amount, Source: -1, WeaponType: weapon, WeaponStrength: strength, DeflectionAmount: deflection, HasDeflection: hasDeflection}
+			hit.setTarget(damageTarget(detail, weapon, strength))
+			result.Hits = append(result.Hits, hit)
+			target, typeName, recognized := outgoingStructureTarget(detail)
 			structurePending = recognized
 			if recognized {
 				lastStructure = structureEvent{Second: second, Target: target, Type: typeName}

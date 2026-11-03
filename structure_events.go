@@ -45,6 +45,14 @@ var legacyPlayerStructureTypes = func() map[string]bool {
 }()
 
 func outgoingStructureTarget(target string) (string, string, bool) {
+	target, _, _ = damageWithoutDeflection(strings.TrimSpace(target))
+	weapon, quality := damageWeaponDetails(target)
+	if damageHitQualities[quality] {
+		target, _, _ = cutLastDamageDetail(target)
+		if weapon != "" {
+			target, _, _ = cutLastDamageDetail(target)
+		}
+	}
 	match := structureTargetSuffix.FindStringSubmatch(strings.TrimSpace(target))
 	if match == nil {
 		return "", "", false
