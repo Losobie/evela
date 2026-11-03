@@ -28,7 +28,16 @@ func (appearance appearanceTheme) Color(name fyne.ThemeColorName, variant fyne.T
 	case appearanceDark:
 		variant = theme.VariantDark
 	}
-	return appearance.Theme.Color(name, variant)
+	base := appearance.Theme.Color(name, variant)
+	if variant == theme.VariantLight && (name == theme.ColorNameForeground || name == theme.ColorNamePlaceHolder) {
+		ink := color.NRGBAModel.Convert(base).(color.NRGBA)
+		factor := 0.75
+		if name == theme.ColorNamePlaceHolder {
+			factor = 0.85
+		}
+		return color.NRGBA{uint8(float64(ink.R) * factor), uint8(float64(ink.G) * factor), uint8(float64(ink.B) * factor), ink.A}
+	}
+	return base
 }
 func savedAppearance(application fyne.App) string {
 	choice := application.Preferences().StringWithFallback(appearancePreference, appearanceSystem)
@@ -88,7 +97,7 @@ func currentChartPalette() chartPalette {
 	return chartPalette{
 		light:      true,
 		background: color.NRGBA{255, 255, 255, 255}, grid: color.NRGBA{222, 229, 238, 255},
-		text: color.NRGBA{65, 81, 102, 255}, cursor: color.NRGBA{83, 100, 120, 200},
+		text: color.NRGBA{49, 61, 77, 255}, cursor: color.NRGBA{83, 100, 120, 200},
 		selection: color.NRGBA{0, 113, 159, 40}, selectionStroke: color.NRGBA{0, 113, 159, 220},
 		marker: color.NRGBA{198, 32, 38, 255},
 	}

@@ -27,9 +27,17 @@ func TestAppearanceDefaultAndSystemVariants(t *testing.T) {
 			case appearanceDark:
 				wantVariant = theme.VariantDark
 			}
-			for _, name := range []fyne.ThemeColorName{theme.ColorNameBackground, theme.ColorNameForeground, theme.ColorNameInputBackground} {
+			for _, name := range []fyne.ThemeColorName{theme.ColorNameBackground, theme.ColorNameForeground, theme.ColorNamePlaceHolder, theme.ColorNameDisabled, theme.ColorNameInputBackground} {
 				got := application.Settings().Theme().Color(name, variant)
 				want := theme.DefaultTheme().Color(name, wantVariant)
+				if wantVariant == theme.VariantLight && (name == theme.ColorNameForeground || name == theme.ColorNamePlaceHolder) {
+					r, g, b, a := got.RGBA()
+					wr, wg, wb, wa := want.RGBA()
+					if r > wr || g > wg || b > wb || r+g+b >= wr+wg+wb || a != wa {
+						t.Fatalf("light-mode text was not darkened: %v versus %v", got, want)
+					}
+					continue
+				}
 				if got != want {
 					t.Fatalf("choice %q, color %s, variant %d: got %v, want %v", choice, name, variant, got, want)
 				}
