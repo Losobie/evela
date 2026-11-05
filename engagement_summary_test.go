@@ -62,8 +62,8 @@ func TestEngagementSummaryOtherActivities(t *testing.T) {
 		log  parsedLog
 		want string
 	}{
-		{"logistics out", parsedLog{Logistics: []logisticsEvent{{Second: 1, Target: "Friend", TargetType: "Basilisk", Kind: "Shield repair"}}}, "Unknown system - Supporting Basilisk"},
-		{"logistics in", parsedLog{Logistics: []logisticsEvent{{Second: 1, Incoming: true, Kind: "Shield repair"}}}, "Unknown system - Receiving logistics"},
+		{"logistics out", parsedLog{Logistics: []logisticsEvent{{Second: 1, Amount: 100, Target: "Friend", TargetType: "Basilisk", Kind: "Shield repair"}}}, "Unknown system - Supporting Basilisk"},
+		{"logistics in", parsedLog{Logistics: []logisticsEvent{{Second: 1, Amount: 100, Incoming: true, Kind: "Shield repair"}}}, "Unknown system - Receiving logistics"},
 		{"E-War", parsedLog{EWar: []ewarEvent{{Second: 1, Effect: "Warp scramble"}}}, "Unknown system - Under E-War (Warp scramble)"},
 		{"compression", parsedLog{Mining: []miningEvent{{Second: 1, Ore: "Xenotime", Kind: miningCompressed}}}, "Unknown system - Compressing Xenotime"},
 		{"unknown target", parsedLog{Hits: []damageHit{{Second: 1, Target: "Unresolved name"}}}, "Unknown system - Combat"},

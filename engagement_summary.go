@@ -231,9 +231,16 @@ func (summary *engagementSummary) add(cursor engagementCursor, ship engagementId
 
 func (summary *engagementSummary) text() string {
 	dominant, best := engagementDamage, summary.activitySeconds[engagementDamage]*3
-	for _, kind := range []int{engagementMining, engagementLogistics, engagementEWar} {
-		if score := summary.activitySeconds[kind]; score > best {
-			dominant, best = kind, score
+	if mining := summary.activitySeconds[engagementMining]; mining > best {
+		dominant, best = engagementMining, mining
+	}
+	// Combat and mining identify the engagement. Repair / E-War message volume
+	// must not drown them out; use support activity only when neither is present.
+	if best == 0 {
+		for _, kind := range []int{engagementLogistics, engagementEWar} {
+			if score := summary.activitySeconds[kind]; score > best {
+				dominant, best = kind, score
+			}
 		}
 	}
 	activity, action := 0, "Combat"

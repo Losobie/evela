@@ -55,7 +55,7 @@ func (viewer *engagementsViewer) initTable() {
 		})
 	viewer.table.StickyRowCount = 1
 	table := container.New(&engagementTableLayout{table: viewer.table}, viewer.table)
-	note := widget.NewLabel("All loaded logs · Separate after 10 minutes without damage, E-War, logistics or mining · Independent of graph range and filters")
+	note := widget.NewLabel("All loaded logs · 10-minute inactivity gap · Damage, E-War, mining and nonzero repairs · Independent of graph range and filters")
 	note.Wrapping = fyne.TextWrapWord
 	viewer.content.Objects = []fyne.CanvasObject{container.NewBorder(container.NewVBox(note, viewer.status), viewer.selection, nil, nil, table)}
 	viewer.content.Refresh()
@@ -132,7 +132,7 @@ func (ui *analyzerUI) refreshEngagements() {
 			viewer.rows = rows
 			viewer.status.SetText(fmt.Sprintf("%d engagements · Most recent first", len(rows)))
 			if len(rows) == 0 {
-				viewer.status.SetText("No combat, E-War, logistics or mining activity in loaded logs.")
+				viewer.status.SetText("No combat, E-War, mining or nonzero repair activity in loaded logs.")
 			}
 			viewer.table.UnselectAll()
 			viewer.selection.SetText("Double-click an engagement to open its time range in Graphs. Existing graph filters still apply.")

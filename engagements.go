@@ -71,6 +71,16 @@ func (queue *engagementQueue) Pop() any {
 	return value
 }
 
+func (queue *engagementQueue) advance() {
+	cursor := &(*queue)[0]
+	cursor.index++
+	if cursor.advance() {
+		heap.Fix(queue, 0)
+	} else {
+		heap.Pop(queue)
+	}
+}
+
 func (summary *engagementSummary) finish() engagement {
 	return engagement{Start: time.Unix(summary.first, 0).UTC(), End: time.Unix(summary.last+1, 0).UTC(), Summary: summary.text()}
 }
@@ -102,6 +112,15 @@ func buildEngagements(ctx context.Context, snapshot *logSnapshot, locations loca
 			return nil, err
 		}
 		cursor := &queue[0]
+		if cursor.kind == engagementLogistics {
+			event := cursor.log.Logistics[cursor.index]
+			// Empty reps and cap chains do not establish activity, bridge idle
+			// gaps, extend ranges, or introduce systems / ships into summaries.
+			if event.Amount <= 0 || event.Kind == "Capacitor transfer" {
+				queue.advance()
+				continue
+			}
+		}
 		if summary == nil || cursor.second-summary.last >= int64(engagementIdleGap/time.Second) {
 			if summary != nil {
 				rows = append(rows, summary.finish())
@@ -124,12 +143,7 @@ func buildEngagements(ctx context.Context, snapshot *logSnapshot, locations loca
 			}
 		}
 		summary.add(*cursor, actorShips[cursor.log.Character], identities)
-		cursor.index++
-		if cursor.advance() {
-			heap.Fix(&queue, 0)
-		} else {
-			heap.Pop(&queue)
-		}
+		queue.advance()
 	}
 	if summary != nil {
 		rows = append(rows, summary.finish())
