@@ -59,6 +59,8 @@ Logistics targets retain location, corporation and ticker metadata alongside the
 
 Selecting a row in **Events** opens its original message and **Extracted fields**. These show the applicable damage, logistics, E-War, mining, travel or structure fields, including target metadata, weapons, hit strength and deflection when present. Missing optional fields are omitted; zero amounts are retained. Details are extracted on demand using the log parser, independently of graph filters.
 
+Remote-assistance targets also support `Basilisk [THIRD] [.AE..] [Clento Loso] - - Large Inductive Compact Remote Capacitor Transmitter`: target **Clento Loso**, type **Basilisk**, alliance ticker **THIRD**, and corporation ticker **.AE..**. The module separator may contain one or two dashes. These fields appear in event details, and the target name/type are used by logistics filters and grouping.
+
 ## Current ships through ESI
 
 1. Open **Settings → ESI configuration…** from the menu bar. The **Application** tab contains the public Client ID, callback port, and a live callback URL preview with a copy button. The Client ID defaults to `b680ade5175c4385a1e800b4bedb70bb`. The same dialog is available through **Configure ESI…** in the **ESI & ships** tab.

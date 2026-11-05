@@ -94,7 +94,8 @@ func TestSQLiteCacheRoundTripsAllParsedEventTypes(t *testing.T) {
 		"[ 2026.10.20 02:00:01 ] (notify) Jumping from Jita to Amarr.\n" +
 		"[ 2026.10.20 02:00:02 ] (combat) 912 to Grijawlva[SNOOO](Phoenix Navy Issue) - 425mm Railgun II - Penetrates\n" +
 		"[ 2026.10.20 02:00:03 ] (combat) 120 remote shield boosted to Grijawlva[SNOOO](Phoenix Navy Issue)\n" +
-		"[ 2026.10.20 02:00:04 ] (combat) 472 remote shield boosted to Customs Office (R3-K7K IX) [Way So Mad] - Large Remote Shield Booster II\n"
+		"[ 2026.10.20 02:00:04 ] (combat) 472 remote shield boosted to Customs Office (R3-K7K IX) [Way So Mad] - Large Remote Shield Booster II\n" +
+		"[ 2026.10.20 02:00:05 ] " + bracketedLogisticsExample + "\n"
 	writeCacheLog(t, folder, "20261020_all.txt", content)
 	cache := testLogCache(t, filepath.Join(t.TempDir(), "logs.sqlite"), logParserVersion)
 	first := cacheScan(t, &logIndex{cache: cache}, folder, time.Time{})
@@ -104,14 +105,16 @@ func TestSQLiteCacheRoundTripsAllParsedEventTypes(t *testing.T) {
 	}
 	for _, log := range second.Logs {
 		foundHit, foundLogistics, foundCustomsOffice := false, false, false
+		foundBracketedLogistics := false
 		for _, hit := range log.Hits {
 			foundHit = foundHit || hit.Target == "Grijawlva" && hit.TargetType == "Phoenix Navy Issue"
 		}
 		for _, event := range log.Logistics {
 			foundLogistics = foundLogistics || event.Target == "Grijawlva" && event.TargetType == "Phoenix Navy Issue"
 			foundCustomsOffice = foundCustomsOffice || event.Target == "Customs Office" && event.TargetType == "Customs Office" && event.TargetLocation == "R3-K7K IX" && event.TargetCorporation == "Way So Mad" && event.TargetCorporationTicker == ""
+			foundBracketedLogistics = foundBracketedLogistics || event.Target == "Clento Loso" && event.TargetType == "Basilisk" && event.TargetCorporationTicker == ".AE.." && event.TargetAllianceTicker == "THIRD"
 		}
-		if !foundHit || !foundLogistics || !foundCustomsOffice {
+		if !foundHit || !foundLogistics || !foundCustomsOffice || !foundBracketedLogistics {
 			t.Fatal("persistent cache lost target fields")
 		}
 		if len(log.Hits) == 0 || len(log.Mining) == 0 || len(log.Logistics) == 0 || len(log.EWar) == 0 || len(log.LocationEvents) == 0 {

@@ -24,6 +24,7 @@ type logisticsEvent struct {
 	Message                                                    string
 	Target, TargetType                                         string
 	TargetLocation, TargetCorporation, TargetCorporationTicker string
+	TargetAllianceTicker                                       string
 }
 
 // Incoming remote assistance uses "by" (also accept explicit "from");
@@ -49,9 +50,10 @@ func parseLogistics(message string, second int64) (logisticsEvent, bool) {
 	}
 	event := logisticsEvent{Second: second, Kind: kind, Amount: amount, Incoming: !strings.EqualFold(match[3], "to"), Message: strings.Clone(message)}
 	if !event.Incoming {
-		entity := logisticsTarget(match[4])
+		entity, alliance := logisticsTargetDetails(match[4])
 		event.Target, event.TargetType, event.TargetLocation = entity.Name, entity.Type, entity.Location
 		event.TargetCorporation, event.TargetCorporationTicker = entity.Corporation, entity.CorporationTicker
+		event.TargetAllianceTicker = alliance
 	}
 	return event, true
 }

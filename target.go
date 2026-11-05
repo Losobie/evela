@@ -68,6 +68,19 @@ func loggedTarget(detail string) (string, string) {
 }
 
 func logisticsTarget(detail string) combatEntity {
+	entity, _ := logisticsTargetDetails(detail)
+	return entity
+}
+
+// Remote assistance can put the hull before alliance, corporation and pilot
+// brackets, followed by a module with either a single or double dash separator.
+var logisticsShipTarget = regexp.MustCompile(`^(.+?)\s+\[([^\[\]]*)\]\s*\[([^\[\]]*)\]\s*\[([^\[\]]+)\](?:\s+-\s+.*)?$`)
+
+func logisticsTargetDetails(detail string) (combatEntity, string) {
+	if match := logisticsShipTarget.FindStringSubmatch(strings.TrimSpace(detail)); match != nil {
+		return combatEntity{Name: strings.Clone(strings.TrimSpace(match[4])), Type: strings.Clone(strings.TrimSpace(match[1])),
+			CorporationTicker: strings.Clone(strings.TrimSpace(match[3]))}, strings.Clone(strings.TrimSpace(match[2]))
+	}
 	// Remote-assistance messages may append a module after the entity suffix.
 	if i := strings.LastIndex(detail, " - "); i >= 0 {
 		entity := strings.TrimSpace(detail[:i])
@@ -75,7 +88,7 @@ func logisticsTarget(detail string) combatEntity {
 			detail = entity
 		}
 	}
-	return parseCombatEntity(detail)
+	return parseCombatEntity(detail), ""
 }
 
 func damageTarget(detail, weapon, strength string) combatEntity {

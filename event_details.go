@@ -84,6 +84,7 @@ func (viewer *eventsViewer) eventFields(event eventRow) []extractedEventField {
 		add("Logistics type", logistics.Kind)
 		add("Amount", number(logistics.Amount))
 		entity("Target", logistics.Target, logistics.TargetType, logistics.TargetLocation, logistics.TargetCorporation, logistics.TargetCorporationTicker)
+		add("Target alliance ticker", logistics.TargetAllianceTicker)
 	}
 	for _, ewar := range parsed.EWar {
 		add("Activity", "E-War")
