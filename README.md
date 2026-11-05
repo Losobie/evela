@@ -34,7 +34,7 @@ Engagements are separated by at least **ten minutes without activity**. Summarie
 
 Zero-value repairs and capacitor transfers do not create or extend engagements. Damage and sustained mining take priority in summaries.
 
-Select a row to read its full summary. **Double-click a row** to open Graphs with the engagement selected, plus 10% extra time before and after it. Existing graph filters still apply. The engagement list covers all loaded logs independently of the graph range and filters, and loads only when you open the tab.
+Select a row to read its full summary. **Double-click a row**, or highlight it with the arrow keys and press **Enter**, to open Graphs with the engagement selected, plus 10% extra time before and after it. Existing graph filters still apply. The engagement list covers all loaded logs independently of the graph range and filters, and loads only when you open the tab.
 
 ### Explore graphs
 
@@ -49,7 +49,13 @@ Choose a preset such as **30 minutes** or **All history**, or enter a **Custom**
 | Hold right-click and drag | Move the timeline left or right. |
 | **Ctrl+Z / Ctrl+Y**, or mouse **Back / Forward** | Undo or redo zooming and panning. |
 | Hover over a line or point | Mark it with a dot and show its reading first, even outside the top three. |
+| Click a line or point | Emphasize its series and dim the others; keep that series first in the readout. Click it again or click empty plot space to clear. |
+| **Left / Right** | Pan earlier or later by a quarter of the visible time range. |
+| **+ / −** (or **=**) | Zoom in or out around the center of the visible range. |
+| **Escape** | Clear selected series across the graphs. |
 | Scroll over a graph heading | Scroll the graph panel vertically. |
+
+Keyboard graph navigation works in the Graphs tab when no control has keyboard focus; click a plot to return focus to navigation. Typing, tables, dialogs and menus retain their normal keyboard behavior.
 
 Time navigation updates all graphs and Totals together. Graph intervals adjust automatically. **Options** also controls 10- or 30-second averaging; select the active average again to show individual events instead. Optional target invulnerability indicators mark supported structure notifications on the outgoing damage graph.
 

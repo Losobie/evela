@@ -155,7 +155,7 @@ func TestEngagementTableFitsViewport(t *testing.T) {
 		viewer.rows = append(viewer.rows, engagement{Start: time.Unix(int64(i), 0), End: time.Unix(int64(i+60), 0), Summary: strings.Repeat("Long summary ", 100)})
 	}
 	viewer.initTable()
-	holder := newFillingTable(viewer.table, 220, 100)
+	holder := newFillingTable(&viewer.table.Table, 220, 100)
 	window.SetContent(holder)
 	window.Show()
 	var scroll *container.Scroll

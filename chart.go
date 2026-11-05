@@ -110,6 +110,7 @@ type damageChart struct {
 	widget.BaseWidget
 	mu              sync.RWMutex
 	data            plotData
+	selectedSeries  *chartSeriesKey
 	hover           *canvas.Text
 	hoverReadings   [3]*canvas.Text
 	hoverClip       *container.Scroll
@@ -189,6 +190,15 @@ func (chart *damageChart) setData(data plotData) {
 		data.SecondaryMaximum *= 1.08
 	}
 	chart.mu.Lock()
+	if chart.selectedSeries != nil {
+		found := false
+		for _, series := range data.Series {
+			found = found || seriesKey(series) == *chart.selectedSeries
+		}
+		if !found {
+			chart.selectedSeries = nil
+		}
+	}
 	chart.data = data
 	chart.mu.Unlock()
 	chart.Refresh()
@@ -437,6 +447,15 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 	duration := data.End.Sub(data.Start).Seconds()
 	for _, series := range data.Series {
 		ink := palette.seriesColor(series.Color)
+		width := lineWidth
+		if chart.selectedSeries != nil {
+			if seriesKey(series) == *chart.selectedSeries {
+				width *= 2.5
+			} else {
+				ink = dimSeries(ink, palette.background)
+			}
+		}
+		stroke.SetStroke(fixed.Int26_6(math.Round(width*64)), 4*64, rasterx.RoundCap, nil, rasterx.RoundGap, rasterx.Round)
 		if data.IndividualHits {
 			for _, hit := range series.Hits {
 				if hit.Second < data.Start.Unix() || hit.Second >= data.End.Unix() {
@@ -444,7 +463,7 @@ func (chart *damageChart) renderPlot(w, h int) image.Image {
 				}
 				x := float64(hit.Second-data.Start.Unix()) / duration * float64(w-1)
 				y := float64(h-1) * (1 - data.seriesFraction(series, hit.Damage))
-				drawHitPoint(img, x+0.5, y+0.5, 2.5*lineWidth/1.25, ink)
+				drawHitPoint(img, x+0.5, y+0.5, 2.5*width/1.25, ink)
 			}
 			continue
 		}
@@ -575,6 +594,7 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 	chart.mu.RLock()
 	data := chart.data
 	palette := chart.palette
+	selected := chart.selectedSeries
 	chart.mu.RUnlock()
 	if (inspectionTime == nil && len(data.Series) == 0 && len(data.Markers) == 0) || data.Bucket <= 0 || !data.End.After(data.Start) || chart.hover == nil {
 		return time.Time{}, false
@@ -639,7 +659,11 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 					if hit.Detail != "" {
 						name += " · " + hit.Detail
 					}
-					readings = append(readings, reading{name, hit.Damage, series.Color, series.Unit, targetLine.found && seriesIndex == targetLine.series && index == targetLine.hit})
+					preferred := targetLine.found && seriesIndex == targetLine.series && index == targetLine.hit
+					if selected != nil {
+						preferred = seriesKey(series) == *selected
+					}
+					readings = append(readings, reading{name, hit.Damage, series.Color, series.Unit, preferred})
 				}
 			}
 		}
@@ -658,7 +682,11 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 				if count > 1 {
 					name = fmt.Sprintf("%s (%d)", name, count)
 				}
-				readings = append(readings, reading{name, series.Values[valueBin], series.Color, series.Unit, targetLine.found && seriesIndex == targetLine.series})
+				preferred := targetLine.found && seriesIndex == targetLine.series
+				if selected != nil {
+					preferred = seriesKey(series) == *selected
+				}
+				readings = append(readings, reading{name, series.Values[valueBin], series.Color, series.Unit, preferred})
 			}
 		}
 	}
@@ -781,6 +809,11 @@ func (chart *damageChart) MouseDown(event *desktop.MouseEvent) {
 	chart.dragBlocked = event.Button != desktop.MouseButtonPrimary
 	if !chart.dragBlocked {
 		chart.dragBlocked = !chart.beginRangeDrag(event.Position)
+		if !chart.dragBlocked {
+			if canvas := fyne.CurrentApp().Driver().CanvasForObject(chart); canvas != nil {
+				canvas.Unfocus()
+			}
+		}
 	}
 }
 
@@ -790,6 +823,7 @@ func (chart *damageChart) MouseUp(event *desktop.MouseEvent) {
 		chart.pan = nil
 	}
 	if event.Button == desktop.MouseButtonPrimary {
+		click := chart.drag != nil && !chart.drag.Moved && !chart.dragBlocked
 		// Some drivers send MouseUp before DragEnd; GLFW sends it afterwards.
 		// Finishing clears the gesture, so either order applies the range once.
 		if chart.drag != nil && chart.drag.Moved {
@@ -797,6 +831,9 @@ func (chart *damageChart) MouseUp(event *desktop.MouseEvent) {
 			chart.drag.Moved = math.Abs(float64(chart.drag.Current-chart.drag.Anchor)) >= float64(chartDragThreshold)
 		}
 		chart.DragEnd()
+		if click {
+			chart.selectSeriesAt(event.Position)
+		}
 	}
 	chart.dragBlocked = false
 }
