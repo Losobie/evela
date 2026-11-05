@@ -262,6 +262,10 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 		ui.totals.SetColumnWidth(col, width)
 	}
 	ui.events = newEventsViewer(window)
+	ui.events.contextAt = func(character string, second int64) (string, string) {
+		attributes := ui.graphMetadata().attributes(character, second)
+		return attributes.hull.Label, attributes.system.Label
+	}
 	ui.engagements = newEngagementsViewer(ui.openEngagement)
 	ui.loadGraphRangePreference()
 	ui.initGraphRangeShortcuts()

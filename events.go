@@ -40,6 +40,7 @@ type eventsViewer struct {
 	rows        []eventRow
 	descending  bool
 	characters  map[string]bool // nil includes every character; an empty map includes none.
+	contextAt   func(character string, second int64) (ship, system string)
 }
 
 func newEventsViewer(window fyne.Window) *eventsViewer {

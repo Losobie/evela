@@ -99,11 +99,28 @@ func TestEventDetailsDialogAndContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	ui.snapshot = &logSnapshot{Logs: []*parsedLog{log}, Characters: []string{"Pilot A"}}
+	ui.shipHistory = shipHistory{1: {
+		{CharacterID: 1, CharacterName: "Pilot A", TypeName: "Basilisk", FirstSeen: start, LastSeen: start},
+		{CharacterID: 1, CharacterName: "Pilot A", TypeName: "Stork", FirstSeen: start.Add(time.Second), LastSeen: start.Add(time.Second)},
+	}}
+	ui.locationHistory = locationHistory{1: {
+		{CharacterID: 1, CharacterName: "Pilot A", SystemName: "Jita", FirstSeen: start, LastSeen: start},
+		{CharacterID: 1, CharacterName: "Pilot A", SystemName: "Amarr", FirstSeen: start.Add(time.Second), LastSeen: start.Add(time.Second)},
+	}}
 	ui.rebuildView()
 	ui.tabs.SelectIndex(2)
 	viewer := ui.events
 	if len(viewer.rows) != 3 {
 		t.Fatalf("fixture lost events: %+v", viewer.rows)
+	}
+	for i, want := range []string{"Current ship: Basilisk\nCurrent system: Jita\n\nExtracted fields", "Current ship: Basilisk\nCurrent system: Jita\n\nExtracted fields", "Current ship: Stork\nCurrent system: Amarr\n\nExtracted fields"} {
+		if text := viewer.eventDetails(viewer.rows[i]); !strings.Contains(text, want) {
+			t.Fatalf("event %d has incorrect historical context or field order: %s", i, text)
+		}
+	}
+	outside := eventRow{logEvent: logEvent{Second: start.Add(-time.Second).Unix(), Message: "(chat) Before tracking"}, Character: "Pilot A"}
+	if text := viewer.eventDetails(outside); !strings.Contains(text, "Current ship: Unknown ship\nCurrent system: Unknown system\n\nExtracted fields") {
+		t.Fatalf("event outside history acquired a current ship / system: %s", text)
 	}
 	if text := viewer.eventDetails(viewer.rows[0]); !strings.Contains(text, "Target corporation: Way So Mad") || strings.Contains(text, "Weapon strength:") {
 		t.Fatalf("same-second logistics details were misattributed: %s", text)

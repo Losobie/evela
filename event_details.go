@@ -12,7 +12,12 @@ import (
 type extractedEventField struct{ Name, Value string }
 
 func (viewer *eventsViewer) eventDetails(event eventRow) string {
-	text := time.Unix(event.Second, 0).UTC().Format("2006-01-02 15:04:05") + " EVE time\nCharacter: " + event.Character + "\n\n" + event.Message + "\n\nExtracted fields"
+	ship, system := "Unknown ship", "Unknown system"
+	if viewer.contextAt != nil {
+		ship, system = viewer.contextAt(event.Character, event.Second)
+	}
+	text := time.Unix(event.Second, 0).UTC().Format("2006-01-02 15:04:05") + " EVE time\nCharacter: " + event.Character + "\n\n" + event.Message +
+		"\n\nCurrent ship: " + ship + "\nCurrent system: " + system + "\n\nExtracted fields"
 	return text + "\n" + strings.TrimSuffix(formatExtractedFields(viewer.eventFields(event)), "\n")
 }
 
