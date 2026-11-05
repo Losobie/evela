@@ -12,7 +12,7 @@ go run .
 
 The interface follows the system's light or dark theme by default. Choose **Settings → Theme → System, Light, or Dark** to change it. Changes apply immediately to the interface and graphs, and the choice is saved for future launches.
 
-The **Engagements** tab discovers periods of activity across all loaded characters, newest first. A gap of **10 minutes or more** without damage (including misses), incoming E-War, logistics or mining starts a new engagement; chat and travel messages do not bridge gaps. Each row shows its starting EVE timestamp, duration and a generated summary with known systems, activity types, pilots, targets/attackers and ores. Select a row to read its full summary; double-click any cell in the row to open **Graphs** with the engagement's time range selected, including its final activity second. Existing graph filters still apply, and range undo restores the previous view. The list covers loaded history independently of graph filters and the current time range. It is built in the background only when opened, cached across graph navigation, and refreshed when logs or location history change. Leaving the tab cancels unfinished work.
+The **Engagements** tab discovers periods of activity across all loaded characters, newest first. A gap of **10 minutes or more** without damage (including misses), incoming E-War, logistics or mining starts a new engagement; chat and travel messages do not bridge gaps. Each row shows its starting EVE timestamp, duration and a short summary such as **R3-K7K - Shooting Drake Navy Issue with Kikimora** or **Sieh - Mining Xenotime with Exhumers**. The Summary column fills the remaining width and truncates long text without horizontal scrolling. Summaries choose the dominant activity by distinct active seconds per character, weighting combat three times as heavily; rapid weapon messages and mining waste records do not inflate this score. They show up to three systems, two target/attacker groups and two of your ship groups. A group containing one hull type or NPC name uses that specific name; mixed groups use their class/type. Own ships use history at each activity timestamp; unknown ship details are omitted. Select a row to read its full summary; double-click any cell in the row to open **Graphs** with the engagement's time range selected, including its final activity second. Existing graph filters still apply, and range undo restores the previous view. The list covers loaded history independently of graph filters and the current time range. It is built in the background only when opened, cached across graph navigation, and refreshed when logs, ship history or location history change. Leaving the tab cancels unfinished work.
 
 The default folder is your Windows Documents known folder (including redirected/OneDrive Documents), under `EVE\logs\gamelogs`. Open **Settings → Log loading…** to configure **Log folders**, one path per line. Use **Add folder…** to append a folder with the picker, or type a local path, mapped drive, or UNC share such as `\\fleet-pc\eve-logs\gamelogs`. Include both your local folder and another computer's shared folder to analyze their logs together. Edit or delete a line to change or remove a folder. **Save and refresh** saves the complete list and loading limit and refreshes immediately; **Cancel** discards edits. The folder list is restored on the next launch. Windows must already grant your user read access to network shares. Evela only reads the configured log folders; logs are never modified or uploaded.
 
@@ -123,12 +123,15 @@ To update, download CCP's [latest JSONL SDE](https://developers.eveonline.com/st
 ```powershell
 go run ./tools/npcdata -sde .cache/eve-sde-<build>-jsonl.zip
 go run ./tools/oredata -sde .cache/eve-sde-<build>-jsonl.zip
+go run ./tools/hulldata -sde .cache/eve-sde-<build>-jsonl.zip
 go test ./...
 go build -ldflags="-H=windowsgui" -o evela.exe .
 Compress-Archive -LiteralPath evela.exe -DestinationPath evela.zip -Force
 ```
 
 The mining lookup `ore_data.json` is generated from the same official JSONL SDE **3607705**, released **2026-10-12**, and contains **502 English ore names**. It joins types to groups in the **Asteroid** category (`categoryID = 25`), including ice and compressed variants. Moon group labels replace “Moon Asteroids” with “Moon Ore” for the filter. The embedded lookup works offline.
+
+Engagement summaries use `hull_data.json`, generated from the same SDE **3607705**, with **834 English ship, starbase and structure hull names** and their classes (categories 6, 23 and 65). NPC names/types use the existing NPC lookup. These catalogs are loaded lazily and work offline; no network calls are made to compose summaries.
 
 The generator reads build/release metadata from the archive; update the version/counts above when replacing the snapshot. Only compact names, type IDs and group names/IDs are embedded; the full archive is excluded from version control.
 

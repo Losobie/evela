@@ -53,7 +53,7 @@ func engagementTestSnapshot(t *testing.T) (*logSnapshot, time.Time) {
 func TestEngagementsActivityGapsAndSummaries(t *testing.T) {
 	snapshot, start := engagementTestSnapshot(t)
 	locations := newLocationResolver(nil, snapshot.locationSessions())
-	rows, err := buildEngagements(context.Background(), snapshot, locations)
+	rows, err := buildEngagements(context.Background(), snapshot, locations, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,17 +67,15 @@ func TestEngagementsActivityGapsAndSummaries(t *testing.T) {
 			t.Fatalf("engagement %d bounds = %+v", i, rows[i])
 		}
 	}
-	for _, text := range []string{"Hoshoun", "Mai", "damage dealt", "damage received", "E-War", "outgoing logistics", "mining", "Pilot A", "Pilot B", "Phoenix Navy Issue", "Warp scramble", "Veldspar"} {
-		if !strings.Contains(rows[2].Summary, text) {
-			t.Errorf("summary missing %q: %s", text, rows[2].Summary)
-		}
+	if rows[2].Summary != "Hoshoun, Mai - Shooting Phoenix Navy Issue" {
+		t.Fatalf("dominant activity summary = %s", rows[2].Summary)
 	}
-	if !strings.Contains(rows[0].Summary, "Unknown system") || !strings.Contains(rows[0].Summary, "incoming logistics") {
+	if rows[0].Summary != "Unknown system - Receiving logistics" {
 		t.Fatalf("logistics-only engagement = %+v", rows[0])
 	}
 	// Reversing the logs must not change ordering or summaries for ties.
 	snapshot.Logs[0], snapshot.Logs[1] = snapshot.Logs[1], snapshot.Logs[0]
-	again, _ := buildEngagements(context.Background(), snapshot, locations)
+	again, _ := buildEngagements(context.Background(), snapshot, locations, nil)
 	for i := range rows {
 		if rows[i] != again[i] {
 			t.Fatalf("log order changed engagement %d", i)
@@ -86,35 +84,42 @@ func TestEngagementsActivityGapsAndSummaries(t *testing.T) {
 }
 
 func TestEngagementsEmptyMissesAndCancellation(t *testing.T) {
-	rows, err := buildEngagements(context.Background(), &logSnapshot{Logs: []*parsedLog{{Events: []logEvent{{Second: 1, Message: "chat"}}}}}, locationResolver{})
+	rows, err := buildEngagements(context.Background(), &logSnapshot{Logs: []*parsedLog{{Events: []logEvent{{Second: 1, Message: "chat"}}}}}, locationResolver{}, nil)
 	if err != nil || len(rows) != 0 {
 		t.Fatalf("non-activity produced engagements: %v, %v", rows, err)
 	}
 	snapshot := &logSnapshot{Logs: []*parsedLog{{Character: "Pilot", Hits: []damageHit{{Second: 1, Incoming: true, Source: -1, WeaponStrength: "Misses"}}}}}
-	rows, err = buildEngagements(context.Background(), snapshot, locationResolver{})
-	if err != nil || len(rows) != 1 || rows[0].End.Sub(rows[0].Start) != time.Second || !strings.Contains(rows[0].Summary, "damage received") {
+	rows, err = buildEngagements(context.Background(), snapshot, locationResolver{}, nil)
+	if err != nil || len(rows) != 1 || rows[0].End.Sub(rows[0].Start) != time.Second || !strings.Contains(rows[0].Summary, "Taking fire") {
 		t.Fatalf("miss-only engagement lost: %v, %v", rows, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := buildEngagements(ctx, snapshot, locationResolver{}); !errors.Is(err, context.Canceled) {
+	if _, err := buildEngagements(ctx, snapshot, locationResolver{}, nil); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled build returned %v", err)
 	}
 }
 
-func waitForEngagements(t *testing.T, ui *analyzerUI) {
+// Fyne's headless test driver runs Do callbacks inline on the calling worker.
+// Queue them instead, so these tests apply UI updates on their single UI thread
+// just as the desktop driver does (font shaping is not safe across UI threads).
+func queueEngagementUpdates(ui *analyzerUI) <-chan func() {
+	updates := make(chan func(), 8)
+	ui.engagements.dispatch = func(update func()) { updates <- update }
+	return updates
+}
+
+func waitForEngagements(t *testing.T, ui *analyzerUI, updates <-chan func()) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		ready := false
-		fyne.DoAndWait(func() { ready = !ui.engagements.loading && !ui.engagements.dirty })
-		if ready {
-			return
-		}
-		if time.Now().After(deadline) {
+	deadline := time.NewTimer(5 * time.Second)
+	defer deadline.Stop()
+	for ui.engagements.loading || ui.engagements.dirty {
+		select {
+		case apply := <-updates:
+			apply()
+		case <-deadline.C:
 			t.Fatal("engagement build did not complete")
 		}
-		time.Sleep(time.Millisecond)
 	}
 }
 
@@ -122,6 +127,7 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 	application := test.NewTempApp(t)
 	window := application.NewWindow("Engagements")
 	ui := newAnalyzerUI(window)
+	updates := queueEngagementUpdates(ui)
 	t.Cleanup(func() { ui.engagements.cancelBuild(); window.Close() })
 	ui.snapshot, _ = engagementTestSnapshot(t)
 	ui.rangeSelect.SetSelected("Last 10 minutes")
@@ -133,7 +139,7 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 		t.Fatal("hidden Engagements eagerly initialized or processed the archive")
 	}
 	ui.tabs.SelectIndex(3)
-	waitForEngagements(t, ui)
+	waitForEngagements(t, ui, updates)
 	if len(viewer.rows) != 3 {
 		t.Fatalf("list followed the graph's narrow range: %+v", viewer.rows)
 	}
@@ -144,7 +150,7 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 	cell := viewer.table.CreateCell().(*engagementCell)
 	viewer.table.UpdateCell(widget.TableCellID{Row: 3, Col: 2}, cell)
 	cell.Tapped(&fyne.PointEvent{})
-	if ui.tabs.SelectedIndex() != 3 || !strings.Contains(viewer.selection.Text, "Veldspar") {
+	if ui.tabs.SelectedIndex() != 3 || !strings.Contains(viewer.selection.Text, "Shooting Phoenix Navy Issue") {
 		t.Fatal("single-click navigated instead of showing the summary")
 	}
 	cell.DoubleTapped(&fyne.PointEvent{})
@@ -170,7 +176,7 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 	ui.locationHistory = locationHistory{1: {{CharacterID: 1, CharacterName: "Pilot B", SystemName: "Jita", SystemID: 30000142, FirstSeen: viewer.rows[0].Start, LastSeen: viewer.rows[0].End}}}
 	viewer.invalidate()
 	ui.refreshEngagements()
-	waitForEngagements(t, ui)
+	waitForEngagements(t, ui, updates)
 	if !strings.Contains(viewer.rows[0].Summary, "Jita") {
 		t.Fatal("location-history refresh left a stale system summary")
 	}
@@ -181,7 +187,7 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 		t.Fatal("hidden refresh retained an obsolete archive or started work")
 	}
 	ui.tabs.SelectIndex(3)
-	waitForEngagements(t, ui)
+	waitForEngagements(t, ui, updates)
 	if len(viewer.rows) != 0 || !strings.Contains(viewer.status.Text, "No combat") {
 		t.Fatal("new logs did not replace the cached list")
 	}
@@ -191,6 +197,7 @@ func TestEngagementBuildCancellationRejectsStaleResults(t *testing.T) {
 	application := test.NewTempApp(t)
 	window := application.NewWindow("Engagement cancellation")
 	ui := newAnalyzerUI(window)
+	updates := queueEngagementUpdates(ui)
 	t.Cleanup(window.Close)
 	window.SetContent(ui.content())
 	ui.snapshot, _ = engagementTestSnapshot(t)
@@ -204,7 +211,7 @@ func TestEngagementBuildCancellationRejectsStaleResults(t *testing.T) {
 	}
 	ui.snapshot = &logSnapshot{}
 	ui.tabs.SelectIndex(3)
-	waitForEngagements(t, ui)
+	waitForEngagements(t, ui, updates)
 	if len(ui.engagements.rows) != 0 {
 		t.Fatal("a stale worker replaced the latest archive")
 	}
