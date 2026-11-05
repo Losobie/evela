@@ -6,10 +6,10 @@ Evela is a Windows desktop app for exploring EVE Online game logs across multipl
 
 1. Download `evela.exe` or `evela.zip` from the [latest release](https://github.com/Losobie/evela/releases/latest). If you download the ZIP, extract it first.
 2. Open `evela.exe`. No installer or database setup is needed.
-3. Evela looks for logs in your Windows Documents folder under `EVE\logs\gamelogs`. To use another folder or combine logs from multiple computers, open **Settings → Log loading…** and add one folder per line.
+3. Evela looks for logs in your Windows Documents folder under `EVE\logs\gamelogs`. To use another folder or combine logs from multiple computers, open **Settings → Log loading** and add one folder per line.
 4. Open **Engagements** to find a session, or choose a time range in **Graphs** to start exploring.
 
-By default, Evela loads files dated within the last **30 days**. To view an older archive, choose **Load all log files** in **Settings → Log loading…**. **All history** in the time controls covers only the files you have loaded.
+By default, Evela loads files dated within the last **30 days**. To view an older archive, choose **Load all log files** in **Settings → Log loading**. **All history** in the time controls covers only the files you have loaded.
 
 **Auto refresh** checks for new and changed logs every ten seconds. Use **Refresh logs** for an immediate refresh and **Details…** to check loading warnings. Large archives take longer on the first import; later launches reuse a local cache.
 
@@ -61,7 +61,7 @@ Use **Add filter** above the graphs to filter across graphs, or inside a graph t
 
 Available choices depend on the graph: characters, character groups, ship type/class and system, plus **Weapon Type**, **Weapon Strength**, **Target**, **Target Type**, attackers and NPCs, logistics types, E-War effects, or ore and mining message types. Use **Group By** on the right of each graph to choose what its colored series represent. Outgoing damage grouping also controls Totals; damage filters update the matching direction in Totals.
 
-Create named fleets or squads through **Settings → Character groups…**. Groups can then be used as filters or combined into graph series. Filters, grouping and display preferences are saved between launches.
+Create named fleets or squads through **Settings → Character groups**. Groups can then be used as filters or combined into graph series. Filters, grouping and display preferences are saved between launches.
 
 ### Inspect events
 
@@ -69,7 +69,7 @@ Create named fleets or squads through **Settings → Character groups…**. Grou
 
 ## Optional ship and location tracking
 
-Log analysis works without signing in. To record your ships and locations, open **Settings → ESI configuration… → Character tokens** and choose **Sign in with EVE Online** for each character.
+Log analysis works without signing in. To record your ships and locations, open **Settings → ESI configuration → Character tokens** and choose **Sign in with EVE Online** for each character.
 
 In **ESI & ships**, use **Refresh ships & locations**, enable automatic refresh, or open **Ship history…** and **Location history…**. Ship filters and grouping use the ship recorded at each event's time. Tracking cannot recover ships used before it began; missing history appears as unknown. Logged jumps can identify systems without ESI.
 
@@ -85,6 +85,8 @@ For missing data, check **Details…**, the log-loading age limit, the selected 
 
 ## Development and licensing
 
+**About → GitHub** opens the project repository. **About → Author** shows Losobie's GitHub profile, the in-game character **Clento Loso**, and the note that Evela was vibe coded using Codex.
+
 Build, test, catalog regeneration, cache maintenance and profiling instructions are in the [developer guide](docs/DEVELOPMENT.md).
 
-Evela's original code and assets use the [MIT License](LICENSE). Dependencies and CCP-derived game catalogs retain their own terms; the catalogs are outside the MIT grant and subject to CCP's EVE-related, non-commercial/non-profit terms. See [third-party notices](THIRD_PARTY_NOTICES.txt) or **Settings → Licenses…**. EVE Online and related trademarks belong to CCP hf.; Evela is not affiliated with or endorsed by CCP. Details are in the [license maintenance guide](licenses/README.md).
+Evela's original code and assets use the [MIT License](LICENSE). Dependencies and CCP-derived game catalogs retain their own terms; the catalogs are outside the MIT grant and subject to CCP's EVE-related, non-commercial/non-profit terms. See [third-party notices](THIRD_PARTY_NOTICES.txt) or **About → Licenses**. EVE Online and related trademarks belong to CCP hf.; Evela is not affiliated with or endorsed by CCP. Details are in the [license maintenance guide](licenses/README.md).

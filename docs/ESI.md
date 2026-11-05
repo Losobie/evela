@@ -6,7 +6,7 @@ ESI is optional. Evela can analyze local logs without a connection; sign in to r
 
 ## Connect characters
 
-1. Open **Settings → ESI configuration…**, or **Configure ESI…** in the **ESI & ships** tab.
+1. Open **Settings → ESI configuration**, or **Configure ESI…** in the **ESI & ships** tab.
 2. The **Application** tab is prefilled with Evela's public Client ID. Keep it unless you want to use your own application.
 3. Open **Character tokens**, choose **Sign in with EVE Online**, and authorize a character in the browser. Repeat for each character. Log characters match by name, ignoring capitalization.
 4. In **ESI & ships**, enable **Refresh every 30 seconds**, or choose **Refresh ships & locations** manually.

@@ -39,7 +39,7 @@ go test -run TestLocalLogs -v
 
 ## Releases and notices
 
-The [release workflow](../.github/workflows/release.yml) runs on pushes to `main`, builds Windows x64, and publishes only after tests pass. Each release uses the tag `build-<full commit SHA>` and attaches `evela.exe`, `evela.zip`, `LICENSE` and `THIRD_PARTY_NOTICES.txt`. The ZIP contains only the executable; notices are also embedded and available through **Settings → Licenses…**.
+The [release workflow](../.github/workflows/release.yml) runs on pushes to `main`, builds Windows x64, and publishes only after tests pass. Each release uses the tag `build-<full commit SHA>` and attaches `evela.exe`, `evela.zip`, `LICENSE` and `THIRD_PARTY_NOTICES.txt`. The ZIP contains only the executable; notices are also embedded and available through **About → Licenses**.
 
 New pushes cancel older runs. A run checks that its commit is still the tip of `main` before publishing, and rerunning that commit updates its existing release. The workflow uses GitHub's built-in token, with no additional secrets. Go module/build caches and the MSYS2 action cache reduce repeat setup work. Cold Fyne/CGO builds can take several minutes; separate download, compile and test steps provide progress and time limits.
 

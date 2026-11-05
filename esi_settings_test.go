@@ -24,7 +24,7 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 		t.Fatal("menu bar not installed")
 	}
 	for _, item := range menu.Items[0].Items {
-		if item.Label == "ESI configuration…" {
+		if item.Label == "ESI configuration" {
 			item.Action()
 		}
 	}

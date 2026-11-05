@@ -41,11 +41,11 @@ func TestEmbeddedLicensesCoverPinnedDependenciesAndAssets(t *testing.T) {
 	}
 }
 
-func TestLicensesAreAccessibleFromSettings(t *testing.T) {
+func TestLicensesAreAccessibleFromAbout(t *testing.T) {
 	ui, _ := newEventsTestUI(t)
 	found := false
-	for _, item := range ui.settingsMenu().Items {
-		if item.Label == "Licenses…" {
+	for _, item := range ui.window.MainMenu().Items[1].Items {
+		if item.Label == "Licenses" {
 			item.Action()
 			found = true
 			break

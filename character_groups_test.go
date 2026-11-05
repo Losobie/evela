@@ -185,7 +185,7 @@ func TestCharacterGroupEditorTransfersAndSessionEligibility(t *testing.T) {
 	window.Resize(fyne.NewSize(1440, 960))
 	window.Show()
 	for _, item := range window.MainMenu().Items[0].Items {
-		if item.Label == "Character groups…" {
+		if item.Label == "Character groups" {
 			item.Action()
 		}
 	}

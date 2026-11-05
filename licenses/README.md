@@ -2,7 +2,7 @@
 
 Evela's original code/assets use the root MIT `LICENSE`. Dependencies, fonts,
 native components and CCP data keep their own terms. `THIRD_PARTY_NOTICES.txt`
-is generated, embedded in the executable, exposed by **Settings → Licenses…**,
+is generated, embedded in the executable, exposed by **About → Licenses**,
 and attached separately to releases. The ZIP continues to contain only the exe.
 
 Run `python tools/licenses/generate.py --check` to verify the committed notice

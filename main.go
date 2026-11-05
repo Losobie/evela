@@ -272,7 +272,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	for _, chart := range []*damageChart{ui.outgoing, ui.incoming, ui.outgoingLogistics, ui.incomingLogistics, ui.ewar, ui.mining} {
 		chart.OnPanRange = ui.applyGraphPanRange
 	}
-	window.SetMainMenu(fyne.NewMainMenu(ui.settingsMenu()))
+	window.SetMainMenu(ui.mainMenu())
 	return ui
 }
 

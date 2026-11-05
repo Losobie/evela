@@ -6,7 +6,7 @@
 
 Evela reads English EVE game logs in UTF-8 or BOM-marked UTF-16. The `Listener` header identifies the character. Client formatting tags are removed and text entities decoded. Every timestamped message is retained for Events, including non-combat messages. Files without a usable Listener header or with read errors are reported in **Details…**.
 
-The default path is the Windows Documents known folder, including redirected/OneDrive Documents, under `EVE\logs\gamelogs`. **Settings → Log loading…** accepts one folder per line, including local paths, mapped drives and UNC shares. Windows must already grant read access. Evela does not modify source logs.
+The default path is the Windows Documents known folder, including redirected/OneDrive Documents, under `EVE\logs\gamelogs`. **Settings → Log loading** accepts one folder per line, including local paths, mapped drives and UNC shares. Windows must already grant read access. Evela does not modify source logs.
 
 The default 30-day file limit uses the `YYYYMMDD_` filename prefix, measured from the current EVE date, with an inclusive cutoff. It does not use modification times or message timestamps. Older files and unrecognized filename dates are skipped before parsing. **Load all log files** includes those files. Graph **All history** does not override this loading limit.
 

@@ -122,7 +122,7 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 		t.Helper()
 		for _, menu := range window.MainMenu().Items {
 			for _, item := range menu.Items {
-				if item.Label == "Log loading…" {
+				if item.Label == "Log loading" {
 					item.Action()
 				}
 			}

@@ -59,7 +59,7 @@ func (ui *analyzerUI) appearanceMenu() *fyne.Menu {
 			application := fyne.CurrentApp()
 			application.Preferences().SetString(appearancePreference, choice)
 			applySavedAppearance(application)
-			ui.window.SetMainMenu(fyne.NewMainMenu(ui.settingsMenu()))
+			ui.window.SetMainMenu(ui.mainMenu())
 		})
 		item.Checked = choice == savedAppearance(fyne.CurrentApp())
 		menu.Items = append(menu.Items, item)
@@ -69,7 +69,11 @@ func (ui *analyzerUI) appearanceMenu() *fyne.Menu {
 func (ui *analyzerUI) settingsMenu() *fyne.Menu {
 	appearance := fyne.NewMenuItem("Theme", nil)
 	appearance.ChildMenu = ui.appearanceMenu()
-	return fyne.NewMenu("Settings", appearance, fyne.NewMenuItem("Log loading…", ui.openLogLoadingSettings), fyne.NewMenuItem("Character groups…", ui.openCharacterGroupSettings), fyne.NewMenuItem("ESI configuration…", ui.openESISettings), fyne.NewMenuItemSeparator(), fyne.NewMenuItem("Licenses…", ui.openLicenses))
+	return fyne.NewMenu("Settings", appearance,
+		fyne.NewMenuItem("Log loading", ui.openLogLoadingSettings),
+		fyne.NewMenuItem("Character groups", ui.openCharacterGroupSettings),
+		fyne.NewMenuItem("ESI configuration", ui.openESISettings),
+	)
 }
 
 type chartPalette struct {
