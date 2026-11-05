@@ -96,11 +96,7 @@ func (ui *analyzerUI) navigateGraphRange(redo bool) {
 func (ui *analyzerUI) graphRangeShortcutsAvailable() bool {
 	// Text entries keep their own undo/redo. Dialogs and popup menus should
 	// not change the graphs behind them when these keys are pressed.
-	editing := false
-	switch ui.window.Canvas().Focused().(type) {
-	case *widget.Entry, *dateTimePicker:
-		editing = true
-	}
+	_, editing := ui.window.Canvas().Focused().(*widget.Entry)
 	return !editing && ui.window.Canvas().Overlays().Top() == nil
 }
 
@@ -111,7 +107,7 @@ func (ui *analyzerUI) panGraphRange(forward bool) {
 	if width <= 0 {
 		return
 	}
-	// UTC fields and logs resolve to whole seconds. Round symmetrically so
+	// Time ranges and logs resolve to whole seconds. Round symmetrically so
 	// opposite programmatic pans return to exactly the same range at any width.
 	shift := (width/4 + time.Second/2).Truncate(time.Second)
 	if shift < time.Second {
@@ -142,7 +138,7 @@ func (ui *analyzerUI) applyGraphRangeAction(start, end time.Time, wheel bool, at
 	if !end.After(start) || (start.Equal(ui.view.Start) && end.Equal(ui.view.End)) {
 		return
 	}
-	before := graphRangeState{Start: ui.view.Start, End: ui.view.End, Preset: ui.rangeSelect.Selected}
+	before := graphRangeState{Start: ui.view.Start, End: ui.view.End, Preset: ui.rangePreset}
 	after := graphRangeState{Start: start, End: end, Preset: "Custom"}
 	if before.End.After(before.Start) {
 		merged := false
@@ -170,13 +166,8 @@ func (ui *analyzerUI) finishGraphWheelBurst() {
 }
 
 func (ui *analyzerUI) restoreGraphRange(state graphRangeState) {
-	ui.settingRange = true
-	ui.start.SetText(state.Start.UTC().Format("2006-01-02 15:04:05"))
-	ui.end.SetText(state.End.UTC().Format("2006-01-02 15:04:05"))
-	ui.settingRange = false
-	ui.end.Validate()
-	ui.rangeSelect.Selected = state.Preset
-	ui.rangeSelect.Refresh()
+	ui.rangeStart, ui.rangeEnd = state.Start.UTC(), state.End.UTC()
+	ui.rangePreset = state.Preset
 	// Restore the exact previous bounds. A restored relative preset resumes
 	// following new log data on the next normal refresh.
 	ui.rebuildViewWithOptions(true)

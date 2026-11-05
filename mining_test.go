@@ -93,7 +93,7 @@ func newMiningTestUI(t *testing.T) *analyzerUI {
 	ui.snapshot = &logSnapshot{SourceFiles: map[string]cachedLog{"mining.txt": {Log: log}}}
 	ui.snapshot.populateLogs()
 	ui.graphAverageWindow = 0
-	ui.rangeSelect.SetSelected("All history")
+	ui.selectQuickRange("All history")
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
 	window.Show()

@@ -29,8 +29,12 @@ type analyzerUI struct {
 	analysis                          *logSnapshot
 	selected                          map[string]bool
 	path                              *widget.Entry
-	start, end                        *dateTimePicker
-	rangeSelect                       *widget.Select
+	rangeStart, rangeEnd              time.Time
+	rangePreset                       string
+	rangeLabel                        *widget.Label
+	quickSelect                       *widget.Button
+	dayDialog                         *dialog.CustomDialog
+	dayCalendar                       *widget.Calendar
 	status, summary, directoryInfo    *widget.Label
 	releaseLink                       *widget.Hyperlink
 	progress                          *widget.ProgressBar
@@ -58,7 +62,6 @@ type analyzerUI struct {
 	engagements                       *engagementsViewer
 	loadRequests                      chan []string
 	stop                              chan struct{}
-	settingRange                      bool
 	ships                             map[string]shipRecord
 	shipHistory                       shipHistory
 	locationHistory                   locationHistory
@@ -111,15 +114,10 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.path.SetText(strings.Join(savedLogFolders(), "\n"))
 	ui.logLookbackDays = savedLogLookbackDays()
 	ui.loadCharacterGroups()
-	ui.start, ui.end = newDateTimePicker(), newDateTimePicker()
-	ui.end.Validator = func(value string) error {
-		if _, err := parseRangeTime(ui.start.Text); err != nil {
-			_, err = parseRangeTime(value)
-			return err
-		}
-		_, _, err := parseRange(ui.start.Text, value)
-		return err
-	}
+	ui.rangeLabel = widget.NewLabel("")
+	ui.rangeLabel.Selectable = true
+	ui.rangeLabel.Wrapping = fyne.TextWrapWord
+	ui.quickSelect = ui.toggleMenuButton("Quick Select", ui.quickRangeMenu, nil)
 	ui.status = widget.NewLabel("Ready to read game logs")
 	ui.status.Wrapping = fyne.TextWrapWord
 	ui.status.Truncation = fyne.TextTruncateEllipsis
@@ -136,17 +134,6 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.refresh = widget.NewButtonWithIcon("Refresh logs", theme.ViewRefreshIcon(), ui.requestLoad)
 	ui.auto = widget.NewCheck("Auto refresh · 10s", nil)
 	ui.auto.SetChecked(true)
-	ui.rangeSelect = widget.NewSelect([]string{"Last 10 minutes", "Last 30 minutes", "Last hour", "Last 24 hours", "Last 7 days", "All history", "Custom"}, func(_ string) { ui.clearGraphRangeHistory(); ui.updateRange() })
-	markCustom := func(string) {
-		if !ui.settingRange {
-			ui.clearGraphRangeHistory()
-			ui.rangeSelect.Selected = "Custom"
-			ui.rangeSelect.Refresh()
-			ui.end.Validate() // A changed start can invalidate or repair the end.
-			ui.rebuildView()
-		}
-	}
-	ui.start.OnChanged, ui.end.OnChanged = markCustom, markCustom
 	ui.characters = container.NewVBox()
 	ui.characterSearch = widget.NewEntry()
 	ui.characterSearch.SetPlaceHolder("Find a character…")
@@ -250,10 +237,7 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	progressSlot := container.NewGridWrap(fyne.NewSize(140, ui.progress.MinSize().Height), ui.progress)
 	details := widget.NewButton("Details…", func() { ui.showRefreshDetails("Log refresh", ui.status.Text+"\n\n"+ui.directoryInfo.Text) })
 	heading := container.NewHBox(layout.NewSpacer(), progressSlot, ui.auto, ui.refresh, details)
-	filters := container.NewGridWithColumns(3,
-		container.NewBorder(widget.NewLabel("Time range"), nil, nil, nil, ui.rangeSelect),
-		container.NewBorder(widget.NewLabel("Start · EVE time"), nil, nil, nil, ui.start),
-		container.NewBorder(widget.NewLabel("End · EVE time · exclusive"), nil, nil, nil, ui.end))
+	filters := container.NewBorder(nil, nil, nil, ui.quickSelect, ui.rangeLabel)
 	controls := container.NewVBox(heading, filters, widget.NewSeparator())
 	filterBar := ui.damageFilterBar()
 	ui.graphCards = map[string]*widget.Card{}

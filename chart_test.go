@@ -171,7 +171,7 @@ func TestGraphDragSynchronizesRangesAndTotals(t *testing.T) {
 			}
 		}
 		chart.DragEnd()
-		if ui.rangeSelect.Selected != "Custom" {
+		if ui.rangePreset != "Custom" {
 			t.Fatal("drag did not select a custom range")
 		}
 		if ui.view.Start.Before(start.Add(19*time.Second)) || ui.view.Start.After(start.Add(21*time.Second)) || ui.view.End.Before(start.Add(79*time.Second)) || ui.view.End.After(start.Add(81*time.Second)) {

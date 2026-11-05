@@ -82,7 +82,7 @@ func TestKeyboardGraphNavigationAndFocus(t *testing.T) {
 		t.Fatal("Escape did not clear series emphasis")
 	}
 	before := graphHistoryState(ui)
-	ui.window.Canvas().Focus(ui.start)
+	focusGraphTestEntry(t, ui)
 	ui.graphNavigationKey(&fyne.KeyEvent{Name: fyne.KeyRight})
 	ui.zoomGraphKeyboard(true)
 	if graphHistoryState(ui) != before {

@@ -26,25 +26,24 @@ func (ui *analyzerUI) loadGraphRangePreference() {
 	if saved.Preset == "Custom UTC range" {
 		saved.Preset = "Custom"
 	}
-	if !slices.Contains(ui.rangeSelect.Options, saved.Preset) {
+	if saved.Preset != "Custom" && !slices.Contains(quickRangeOptions, saved.Preset) {
 		saved = graphRangePreferenceState{Preset: defaultGraphRangePreset}
 	}
-	if saved.Preset == "Custom" {
-		if _, _, err := parseRange(saved.Start, saved.End); err != nil {
+	if saved.Preset == "Custom" || saved.Preset == selectDayOption {
+		start, end, err := parseRange(saved.Start, saved.End)
+		if err != nil {
 			saved = graphRangePreferenceState{Preset: defaultGraphRangePreset}
 		} else {
-			ui.settingRange = true
-			ui.start.SetText(saved.Start)
-			ui.end.SetText(saved.End)
-			ui.settingRange = false
+			ui.rangeStart, ui.rangeEnd = start, end
 		}
 	}
-	ui.rangeSelect.SetSelected(saved.Preset)
+	ui.rangePreset = saved.Preset
+	ui.updateRange()
 }
 
 func (ui *analyzerUI) saveGraphRangePreference() {
-	saved := graphRangePreferenceState{Preset: ui.rangeSelect.Selected}
-	if saved.Preset == "Custom" {
+	saved := graphRangePreferenceState{Preset: ui.rangePreset}
+	if saved.Preset == "Custom" || saved.Preset == selectDayOption {
 		saved.Start = ui.view.Start.UTC().Format("2006-01-02 15:04:05")
 		saved.End = ui.view.End.UTC().Format("2006-01-02 15:04:05")
 	}

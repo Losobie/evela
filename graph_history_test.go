@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 )
 
 // The Fyne test canvas hides its shortcut dispatcher behind an interface.
@@ -51,7 +53,7 @@ func newGraphHistoryTestUI(t *testing.T) (*analyzerUI, time.Time) {
 		{Character: "Pilot B", Points: []damagePoint{{Second: start.Add(30 * time.Minute).Unix(), Outgoing: 300, Incoming: 30}}},
 	}}
 	ui.selected["Pilot A"], ui.selected["Pilot B"] = true, false
-	ui.rangeSelect.SetSelected("Last hour")
+	ui.selectQuickRange("Last hour")
 	applyTestShipRecords(ui, []shipRecord{{CharacterName: "Pilot A", TypeID: 29990, TypeName: "Loki", CheckedAt: time.Now()}, {CharacterName: "Pilot B", TypeID: 29990, TypeName: "Loki", CheckedAt: time.Now()}})
 	ui.groupSelect.SetSelected("Ship history")
 	window.SetContent(ui.content())
@@ -61,17 +63,22 @@ func newGraphHistoryTestUI(t *testing.T) (*analyzerUI, time.Time) {
 }
 
 func graphHistoryState(ui *analyzerUI) graphRangeState {
-	return graphRangeState{Start: ui.view.Start, End: ui.view.End, Preset: ui.rangeSelect.Selected}
+	return graphRangeState{Start: ui.view.Start, End: ui.view.End, Preset: ui.rangePreset}
 }
 
 func assertGraphHistoryState(t *testing.T, ui *analyzerUI, want graphRangeState, totalOut float64) {
 	t.Helper()
-	if !ui.view.Start.Equal(want.Start) || !ui.view.End.Equal(want.End) || ui.rangeSelect.Selected != want.Preset {
+	if !ui.view.Start.Equal(want.Start) || !ui.view.End.Equal(want.End) || ui.rangePreset != want.Preset {
 		t.Fatalf("wrong range: got %+v, want %+v", graphHistoryState(ui), want)
 	}
-	if ui.start.Text != want.Start.UTC().Format("2006-01-02 15:04:05") || ui.end.Text != want.End.UTC().Format("2006-01-02 15:04:05") {
-		t.Fatal("UTC fields did not follow undo/redo")
+	if ui.rangeStart != want.Start || ui.rangeEnd != want.End {
+		t.Fatal("time range state did not follow undo/redo")
 	}
+	expectedLabel := "Time range: " + want.Start.UTC().Format("2006-01-02 15:04:05") + " to " + want.End.UTC().Format("2006-01-02 15:04:05") + " EVE Time"
+	if ui.rangeLabel.Text != expectedLabel {
+		t.Fatal("time range label did not follow undo/redo")
+	}
+
 	for _, chart := range []*damageChart{ui.incoming, ui.outgoing, ui.ewar, ui.incomingLogistics, ui.outgoingLogistics} {
 		if !chart.data.Start.Equal(want.Start) || !chart.data.End.Equal(want.End) {
 			t.Fatal("graph time axis did not follow undo/redo")
@@ -87,6 +94,16 @@ func assertGraphHistoryState(t *testing.T, ui *analyzerUI, want graphRangeState,
 
 func sendGraphShortcut(ui *analyzerUI, shortcut fyne.Shortcut) {
 	ui.window.Canvas().(fyne.Shortcutable).TypedShortcut(shortcut)
+}
+
+func focusGraphTestEntry(t *testing.T, ui *analyzerUI) {
+	t.Helper()
+	entry := widget.NewEntry()
+	ui.window.SetContent(container.NewBorder(entry, nil, nil, nil, ui.window.Content()))
+	ui.window.Canvas().Focus(entry)
+	if ui.window.Canvas().Focused() != entry {
+		t.Fatal("test entry did not receive keyboard focus")
+	}
 }
 
 func dragGraphFraction(chart *damageChart, fromFraction, toFraction float32) {
@@ -164,15 +181,15 @@ func TestGraphRangeRedoBranchesAndManualChanges(t *testing.T) {
 	assertGraphHistoryState(t, ui, first, 90)
 	sendGraphShortcut(ui, &fyne.ShortcutUndo{})
 	assertGraphHistoryState(t, ui, initial, 1180)
-	ui.rangeSelect.SetSelected("All history")
+	ui.selectQuickRange("All history")
 	if len(ui.graphUndo)+len(ui.graphRedo) != 0 {
 		t.Fatal("manual preset change retained stale drag history")
 	}
 	ui.applyGraphRange(start.Add(15*time.Minute), start.Add(54*time.Minute))
 	sendGraphShortcut(ui, &fyne.ShortcutUndo{})
-	ui.start.SetText(start.Add(time.Minute).Format("2006-01-02 15:04:05"))
+	ui.selectDay(start.AddDate(0, 0, 1))
 	if len(ui.graphUndo)+len(ui.graphRedo) != 0 {
-		t.Fatal("manual date edit retained stale drag history")
+		t.Fatal("day selection retained stale drag history")
 	}
 }
 
@@ -181,7 +198,7 @@ func TestGraphRangeShortcutsRespectTextAndDialogs(t *testing.T) {
 	initial := graphHistoryState(ui)
 	ui.applyGraphRange(start.Add(15*time.Minute), start.Add(54*time.Minute))
 	zoom := graphHistoryState(ui)
-	ui.window.Canvas().Focus(ui.start)
+	focusGraphTestEntry(t, ui)
 	sendGraphShortcut(ui, &fyne.ShortcutUndo{})
 	assertGraphHistoryState(t, ui, zoom, 90)
 	ui.window.Canvas().Unfocus()

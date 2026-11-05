@@ -58,7 +58,7 @@ func (ui *analyzerUI) applyGraphPanRange(start, end time.Time, continuing bool) 
 	if !end.After(start) || start.Equal(ui.view.Start) && end.Equal(ui.view.End) {
 		return
 	}
-	before := graphRangeState{Start: ui.view.Start, End: ui.view.End, Preset: ui.rangeSelect.Selected}
+	before := graphRangeState{Start: ui.view.Start, End: ui.view.End, Preset: ui.rangePreset}
 	if continuing && len(ui.graphUndo) > 0 && len(ui.graphRedo) == 0 {
 		last := &ui.graphUndo[len(ui.graphUndo)-1]
 		if !last.wheel && last.After == before {

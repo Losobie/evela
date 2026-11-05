@@ -115,7 +115,7 @@ func TestGraphMouseBackForwardSharesShortcutHistory(t *testing.T) {
 	if len(ui.graphUndo) != 2 || len(ui.graphRedo) != 0 || ui.graphAverageWindow == 0 {
 		t.Fatal("mouse navigation duplicated history or changed graph formatting")
 	}
-	ui.window.Canvas().Focus(ui.start)
+	focusGraphTestEntry(t, ui)
 	send(wmGraphXButtonUp, 1<<16, 0)
 	assertGraphHistoryState(t, ui, second, 30)
 	ui.window.Canvas().Unfocus()

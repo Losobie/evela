@@ -51,7 +51,7 @@ func TestUISelectionRangeAndRendering(t *testing.T) {
 		ui.snapshot.Logs = append(ui.snapshot.Logs, log)
 		ui.selected[name] = true
 	}
-	ui.rangeSelect.SetSelected("Last hour")
+	ui.selectQuickRange("Last hour")
 	ui.rebuildCharacters()
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
@@ -64,10 +64,9 @@ func TestUISelectionRangeAndRendering(t *testing.T) {
 	if len(ui.outgoing.data.Series) != 2 || !strings.Contains(ui.summary.Text, "2 selected") {
 		t.Fatal("selection did not update graphs and totals")
 	}
-	ui.start.SetText("2026-10-17 02:00:00")
-	ui.end.SetText("2026-10-17 02:21:00")
-	if ui.rangeSelect.Selected != "Custom" {
-		t.Fatal("editing dates should preserve a custom range during refresh")
+	ui.applyGraphRange(start, start.Add(21*time.Minute))
+	if ui.rangePreset != "Custom" {
+		t.Fatal("graph navigation should preserve an exact range during refresh")
 	}
 	ui.updateRange()
 	if ui.view.End.Sub(ui.view.Start) != 21*time.Minute {

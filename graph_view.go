@@ -10,18 +10,9 @@ import (
 )
 
 func (ui *analyzerUI) updateRange() {
-	custom := ui.rangeSelect.Selected == "Custom"
-	if custom {
-		ui.start.Enable()
-		ui.end.Enable()
-	} else {
-		start, end := presetRange(ui.rangeSelect.Selected, ui.snapshot)
-		ui.settingRange = true
-		ui.start.SetText(start.Format("2006-01-02 15:04:05"))
-		ui.end.SetText(end.Format("2006-01-02 15:04:05"))
-		ui.settingRange = false
+	if ui.rangePreset != "Custom" && ui.rangePreset != selectDayOption {
+		ui.rangeStart, ui.rangeEnd = presetRange(ui.rangePreset, ui.snapshot)
 	}
-	ui.end.Validate()
 	ui.rebuildView()
 }
 
@@ -34,10 +25,11 @@ func (ui *analyzerUI) rebuildViewWithOptions(refreshOptions bool) {
 	if ui.totals == nil {
 		return
 	}
-	start, end, err := parseRange(strings.TrimSpace(ui.start.Text), strings.TrimSpace(ui.end.Text))
-	if err != nil {
+	start, end := ui.rangeStart, ui.rangeEnd
+	if !end.After(start) {
 		return
 	}
+	ui.updateRangeLabel()
 	if ui.metadata != nil && ui.metadata.snapshot != ui.snapshot {
 		ui.metadata = nil
 		refreshOptions = true

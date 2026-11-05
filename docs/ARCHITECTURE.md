@@ -14,7 +14,7 @@ to build the application: the root `go.mod` resolves the parser locally.
 | Event plots | `event_plot.go`, `logistics.go`, `mining.go`, `ewar.go` | Shared bucketing/averaging, with graph-specific filtering and units |
 | Chart widget | `chart.go`, `chart_data.go`, `chart_render.go` | Widget layout, plot records and drawing |
 | Chart input | `chart_inspection.go`, `chart_drag.go`, `chart_line_hover.go`, `chart_series_selection.go` | Hover, range selection and series emphasis |
-| Timeline navigation | `graph_history.go`, `graph_pan.go`, `graph_wheel.go` | Keyboard/mouse changes and undo/redo |
+| Timeline navigation | `quick_range.go`, `graph_history.go`, `graph_pan.go`, `graph_wheel.go` | Presets, day selection, keyboard/mouse changes and undo/redo |
 | Filters/grouping | `scoped_filters.go`, `scoped_filter_snapshot.go`, `graph_filter_catalog.go`, `event_graph_grouping.go` | Available choices, active predicates and series grouping |
 | Events/engagements | `events.go`, `event_details.go`, `engagements.go`, `engagement_summary.go`, `engagements_ui.go` | Searchable records and activity discovery |
 | ESI/history | `esi*.go`, `ship_history.go`, `location_history.go`, `log_location.go` | Optional SSO, observations and time-based attribution |

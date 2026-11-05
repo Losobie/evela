@@ -130,7 +130,7 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 	updates := queueEngagementUpdates(ui)
 	t.Cleanup(func() { ui.engagements.cancelBuild(); window.Close() })
 	ui.snapshot, _ = engagementTestSnapshot(t)
-	ui.rangeSelect.SetSelected("Last 10 minutes")
+	ui.selectQuickRange("Last 10 minutes")
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
 	window.Show()
@@ -155,7 +155,7 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 	}
 	cell.DoubleTapped(&fyne.PointEvent{})
 	// The engagement lasts 20m58s: 10% rounds outward to 126 seconds per side.
-	if ui.tabs.SelectedIndex() != 0 || !ui.view.Start.Equal(row.Start.Add(-126*time.Second)) || !ui.view.End.Equal(row.End.Add(126*time.Second)) || ui.rangeSelect.Selected != "Custom" {
+	if ui.tabs.SelectedIndex() != 0 || !ui.view.Start.Equal(row.Start.Add(-126*time.Second)) || !ui.view.End.Equal(row.End.Add(126*time.Second)) || ui.rangePreset != "Custom" {
 		t.Fatal("double-click did not open the engagement with 10% context in Graphs")
 	}
 	ui.undoGraphRange()

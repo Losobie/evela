@@ -102,7 +102,7 @@ func TestRefreshPreservesListScrollPositions(t *testing.T) {
 		ui.snapshot.Logs = append(ui.snapshot.Logs, &parsedLog{Character: name, Points: []damagePoint{{Second: start.Unix(), Outgoing: 100}}})
 		records = append(records, shipRecord{CharacterID: int64(index + 1), CharacterName: name, TypeID: 1, TypeName: "Loki", CheckedAt: time.Now()})
 	}
-	ui.rangeSelect.SetSelected("All history")
+	ui.selectQuickRange("All history")
 	ui.updateRange()
 	applyTestShipRecords(ui, records)
 	characters := container.NewVScroll(ui.characters)

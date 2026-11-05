@@ -40,7 +40,7 @@ Select a row to read its full summary. **Double-click a row**, or highlight it w
 
 Outgoing and incoming damage are shown initially. Open **Options** to show logistics, incoming E-War or mining, or hide graphs you do not need.
 
-Choose a preset such as **30 minutes** or **All history**, or enter a **Custom** range using the date/time fields. Relative presets end at the latest logged activity, so they also work with old logs. Custom range ends are exclusive; use the next day's date to include a whole day.
+Use **Quick Select** to choose a recent time span, **Select day** to pick a day from a calendar, or **All history**. Recent time spans end at the latest logged activity, so they also work with old logs. A selected day runs from midnight to the following midnight in EVE Time. The **Time range** label shows the current bounds and updates as you zoom or pan.
 
 | Action | Result |
 | --- | --- |
