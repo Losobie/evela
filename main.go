@@ -59,6 +59,7 @@ type analyzerUI struct {
 	graphsEmpty                       fyne.CanvasObject
 	totals                            *widget.Table
 	events                            *eventsViewer
+	engagements                       *engagementsViewer
 	loadRequests                      chan []string
 	stop                              chan struct{}
 	settingRange                      bool
@@ -125,6 +126,7 @@ func main() {
 	window.Resize(fyne.NewSize(1440, 960))
 	window.SetOnClosed(func() {
 		ui.saveWindowGeometry()
+		ui.engagements.cancelBuild()
 		close(ui.stop)
 	})
 	go ui.watch()
@@ -260,6 +262,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 		ui.totals.SetColumnWidth(col, width)
 	}
 	ui.events = newEventsViewer(window)
+	ui.engagements = newEngagementsViewer(ui.openEngagement)
 	ui.loadGraphRangePreference()
 	ui.initGraphRangeShortcuts()
 	for _, chart := range []*damageChart{ui.outgoing, ui.incoming, ui.outgoingLogistics, ui.incomingLogistics, ui.ewar, ui.mining} {
@@ -298,11 +301,19 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.")
 	totalsNote.Wrapping = fyne.TextWrapWord
 	totals := container.NewBorder(totalsNote, nil, nil, nil, ui.totals)
-	tabs := container.NewAppTabs(container.NewTabItem("Graphs", graphContent), container.NewTabItem("Totals", totals), container.NewTabItem("Events", ui.events.content), container.NewTabItem("ESI & ships", ui.esiContent()))
+	tabs := container.NewAppTabs(container.NewTabItem("Graphs", graphContent), container.NewTabItem("Totals", totals), container.NewTabItem("Events", ui.events.content), container.NewTabItem("Engagements", ui.engagements.content), container.NewTabItem("ESI & ships", ui.esiContent()))
 	ui.tabs = tabs
 	tabs.OnSelected = func(item *container.TabItem) {
 		if item.Content == ui.events.content {
 			ui.refreshEvents()
+		}
+		if item.Content == ui.engagements.content {
+			ui.refreshEngagements()
+		}
+	}
+	tabs.OnUnselected = func(item *container.TabItem) {
+		if item.Content == ui.engagements.content {
+			ui.engagements.cancelBuild()
 		}
 	}
 	footer := container.NewVBox(widget.NewSeparator(), ui.summary)
@@ -626,4 +637,5 @@ func (ui *analyzerUI) renderSelection() {
 	ui.refreshLogisticsTypeControls()
 	ui.refreshMiningControls()
 	ui.refreshEvents()
+	ui.refreshEngagements()
 }

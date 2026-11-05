@@ -113,7 +113,7 @@ func TestUISelectionRangeAndRendering(t *testing.T) {
 		if err := png.Encode(file, window.Canvas().Capture()); err != nil {
 			t.Fatal(err)
 		}
-		ui.tabs.SelectIndex(3)
+		ui.tabs.SelectIndex(4)
 		esiFile, err := os.Create(path + ".esi.png")
 		if err != nil {
 			t.Fatal(err)

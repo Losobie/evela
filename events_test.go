@@ -82,7 +82,7 @@ func TestEventsTabRangeSortingAndMessageSearch(t *testing.T) {
 	for _, tab := range ui.tabs.Items {
 		tabs = append(tabs, tab.Text)
 	}
-	if !reflect.DeepEqual(tabs, []string{"Graphs", "Totals", "Events", "ESI & ships"}) {
+	if !reflect.DeepEqual(tabs, []string{"Graphs", "Totals", "Events", "Engagements", "ESI & ships"}) {
 		t.Fatalf("incorrect tab order: %v", tabs)
 	}
 	viewer := ui.events

@@ -130,6 +130,7 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 				ui.logLocations = logLocationHistory{}
 			}
 			ui.logLocations.merge(logLocations)
+			ui.engagements.invalidate()
 			ui.applyShipRecords(records)
 			ui.setESIStatus(message)
 		})

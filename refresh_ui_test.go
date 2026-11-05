@@ -67,7 +67,7 @@ func TestRefreshStatusKeepsLayoutStable(t *testing.T) {
 		}
 	}
 
-	ui.tabs.SelectIndex(3)
+	ui.tabs.SelectIndex(4)
 	ui.setESIStatus("Ships updated")
 	objects := []fyne.CanvasObject{ui.esiConnections, ui.shipRefresh, ui.esiStatus}
 	before := measure(objects...)
