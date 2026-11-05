@@ -95,6 +95,8 @@ Graphs use the in-memory query engine. SQLite avoids repeat parsing across launc
 
 ## Interaction performance and profiling
 
+Graph accessibility colors are applied at rendering time in `color_vision.go`; the stable series identities and query data stay unchanged. Protanopia, deuteranopia and tritanopia modes use the full-severity linear-sRGB matrices from [Machado, Oliveira and Fernandes (2009)](https://www.inf.ufrgs.br/~oliveira/pubs_files/CVD_Simulation/CVD_Simulation.html) to estimate lost color information, then redistribute that difference into the other channels. This is a correction, rather than displaying the simulation itself. Monochrome mode maps hue to gray levels. Contrast is adjusted for the active light/dark plot background. These are original implementations using numerical model coefficients, with no new runtime dependency. Tests cover representative confusable pairs, contrast, menu persistence and matching line/hover/swatch colors. Simulations help evaluate the choices; user feedback remains important for individual vision differences.
+
 Events refresh only while their tab is visible. Engagements are built on demand in the background, cached across navigation and invalidated by log or history changes; leaving the tab cancels unfinished work. Graph updates share ship-history indexes and timestamp metadata, reuse filter-option keys and retain unchanged record slices. New snapshots and metadata refreshes invalidate these caches.
 
 To profile a local interactive session, enable the opt-in loopback pprof server before launching Evela. Normal launches start no diagnostic server.

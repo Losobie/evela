@@ -64,6 +64,9 @@ func (ui *analyzerUI) appearanceMenu() *fyne.Menu {
 		item.Checked = choice == savedAppearance(fyne.CurrentApp())
 		menu.Items = append(menu.Items, item)
 	}
+	colors := fyne.NewMenuItem("Graph colors", nil)
+	colors.ChildMenu = ui.colorVisionMenu()
+	menu.Items = append(menu.Items, fyne.NewMenuItemSeparator(), colors)
 	return menu
 }
 func (ui *analyzerUI) settingsMenu() *fyne.Menu {
@@ -78,6 +81,7 @@ func (ui *analyzerUI) settingsMenu() *fyne.Menu {
 
 type chartPalette struct {
 	light                              bool
+	vision                             string
 	background, grid, text, cursor     color.NRGBA
 	selection, selectionStroke, marker color.NRGBA
 }
@@ -95,18 +99,27 @@ func currentChartPalette() chartPalette {
 	}
 	background := application.Settings().Theme().Color(theme.ColorNameBackground, application.Settings().ThemeVariant())
 	r, g, b, _ := background.RGBA()
-	if (uint64(r)*299+uint64(g)*587+uint64(b)*114)/1000 < 32768 {
-		return palette
+	if (uint64(r)*299+uint64(g)*587+uint64(b)*114)/1000 >= 32768 {
+		palette = chartPalette{
+			light:      true,
+			background: color.NRGBA{255, 255, 255, 255}, grid: color.NRGBA{222, 229, 238, 255},
+			text: color.NRGBA{49, 61, 77, 255}, cursor: color.NRGBA{83, 100, 120, 200},
+			selection: color.NRGBA{0, 113, 159, 40}, selectionStroke: color.NRGBA{0, 113, 159, 220},
+			marker: color.NRGBA{198, 32, 38, 255},
+		}
 	}
-	return chartPalette{
-		light:      true,
-		background: color.NRGBA{255, 255, 255, 255}, grid: color.NRGBA{222, 229, 238, 255},
-		text: color.NRGBA{49, 61, 77, 255}, cursor: color.NRGBA{83, 100, 120, 200},
-		selection: color.NRGBA{0, 113, 159, 40}, selectionStroke: color.NRGBA{0, 113, 159, 220},
-		marker: color.NRGBA{198, 32, 38, 255},
+	palette.vision = savedColorVision(application)
+	if palette.vision != visionDefault {
+		palette.marker = palette.accessibleColor(palette.marker)
+		palette.selectionStroke = palette.accessibleColor(palette.selectionStroke)
+		palette.selection = color.NRGBA{palette.selectionStroke.R, palette.selectionStroke.G, palette.selectionStroke.B, palette.selection.A}
 	}
+	return palette
 }
 func (palette chartPalette) seriesColor(ink color.NRGBA) color.NRGBA {
+	if palette.vision != "" && palette.vision != visionDefault {
+		return palette.accessibleColor(ink)
+	}
 	if !palette.light {
 		return ink
 	}

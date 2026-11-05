@@ -63,7 +63,7 @@ func TestAppearanceMenuUpdatesChartsAndPersists(t *testing.T) {
 	baseColor := before.Series[0].Color
 	for _, choice := range []string{appearanceLight, appearanceDark, appearanceSystem} {
 		menu := ui.window.MainMenu().Items[0].Items[0].ChildMenu
-		if menu.Label != "Theme" || len(menu.Items) != 3 {
+		if menu.Label != "Theme" || len(menu.Items) != 5 {
 			t.Fatal("Settings must offer System, Light and Dark themes")
 		}
 		for _, item := range menu.Items {
@@ -78,7 +78,7 @@ func TestAppearanceMenuUpdatesChartsAndPersists(t *testing.T) {
 		if menus := ui.window.MainMenu().Items; len(menus) != 2 || menus[0].Label != "Settings" || menus[1].Label != "About" {
 			t.Fatal("switching themes must preserve Settings and About menus")
 		}
-		for _, item := range ui.window.MainMenu().Items[0].Items[0].ChildMenu.Items {
+		for _, item := range ui.window.MainMenu().Items[0].Items[0].ChildMenu.Items[:3] {
 			if item.Checked != (item.Label == choice) {
 				t.Fatal("theme menu checkmarks do not reflect the selection")
 			}

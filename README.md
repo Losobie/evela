@@ -79,6 +79,8 @@ See [ESI setup and connection help](docs/ESI.md) for custom applications, permis
 
 **Settings → Theme** offers **System**, **Light** and **Dark**. The default follows Windows, and your choice is saved.
 
+Under **Settings → Theme → Graph colors**, choose **Protanopia (red-blind)**, **Deuteranopia (green-blind)**, **Tritanopia (blue-blind)** or **Achromatopsia (monochrome)** to adjust graph colors. The choice applies to lines, event points, hover readouts, character swatches and structure markers, works with either light or dark mode, and is saved between launches. Choose **Default** to restore the original colors. Hover over a line to identify it by name in crowded graphs.
+
 Evela checks GitHub for a newer release at startup and every six hours while open. When one is available, **New release available** appears on the right of the bottom information panel. Click it to open that release's page and download the update. Checks run in the background; unavailable connections leave the app usable.
 
 Evela reads English game logs without modifying or uploading them. SQLite caching is built in. Optional ESI connections send authorization and ship/location requests to CCP; saved tokens are encrypted for your Windows user.
