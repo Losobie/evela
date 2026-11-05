@@ -20,6 +20,12 @@ func TestNewerReleaseComparison(t *testing.T) {
 		wantCompare, wantNew  bool
 	}{
 		{"newer", "build-" + latest, `{"status":"ahead","ahead_by":2}`, false, false, true, true},
+		{"versioned newer", "v0.1.81", `{"status":"ahead","ahead_by":2}`, false, false, true, true},
+		{"versioned same", "v0.1.81", `{"status":"identical","ahead_by":0}`, false, false, true, false},
+		{"higher version older commit", "v1.0.0", `{"status":"behind","ahead_by":0}`, false, false, true, false},
+		{"versioned diverged", "v0.1.81", `{"status":"diverged","ahead_by":2}`, false, false, true, false},
+		{"versioned draft", "v0.1.81", "", true, false, false, false},
+		{"versioned prerelease", "v0.1.81", "", false, true, false, false},
 		{"same", "build-" + current, "", false, false, false, false},
 		{"same uppercase", "build-" + strings.ToUpper(current), "", false, false, false, false},
 		{"older republished", "build-" + latest, `{"status":"behind","ahead_by":0}`, false, false, true, false},
@@ -29,6 +35,8 @@ func TestNewerReleaseComparison(t *testing.T) {
 		{"draft", "build-" + latest, "", true, false, false, false},
 		{"prerelease", "build-" + latest, "", false, true, false, false},
 		{"unrecognized tag", "v1.0", "", false, false, false, false},
+		{"leading zero version", "v0.1.081", "", false, false, false, false},
+		{"unsafe tag", "v0.1.81/../../other", "", false, false, false, false},
 		{"invalid revision", "build-" + strings.Repeat("z", 40), "", false, false, false, false},
 	} {
 		t.Run(item.name, func(t *testing.T) {
@@ -42,7 +50,11 @@ func TestNewerReleaseComparison(t *testing.T) {
 					return
 				}
 				comparisons.Add(1)
-				if r.URL.Path != "/compare/"+current+"..."+latest || r.URL.Query().Get("per_page") != "1" {
+				target := latest
+				if strings.HasPrefix(item.tag, "v") {
+					target = item.tag
+				}
+				if r.URL.Path != "/compare/"+current+"..."+target || r.URL.Query().Get("per_page") != "1" {
 					t.Errorf("unexpected comparison: %s", r.URL)
 				}
 				fmt.Fprint(w, item.comparison)
@@ -59,7 +71,7 @@ func TestNewerReleaseComparison(t *testing.T) {
 			if (link != nil) != item.wantNew || comparisons.Load() != wantComparisons {
 				t.Fatalf("link=%v comparisons=%d; want new=%v comparisons=%d", link, comparisons.Load(), item.wantNew, wantComparisons)
 			}
-			if link != nil && link.String() != "https://github.com/Losobie/evela/releases/tag/build-"+latest {
+			if link != nil && link.String() != "https://github.com/Losobie/evela/releases/tag/"+item.tag {
 				t.Fatalf("unexpected release URL: %s", link)
 			}
 		})

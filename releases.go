@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -17,6 +18,8 @@ import (
 
 const releaseAPI = "https://api.github.com/repos/Losobie/evela"
 const releaseCheckInterval = 6 * time.Hour
+
+var releaseVersionTag = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 
 func validBuildRevision(revision string) bool {
 	if len(revision) != 40 {
@@ -51,8 +54,16 @@ func newerRelease(ctx context.Context, client *http.Client, api, revision string
 	if err := releaseJSON(ctx, client, api+"/releases/latest", &release); err != nil {
 		return nil, err
 	}
-	latest, tagged := strings.CutPrefix(release.TagName, "build-")
-	if !tagged || !validBuildRevision(latest) || release.Draft || release.Prerelease || strings.EqualFold(latest, revision) {
+	if release.Draft || release.Prerelease {
+		return nil, nil
+	}
+	latest := release.TagName
+	if legacy, tagged := strings.CutPrefix(latest, "build-"); tagged {
+		if !validBuildRevision(legacy) || strings.EqualFold(legacy, revision) {
+			return nil, nil
+		}
+		latest = legacy
+	} else if !releaseVersionTag.MatchString(latest) {
 		return nil, nil
 	}
 	var comparison struct {
