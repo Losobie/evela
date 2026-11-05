@@ -55,6 +55,10 @@ English EVE numeric `from` / `to` combat messages are supported, including their
 
 Damage messages with a trailing deflection annotation, such as `Glances Off - Glances Off (60 deflected)`, retain the original weapon and hit strength. Deflection is stored separately from the leading damage amount and is neither added to nor subtracted from damage totals. Optional target locations, corporation names, and corporation tickers are extracted separately from the target name and hull. For example, `Orbital Skyhook (R3-K7K IX) [Unfinished Symphony][MOVMT](Orbital Skyhook)` has target **Orbital Skyhook**, location **R3-K7K IX**, corporation **Unfinished Symphony**, ticker **MOVMT**, and target type **Orbital Skyhook**. Fields absent from the log remain empty. The parser cache version is updated so eligible existing logs are reprocessed automatically.
 
+Logistics targets retain location, corporation and ticker metadata alongside their name and type. Customs office messages such as `472 remote shield boosted to Customs Office (R3-K7K IX) [Way So Mad] - Large Remote Shield Booster II` yield target/type **Customs Office**, location **R3-K7K IX** and corporation **Way So Mad**. The module suffix is excluded from the target. Existing eligible logs are reprocessed automatically after this parser update.
+
+Selecting a row in **Events** opens its original message and **Extracted fields**. These show the applicable damage, logistics, E-War, mining, travel or structure fields, including target metadata, weapons, hit strength and deflection when present. Missing optional fields are omitted; zero amounts are retained. Details are extracted on demand using the log parser, independently of graph filters.
+
 ## Current ships through ESI
 
 1. Open **Settings → ESI configuration…** from the menu bar. The **Application** tab contains the public Client ID, callback port, and a live callback URL preview with a copy button. The Client ID defaults to `b680ade5175c4385a1e800b4bedb70bb`. The same dialog is available through **Configure ESI…** in the **ESI & ships** tab.

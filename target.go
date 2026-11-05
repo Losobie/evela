@@ -1,6 +1,9 @@
 package main
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 const filterTarget = "Target"
 const filterTargetType = "Target Type"
@@ -11,11 +14,25 @@ type combatEntity struct {
 	Name, Type, Location, Corporation, CorporationTicker string
 }
 
+// Customs offices identify their type by name and put a planet / location in
+// parentheses, followed by the owner's full corporation name (not a ticker).
+var locatedCustomsOffice = regexp.MustCompile(`(?i)^(Customs Office(?: Gantry)?) \(([^()]+)\)(?:\s*\[([^\[\]]+)\])?(?:\[([^\[\]]+)\])?(?:\((Customs Office(?: Gantry)?)\))?$`)
+
 // Read optional metadata from the right, retaining spaces and dashes in names.
 // The caller removes weapon/hit-quality suffixes before parsing the entity.
 func parseCombatEntity(detail string) combatEntity {
 	entity := combatEntity{}
 	name := strings.TrimSpace(detail)
+	if len(name) >= len("Customs Office ") && strings.EqualFold(name[:len("Customs Office ")], "Customs Office ") {
+		if match := locatedCustomsOffice.FindStringSubmatch(name); match != nil {
+			typeName := "Customs Office"
+			if strings.EqualFold(match[1], "Customs Office Gantry") {
+				typeName += " Gantry"
+			}
+			return combatEntity{Name: typeName, Type: typeName, Location: strings.Clone(strings.TrimSpace(match[2])),
+				Corporation: strings.Clone(strings.TrimSpace(match[3])), CorporationTicker: strings.Clone(strings.TrimSpace(match[4]))}
+		}
+	}
 	if strings.HasSuffix(name, ")") {
 		if bracket := strings.LastIndexByte(name, '('); bracket >= 0 {
 			entity.Type = strings.TrimSpace(name[bracket+1 : len(name)-1])
@@ -46,12 +63,19 @@ func parseCombatEntity(detail string) combatEntity {
 }
 
 func loggedTarget(detail string) (string, string) {
-	// Remote-assistance messages may append a module after the entity suffix.
-	if i := strings.LastIndex(detail, ") - "); i >= 0 {
-		detail = detail[:i+1]
-	}
-	entity := parseCombatEntity(detail)
+	entity := logisticsTarget(detail)
 	return entity.Name, entity.Type
+}
+
+func logisticsTarget(detail string) combatEntity {
+	// Remote-assistance messages may append a module after the entity suffix.
+	if i := strings.LastIndex(detail, " - "); i >= 0 {
+		entity := strings.TrimSpace(detail[:i])
+		if strings.HasSuffix(entity, ")") || strings.HasSuffix(entity, "]") {
+			detail = entity
+		}
+	}
+	return parseCombatEntity(detail)
 }
 
 func damageTarget(detail, weapon, strength string) combatEntity {

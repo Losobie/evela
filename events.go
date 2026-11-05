@@ -24,6 +24,7 @@ type logEvent struct {
 type eventRow struct {
 	logEvent
 	Character string
+	logIndex  int
 }
 
 type eventsViewer struct {
@@ -110,14 +111,14 @@ func newEventsViewer(window fyne.Window) *eventsViewer {
 			return
 		}
 		event := viewer.rows[id.Row-1]
-		text := widget.NewLabel(time.Unix(event.Second, 0).UTC().Format("2006-01-02 15:04:05") + " EVE time\nCharacter: " + event.Character + "\n\n" + event.Message)
+		text := widget.NewLabel(viewer.eventDetails(event))
 		text.Wrapping, text.Selectable = fyne.TextWrapWord, true
 		details := dialog.NewCustom("Log event", "Close", container.NewVScroll(text), viewer.window)
-		details.Resize(fyne.NewSize(900, 320))
+		details.Resize(fyne.NewSize(900, 520))
 		details.Show()
 	}
 	search := container.NewBorder(nil, nil, widget.NewLabel("Message search"), viewer.regex, viewer.search)
-	note := widget.NewLabel("Characters and Character Group filters · EVE time · Click Timestamp to reverse order; select a row to read its full message.")
+	note := widget.NewLabel("Characters and Character Group filters · EVE time · Click Timestamp to reverse order; select a row to read its message and extracted fields.")
 	note.Truncation = fyne.TextTruncateEllipsis
 	viewer.content = container.NewBorder(container.NewVBox(search, viewer.status), note, nil, nil, viewer.table)
 	viewer.applySearch()
@@ -137,14 +138,14 @@ func (viewer *eventsViewer) setRange(snapshot *logSnapshot, start, end time.Time
 		clear(viewer.rangeEvents)
 		viewer.rangeEvents = viewer.rangeEvents[:0]
 		first, last := start.Unix(), end.Unix()
-		for _, log := range snapshot.Logs {
+		for logIndex, log := range snapshot.Logs {
 			// Parsed events are sorted once, so broad archives need only a binary
 			// search and a copy of records belonging to the visible time window.
 			left := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= first })
 			right := sort.Search(len(log.Events), func(i int) bool { return log.Events[i].Second >= last })
 			if left < right {
 				for _, event := range log.Events[left:right] {
-					viewer.rangeEvents = append(viewer.rangeEvents, eventRow{logEvent: event, Character: log.Character})
+					viewer.rangeEvents = append(viewer.rangeEvents, eventRow{logEvent: event, Character: log.Character, logIndex: logIndex})
 				}
 			}
 		}

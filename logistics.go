@@ -17,12 +17,13 @@ import (
 var logisticsTypeOptions = []damageFilterOption{{Key: "Shield repair", Label: "Shield"}, {Key: "Armor repair", Label: "Armor"}, {Key: "Capacitor transfer", Label: "Capacitor"}}
 
 type logisticsEvent struct {
-	Second             int64
-	Kind               string
-	Amount             float64
-	Incoming           bool
-	Message            string
-	Target, TargetType string
+	Second                                                     int64
+	Kind                                                       string
+	Amount                                                     float64
+	Incoming                                                   bool
+	Message                                                    string
+	Target, TargetType                                         string
+	TargetLocation, TargetCorporation, TargetCorporationTicker string
 }
 
 // Incoming remote assistance uses "by" (also accept explicit "from");
@@ -48,7 +49,9 @@ func parseLogistics(message string, second int64) (logisticsEvent, bool) {
 	}
 	event := logisticsEvent{Second: second, Kind: kind, Amount: amount, Incoming: !strings.EqualFold(match[3], "to"), Message: strings.Clone(message)}
 	if !event.Incoming {
-		event.Target, event.TargetType = loggedTarget(match[4])
+		entity := logisticsTarget(match[4])
+		event.Target, event.TargetType, event.TargetLocation = entity.Name, entity.Type, entity.Location
+		event.TargetCorporation, event.TargetCorporationTicker = entity.Corporation, entity.CorporationTicker
 	}
 	return event, true
 }
