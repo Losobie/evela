@@ -154,8 +154,9 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 		t.Fatal("single-click navigated instead of showing the summary")
 	}
 	cell.DoubleTapped(&fyne.PointEvent{})
-	if ui.tabs.SelectedIndex() != 0 || !ui.view.Start.Equal(row.Start) || !ui.view.End.Equal(row.End) || ui.rangeSelect.Selected != "Custom" {
-		t.Fatal("double-click did not open the engagement's complete range in Graphs")
+	// The engagement lasts 20m58s: 10% rounds outward to 126 seconds per side.
+	if ui.tabs.SelectedIndex() != 0 || !ui.view.Start.Equal(row.Start.Add(-126*time.Second)) || !ui.view.End.Equal(row.End.Add(126*time.Second)) || ui.rangeSelect.Selected != "Custom" {
+		t.Fatal("double-click did not open the engagement with 10% context in Graphs")
 	}
 	ui.undoGraphRange()
 	if graphHistoryState(ui) != before {
@@ -190,6 +191,17 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 	waitForEngagements(t, ui, updates)
 	if len(viewer.rows) != 0 || !strings.Contains(viewer.status.Text, "No combat") {
 		t.Fatal("new logs did not replace the cached list")
+	}
+}
+
+func TestOpenEngagementPaddingRoundsOutward(t *testing.T) {
+	ui, start := newGraphHistoryTestUI(t)
+	for _, tc := range []struct{ seconds, padding int }{{600, 60}, {77, 8}, {1, 1}} {
+		row := engagement{Start: start, End: start.Add(time.Duration(tc.seconds) * time.Second)}
+		ui.openEngagement(row)
+		if !ui.view.Start.Equal(start.Add(-time.Duration(tc.padding)*time.Second)) || !ui.view.End.Equal(row.End.Add(time.Duration(tc.padding)*time.Second)) {
+			t.Fatalf("%ds engagement: range %s to %s, want %ds context on each side", tc.seconds, ui.view.Start, ui.view.End, tc.padding)
+		}
 	}
 }
 

@@ -142,7 +142,13 @@ func (ui *analyzerUI) refreshEngagements() {
 }
 
 func (ui *analyzerUI) openEngagement(row engagement) {
-	ui.applyGraphRange(row.Start, row.End)
+	if !row.End.After(row.Start) {
+		return
+	}
+	// Graph bounds use whole seconds. Round padding outward so both sides get
+	// context, even for engagements lasting only a few seconds.
+	padding := (row.End.Sub(row.Start)/10 + time.Second - 1).Truncate(time.Second)
+	ui.applyGraphRange(row.Start.Add(-padding), row.End.Add(padding))
 	ui.tabs.SelectIndex(0)
 }
 
