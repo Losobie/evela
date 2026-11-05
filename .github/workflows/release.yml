@@ -55,9 +55,20 @@ jobs:
         timeout-minutes: 5
         run: go mod download -x
 
+      - name: Verify dependency license notices
+        run: |
+          python tools/licenses/generate.py --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Build executable and ZIP
         timeout-minutes: 15
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
         run: |
+          # Bundle the notices from the compiler/runtime actually used here.
+          $nativeLicenses = Join-Path $env:MSYS2_LOCATION 'mingw64\share\licenses'
+          python tools/licenses/generate.py --native-root $nativeLicenses
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # A cold Fyne/CGO build takes time; -v shows package progress.
           go build -v -ldflags="-H=windowsgui" -o evela.exe .
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -84,11 +95,11 @@ jobs:
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
             # Rerunning the same commit updates its existing release.
-            gh release upload $tag evela.exe evela.zip --repo $env:GITHUB_REPOSITORY --clobber
+            gh release upload $tag evela.exe evela.zip LICENSE THIRD_PARTY_NOTICES.txt --repo $env:GITHUB_REPOSITORY --clobber
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --latest
           } else {
-            gh release create $tag evela.exe evela.zip `
+            gh release create $tag evela.exe evela.zip LICENSE THIRD_PARTY_NOTICES.txt `
               --repo $env:GITHUB_REPOSITORY `
               --target $env:GITHUB_SHA `
               --title "Evela $shortSha" `

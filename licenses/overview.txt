@@ -1,0 +1,67 @@
+Third-party licenses and game data
+
+Evela's original code is licensed under the MIT License in LICENSE.
+The third-party components listed here retain their respective licenses and
+copyrights. They are not relicensed under Evela's MIT License.
+
+This notice includes all direct and indirect requirements pinned in go.mod,
+including optional-platform and test dependencies. Not every component is
+linked into every build. It also includes the Go runtime, bundled fonts,
+native graphics/header notices, Unicode data, SQLite, and Windows runtime support.
+Upstream files are reproduced below with their original notices and terms.
+The Go dependencies, fonts and native code are used without Evela-specific
+source modifications. CCP catalog processing is described separately below.
+
+EVE Online game data
+--------------------
+Copyright CCP hf. All rights reserved. EVE, EVE Online, CCP and related
+logos/images are CCP hf. trademarks or registered trademarks.
+Evela is an independent application, not affiliated with or endorsed by CCP.
+
+npc_data.json.gz, ore_data.json and hull_data.json contain selected names,
+identifiers and groups derived from CCP's Static Data Export. These materials
+remain CCP game data; Evela's MIT License does not grant rights to CCP data,
+trademarks, services or other licensed materials. Use and redistribution of
+those materials remain subject to CCP's Developer License Agreement, including
+its EVE-related purpose, non-commercial/non-profit terms and retained notices.
+Downstream users must obtain and maintain their own applicable CCP permissions;
+the MIT permission for Evela's code does not replace those permissions.
+
+Developer License Agreement: https://developers.eveonline.com/license-agreement
+Static Data Export: https://developers.eveonline.com/docs/services/static-data/
+Bundled snapshot: SDE 3607705, released 2026-10-12.
+
+Fonts and native components
+--------------------------
+Fyne's fonts remain under their supplied font licenses (including SIL OFL 1.1
+and the DejaVu/Bitstream terms). No font is relicensed under MIT or sold alone.
+
+GLFW's bundled Wine DirectInput/XInput headers are covered by LGPL 2.1 or later.
+Only interface definitions, constants and small macros are used; no Wine
+library is linked. LGPL 2.1 section 5 permits unrestricted use of object files
+that use only these header constructs. Corresponding header source is available
+in the exact GLFW module version recorded below. Rebuilds that add substantial
+inline implementation or link an LGPL library require a fresh license review.
+
+Windows builds use MinGW-w64 runtime/header components. Any incorporated libgcc
+runtime code is covered by GPLv3 with the GCC Runtime Library Exception 3.1;
+that exception permits eligible compiled combinations under terms of your choice.
+The GCC compiler itself, libstdc++, libquadmath, and unrelated MSYS2 packages
+are not distributed with Evela. The Windows build links to operating-system
+graphics/runtime DLLs, which are not supplied by this project.
+
+OpenGL binding headers retain their Khronos/SGI notices, including references
+to the Open Publication License and SGI Free Software License B. These materials
+are included with the original notices; Evela does not modify the bindings.
+
+Updating and redistribution
+---------------------------
+Retain LICENSE and these notices when redistributing the application or source.
+Both texts are embedded in the executable and viewable through Settings > Licenses.
+Release downloads also provide the texts separately; evela.zip contains only
+the executable, including its embedded notices.
+
+After dependency, asset or compiler changes, review the applicable upstream terms
+and regenerate with: python tools/licenses/generate.py
+The release workflow checks for stale module notices before building and refreshes
+native-runtime notices from the compiler installation used for that release.

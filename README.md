@@ -2,6 +2,16 @@
 
 A native Go/Fyne desktop analyzer for EVE Online game logs. It reads every character from the logs' `Listener` headers and graphs incoming and outgoing damage separately, with a consistent color per character.
 
+## License
+
+Evela's original code and assets are licensed under the [MIT License](LICENSE), copyright 2026 Losobie and Evela contributors. Third-party code, bundled fonts, native runtime components and game data retain their own licenses; see [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and the [license maintenance guide](licenses/README.md).
+
+The notices are embedded in `evela.exe` and accessible through **Settings → Licenses…**, including a **Copy all licenses** button. Releases also attach `LICENSE` and `THIRD_PARTY_NOTICES.txt` separately, while `evela.zip` continues to contain only the executable. Preserve these notices when redistributing source or binaries.
+
+The CCP-derived catalogs (`npc_data.json.gz`, `ore_data.json`, `hull_data.json`) are outside the MIT grant. They remain subject to CCP's [Developer License Agreement](https://developers.eveonline.com/license-agreement), including its EVE-related purpose and non-commercial/non-profit terms. EVE, EVE Online, CCP and related logos/images are CCP hf. trademarks or registered trademarks. Evela is independent and is not affiliated with or endorsed by CCP. The MIT license for Evela's code does not grant rights to CCP data, trademarks or services.
+
+After dependency or compiler changes, review the upstream licenses and regenerate the notices with `python tools/licenses/generate.py`. CI checks committed module notices before building, then embeds the native-runtime notices from the actual MinGW installation used for that release. The collector does not replace review of new licenses or linked libraries.
+
 ## Run
 
 Open `evela.exe`, or run the project with:
@@ -146,11 +156,11 @@ SQLite stores compressed complete parsed records, keyed by source-content hash a
 
 ## Build and verify
 
-Every push to `main` runs the tests and builds the Windows x64 executable through [GitHub Actions](.github/workflows/release.yml). A successful build publishes a GitHub Release tagged `build-<full commit SHA>`, with `evela.exe` and `evela.zip` attached, and marks it as the latest release. The ZIP contains only the executable. New pushes cancel older builds; a run whose commit is no longer the tip of `main` skips publishing. Rerunning the current commit updates its existing release. The workflow uses GitHub's built-in token and requires no additional secrets. Build files remain ignored by Git.
+Every push to `main` runs the tests and builds the Windows x64 executable through [GitHub Actions](.github/workflows/release.yml). A successful build publishes a GitHub Release tagged `build-<full commit SHA>`, with `evela.exe`, `evela.zip`, `LICENSE` and `THIRD_PARTY_NOTICES.txt` attached, and marks it as the latest release. The ZIP contains only the executable. New pushes cancel older builds; a run whose commit is no longer the tip of `main` skips publishing. Rerunning the current commit updates its existing release. The workflow uses GitHub's built-in token and requires no additional secrets. Build files remain ignored by Git.
 
 The workflow downloads dependencies, compiles, and runs tests in separate steps with progress output and time limits. A first build compiles Fyne's native graphics dependencies and SQLite, which can take several minutes on the runner; a final `go: downloading ...` line alone does not establish that a download is stalled. Releases are published only after the build and tests succeed.
 
-Requires Go 1.23+ and Fyne's desktop build prerequisites (a C compiler; MinGW GCC on Windows).
+Requires Go 1.23+ and Fyne's desktop build prerequisites (a C compiler; MinGW GCC on Windows). Python 3 is used to maintain/check distribution notices. After upgrading dependencies, run `go mod download`, review their license terms, and regenerate `THIRD_PARTY_NOTICES.txt` before building.
 
 ```powershell
 go test ./...

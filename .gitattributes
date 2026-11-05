@@ -1,0 +1,4 @@
+# Preserve upstream notice spacing while keeping generated text portable.
+LICENSE text eol=lf
+THIRD_PARTY_NOTICES.txt text eol=lf whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+licenses/**/*.txt text eol=lf whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
