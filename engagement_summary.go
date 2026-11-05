@@ -59,7 +59,11 @@ func (identities *engagementIdentities) target(name, hull string) engagementIden
 		return identity
 	}
 	identity := identities.hull(hull)
-	if hull == "" {
+	if class := identities.classes[characterKey(name)]; class != "" && (hull == "" || hull == class) {
+		// A catalog fallback stores the class in Target Type. Keep the specific
+		// SDE name available for single-type engagement summaries.
+		identity = identities.hull(name)
+	} else if hull == "" {
 		if npc, ok := loadNPCCatalog().names[characterKey(name)]; ok {
 			identity = engagementNPC(name, npc.GroupID)
 		}

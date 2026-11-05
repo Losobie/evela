@@ -15,7 +15,7 @@ func TestLoggedDamageTargets(t *testing.T) {
 	for _, c := range []struct{ message, name, typ string }{
 		{"912 to Grijawlva[SNOOO](Phoenix Navy Issue) - 425mm Railgun II - Penetrates", "Grijawlva", "Phoenix Navy Issue"},
 		{"12 to Pilot - Name[C](Hulk) - Ogre I - Hits", "Pilot - Name", "Hulk"},
-		{"12 to Blood Raiders Stronghold - Ogre I - Hits", "Blood Raiders Stronghold", ""},
+		{"12 to Blood Raiders Stronghold - Ogre I - Hits", "Blood Raiders Stronghold", "♦ Stronghold"},
 		{"12 to Mining base[C](Athanor) - Hits", "Mining base", "Athanor"},
 		{"Your Ogre I misses Pilot - Name[C](Hulk) completely", "Pilot - Name", "Hulk"},
 		{"You miss Pilot[C](Hulk) completely - Ogre I", "Pilot", "Hulk"},
@@ -125,8 +125,13 @@ func TestTargetFiltersGroupingAndPersistence(t *testing.T) {
 	ui.setFilterVisible(graphOutgoing, filterTargetType, true)
 	ui.setAllScopeFilters(graphOutgoing, filterTargetType, false)
 	ui.setScopeFilter(graphOutgoing, filterTargetType, "unknown", true)
+	if filteredTotal(ui) != 0 {
+		t.Fatal("catalog-resolved target remained under Unknown target type")
+	}
+	ui.setScopeFilter(graphOutgoing, filterTargetType, "unknown", false)
+	ui.setScopeFilter(graphOutgoing, filterTargetType, "name:♦ Stronghold", true)
 	if filteredTotal(ui) != 50 {
-		t.Fatal("unknown target type did not retain untyped NPC target")
+		t.Fatal("catalog target type did not retain Stronghold damage")
 	}
 	ui.setFilterVisible(graphOutgoing, filterTargetType, false)
 	ui.setFilterVisible(graphOutgoing, filterTarget, true)

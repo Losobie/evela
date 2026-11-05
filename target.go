@@ -57,6 +57,11 @@ func parseCombatEntity(detail string) combatEntity {
 		}
 	}
 	entity.Name = strings.Clone(name)
+	if entity.Type == "" {
+		// Some structures / NPC-owned hulls omit the usual (type) suffix.
+		// Use only an exact SDE name match; explicit logged types take priority.
+		entity.Type = loadHullClasses()[characterKey(entity.Name)]
+	}
 	entity.Type, entity.Location = strings.Clone(entity.Type), strings.Clone(entity.Location)
 	entity.Corporation, entity.CorporationTicker = strings.Clone(entity.Corporation), strings.Clone(entity.CorporationTicker)
 	return entity
@@ -85,7 +90,7 @@ func logisticsTargetDetails(detail string) (combatEntity, string) {
 	// Remote-assistance messages may append a module after the entity suffix.
 	if i := strings.LastIndex(detail, " - "); i >= 0 {
 		entity := strings.TrimSpace(detail[:i])
-		if strings.HasSuffix(entity, ")") || strings.HasSuffix(entity, "]") {
+		if strings.HasSuffix(entity, ")") || strings.HasSuffix(entity, "]") || loadHullClasses()[characterKey(entity)] != "" {
 			detail = entity
 		}
 	}
