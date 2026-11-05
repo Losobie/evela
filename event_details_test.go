@@ -16,16 +16,16 @@ func TestCustomsOfficeLogisticsTargetMetadata(t *testing.T) {
 		detail string
 		want   combatEntity
 	}{
-		{"Customs Office (R3-K7K IX) [Way So Mad] - Large Remote Shield Booster II", combatEntity{"Customs Office", "Customs Office", "R3-K7K IX", "Way So Mad", ""}},
-		{"Customs Office (R3-K7K IX) [Way So Mad]", combatEntity{"Customs Office", "Customs Office", "R3-K7K IX", "Way So Mad", ""}},
-		{"Customs Office (R3-K7K IX)", combatEntity{"Customs Office", "Customs Office", "R3-K7K IX", "", ""}},
-		{"Customs Office Gantry (R3-K7K IX) [Corp][TICK](Customs Office Gantry) - Booster", combatEntity{"Customs Office Gantry", "Customs Office Gantry", "R3-K7K IX", "Corp", "TICK"}},
-		{"Pilot - Name[TICK](Hulk) - Large Remote Shield Booster II", combatEntity{"Pilot - Name", "Hulk", "", "", "TICK"}},
-		{skyhookTargetExample + " - Large Remote Shield Booster II", combatEntity{"Orbital Skyhook", "Orbital Skyhook", "R3-K7K IX", "Unfinished Symphony", "MOVMT"}},
+		{"Customs Office (R3-K7K IX) [Way So Mad] - Large Remote Shield Booster II", combatEntity{Name: "Customs Office", Type: "Customs Office", Location: "R3-K7K IX", Corporation: "Way So Mad"}},
+		{"Customs Office (R3-K7K IX) [Way So Mad]", combatEntity{Name: "Customs Office", Type: "Customs Office", Location: "R3-K7K IX", Corporation: "Way So Mad"}},
+		{"Customs Office (R3-K7K IX)", combatEntity{Name: "Customs Office", Type: "Customs Office", Location: "R3-K7K IX"}},
+		{"Customs Office Gantry (R3-K7K IX) [Corp][TICK](Customs Office Gantry) - Booster", combatEntity{Name: "Customs Office Gantry", Type: "Customs Office Gantry", Location: "R3-K7K IX", Corporation: "Corp", CorporationTicker: "TICK"}},
+		{"Pilot - Name[TICK](Hulk) - Large Remote Shield Booster II", combatEntity{Name: "Pilot - Name", Type: "Hulk", CorporationTicker: "TICK"}},
+		{skyhookTargetExample + " - Large Remote Shield Booster II", combatEntity{Name: "Orbital Skyhook", Type: "Orbital Skyhook", Location: "R3-K7K IX", Corporation: "Unfinished Symphony", CorporationTicker: "MOVMT"}},
 	} {
 		t.Run(tc.detail, func(t *testing.T) {
 			event, ok := parseLogistics("472 remote shield boosted to "+tc.detail, 1)
-			got := combatEntity{event.Target, event.TargetType, event.TargetLocation, event.TargetCorporation, event.TargetCorporationTicker}
+			got := combatEntity{Name: event.Target, Type: event.TargetType, Location: event.TargetLocation, Corporation: event.TargetCorporation, CorporationTicker: event.TargetCorporationTicker}
 			if !ok || event.Amount != 472 || event.Incoming || got != tc.want {
 				t.Fatalf("got %+v, want %+v; event %+v", got, tc.want, event)
 			}

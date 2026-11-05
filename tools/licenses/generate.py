@@ -89,6 +89,21 @@ def header_notice(path, kind):
     return text[start:end] + "\n"
 
 
+def module_directory(path, version, module):
+    replacement = module.get("Replace")
+    if replacement:
+        # The parser is maintained and licensed in this repository. All other
+        # replacements still need explicit review instead of bypassing notices.
+        first_party = (path == "github.com/Losobie/evela/parser"
+                       and not replacement.get("Version")
+                       and Path(module.get("Dir", "")).resolve() == (ROOT / "parser").resolve())
+        if not first_party:
+            raise RuntimeError(f"Review license handling for replacement module {path}")
+    if not module.get("Dir") or module.get("Version") != version:
+        raise RuntimeError(f"Missing source for {path}@{version}; run go mod download")
+    return Path(module["Dir"])
+
+
 def generate(native_root):
     requirements = json.loads(go("mod", "edit", "-json"))["Require"]
     paths = sorted(m["Path"] for m in requirements)
@@ -103,15 +118,13 @@ def generate(native_root):
     for requirement in sorted(requirements, key=lambda m: m["Path"]):
         path, version = requirement["Path"], requirement["Version"]
         module = modules[path]
-        if module.get("Replace"):
-            raise RuntimeError(f"Review license handling for replacement module {path}")
-        if not module.get("Dir") or module.get("Version") != version:
-            raise RuntimeError(f"Missing source for {path}@{version}; run go mod download")
-        directory = Path(module["Dir"])
+        directory = module_directory(path, version, module)
         files = license_files(directory)
         if not any(NOTICE_NAME.match(p.name) and p.name.lower().startswith(("license", "licence", "copying")) for p in files):
             raise RuntimeError(f"No license found for {path}@{version}; review before distribution")
         content = f"Source: https://pkg.go.dev/{path}@{version}\n"
+        if module.get("Replace"):
+            content = "First-party Evela parser module; source: https://github.com/Losobie/evela/tree/main/parser\n"
         for file in files:
             content += "\n--- " + file.relative_to(directory).as_posix() + " ---\n\n" + read(file)
         for relative, kind in EXTRA_HEADERS.get(path, []):

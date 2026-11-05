@@ -2,61 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
-	"math"
-	"regexp"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/widget"
 )
 
 var logisticsTypeOptions = []damageFilterOption{{Key: "Shield repair", Label: "Shield"}, {Key: "Armor repair", Label: "Armor"}, {Key: "Capacitor transfer", Label: "Capacitor"}}
-
-type logisticsEvent struct {
-	Second                                                     int64
-	Kind                                                       string
-	Amount                                                     float64
-	Incoming                                                   bool
-	Message                                                    string
-	Target, TargetType                                         string
-	TargetLocation, TargetCorporation, TargetCorporationTicker string
-	TargetAllianceTicker                                       string
-}
-
-// Incoming remote assistance uses "by" (also accept explicit "from");
-// outgoing assistance uses "to". Require a remote-assistance verb so local
-// tanking, capacitor boosters, NOS and neutralizers cannot become logistics.
-var logisticsMessage = regexp.MustCompile(`(?i)^([0-9][0-9,.]*)(?:\s+(?:HP|GJ))?\s+remote\s+(armor repaired|shield boosted|capacitor transmitted)\s+(to|by|from)\s+(\S.*)$`)
-
-func parseLogistics(message string, second int64) (logisticsEvent, bool) {
-	match := logisticsMessage.FindStringSubmatch(message)
-	if match == nil {
-		return logisticsEvent{}, false
-	}
-	amount, err := strconv.ParseFloat(strings.ReplaceAll(match[1], ",", ""), 64)
-	if err != nil || math.IsNaN(amount) || math.IsInf(amount, 0) {
-		return logisticsEvent{}, false
-	}
-	kind := "Capacitor transfer"
-	switch strings.ToLower(match[2]) {
-	case "armor repaired":
-		kind = "Armor repair"
-	case "shield boosted":
-		kind = "Shield repair"
-	}
-	event := logisticsEvent{Second: second, Kind: kind, Amount: amount, Incoming: !strings.EqualFold(match[3], "to"), Message: strings.Clone(message)}
-	if !event.Incoming {
-		entity, alliance := logisticsTargetDetails(match[4])
-		event.Target, event.TargetType, event.TargetLocation = entity.Name, entity.Type, entity.Location
-		event.TargetCorporation, event.TargetCorporationTicker = entity.Corporation, entity.CorporationTicker
-		event.TargetAllianceTicker = alliance
-	}
-	return event, true
-}
 
 func (ui *analyzerUI) initLogistics() {
 	ui.outgoingLogistics, ui.incomingLogistics = newDamageChart(), newDamageChart()
@@ -112,19 +63,7 @@ func (ui *analyzerUI) setAllLogisticsTypes(id string, checked bool) {
 
 func (ui *analyzerUI) refreshLogisticsTypeControls() {
 	for id, button := range ui.logisticsTypeButtons {
-		count := 0
-		for _, option := range logisticsTypeOptions {
-			if ui.logisticsTypes[id].selected(option.Key) {
-				count++
-			}
-		}
-		label := "All"
-		if count == 0 {
-			label = "None"
-		} else if count < len(logisticsTypeOptions) {
-			label = fmt.Sprintf("%d/%d", count, len(logisticsTypeOptions))
-		}
-		button.SetText("Type: " + label)
+		button.SetText("Type: " + selectionLabel(ui.logisticsTypes[id], logisticsTypeOptions))
 	}
 }
 
@@ -143,16 +82,10 @@ func (ui *analyzerUI) logisticsPlot(selected map[string]bool, incoming bool) plo
 		data.SecondaryUnit = "GJ"
 	}
 	data.EmptyText = "No logged " + direction + " logistics for the selected types and characters"
-	window := int64(1)
-	if ui.graphAverageWindow > 0 {
-		data.AverageWindow, window = ui.graphAverageWindow, int64(ui.graphAverageWindow/time.Second)
-	}
-	if !data.End.After(data.Start) || data.Bucket < time.Second {
+	builder, ok := newEventPlotBuilder(&data, ui.graphAverageWindow)
+	if !ok {
 		return data
 	}
-	first, end, bucket := data.Start.Unix(), data.End.Unix(), int64(data.Bucket/time.Second)
-	n := int(math.Ceil(data.End.Sub(data.Start).Seconds() / data.Bucket.Seconds()))
-	groups := map[string]*plotSeries{}
 	for _, log := range ui.analysisSnapshot().Logs {
 		if !selected[log.Character] {
 			continue
@@ -161,8 +94,7 @@ func (ui *analyzerUI) logisticsPlot(selected map[string]bool, incoming bool) plo
 			if event.Incoming != incoming || !types.selected(event.Kind) {
 				continue
 			}
-			left, right := max(first, event.Second), min(end, event.Second+window)
-			if left >= right {
+			if !builder.includes(event.Second) {
 				continue
 			}
 			unit := "HP"
@@ -174,31 +106,14 @@ func (ui *analyzerUI) logisticsPlot(selected map[string]bool, incoming bool) plo
 				names = []string{namedDamageOption(targetValue(event.Target, event.TargetType, mode), mode).Label}
 			}
 			for _, name := range names {
-				key := name + "\x00" + unit
 				label := name
 				if ui.eventGraphGroupings[id] != eventByType && data.SecondaryUnit != "" {
 					label += " · " + unit
 				}
-				series := groups[key]
-				if series == nil {
-					series = &plotSeries{Name: label, Unit: unit, Color: characterColor(label), Values: make([]float64, n)}
-					groups[key] = series
-				}
-				if event.Second >= first {
-					series.Hits = append(series.Hits, plotHit{Second: event.Second, Damage: event.Amount, Character: log.Character, Detail: event.Message})
-				}
-				for bin := int((left - first) / bucket); bin <= int((right-1-first)/bucket); bin++ {
-					binStart, binEnd := first+int64(bin)*bucket, min(end, first+int64(bin+1)*bucket)
-					overlap := min(right, binEnd) - max(left, binStart)
-					series.Values[bin] += event.Amount * float64(overlap) / float64(window) / float64(binEnd-binStart)
-				}
+				builder.add(label, unit, plotHit{Second: event.Second, Damage: event.Amount, Character: log.Character, Detail: event.Message})
 			}
 		}
 	}
-	for _, series := range groups {
-		sort.SliceStable(series.Hits, func(i, j int) bool { return series.Hits[i].Second < series.Hits[j].Second })
-		data.Series = append(data.Series, *series)
-	}
-	sort.Slice(data.Series, func(i, j int) bool { return data.Series[i].Name < data.Series[j].Name })
+	data.Series = builder.series()
 	return data
 }

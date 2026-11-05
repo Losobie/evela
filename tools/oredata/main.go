@@ -3,18 +3,18 @@
 package main
 
 import (
-	"archive/zip"
-	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
+
+	"evela/internal/sde"
 )
 
 func main() {
 	path := flag.String("sde", "", "official CCP JSONL SDE zip")
-	output := flag.String("out", "ore_data.json", "generated lookup")
+	output := flag.String("out", "parser/ore_data.json", "generated lookup")
 	flag.Parse()
 	if err := generate(*path, *output); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -23,32 +23,18 @@ func main() {
 }
 
 func generate(path, output string) error {
-	archive, err := zip.OpenReader(path)
+	archive, err := sde.Open(path)
 	if err != nil {
 		return err
 	}
 	defer archive.Close()
-	read := func(name string, consume func([]byte) error) error {
-		file, err := archive.Open(name)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		scanner.Buffer(make([]byte, 4096), 8*1024*1024)
-		for scanner.Scan() {
-			if err := consume(scanner.Bytes()); err != nil {
-				return fmt.Errorf("%s: %w", name, err)
-			}
-		}
-		return scanner.Err()
-	}
+
 	data := struct {
 		Build   int               `json:"build"`
 		Release string            `json:"release"`
 		Names   map[string]string `json:"names"`
 	}{Names: map[string]string{}}
-	if err := read("_sde.jsonl", func(line []byte) error {
+	if err := archive.Read("_sde.jsonl", func(line []byte) error {
 		var record struct {
 			Key     string `json:"_key"`
 			Build   int    `json:"buildNumber"`
@@ -65,7 +51,7 @@ func generate(path, output string) error {
 		return err
 	}
 	groups := map[int]string{}
-	if err := read("groups.jsonl", func(line []byte) error {
+	if err := archive.Read("groups.jsonl", func(line []byte) error {
 		var record struct {
 			ID       int               `json:"_key"`
 			Category int               `json:"categoryID"`
@@ -82,7 +68,7 @@ func generate(path, output string) error {
 	}); err != nil {
 		return err
 	}
-	if err := read("types.jsonl", func(line []byte) error {
+	if err := archive.Read("types.jsonl", func(line []byte) error {
 		var record struct {
 			Group int               `json:"groupID"`
 			Name  map[string]string `json:"name"`

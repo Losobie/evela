@@ -4,3 +4,4 @@
 /test-output/
 /evela.zip
 .idea/
+__pycache__/

@@ -1,0 +1,17 @@
+Evela log parser
+
+Original code: Copyright (c) 2026 Losobie and Evela contributors. MIT License;
+see LICENSE. This module is maintained as part of https://github.com/Losobie/evela.
+
+CCP materials
+npc_data.json.gz, ore_data.json and hull_data.json are derived from CCP's
+Static Data Export. EVE Online and its game data are copyright CCP hf.
+These catalogs are outside the MIT grant and remain subject to CCP's Developer
+License Agreement, including its EVE-related purpose and non-commercial /
+non-profit terms: https://developers.eveonline.com/license-agreement
+EVE, EVE Online, CCP and related marks belong to CCP hf. Evela is not affiliated
+with or endorsed by CCP. Preserve this notice when redistributing the module.
+
+The module imports golang.org/x/text (BSD-3-Clause); it does not vendor it.
+Applications distributing a compiled parser must retain the licenses for that
+dependency and their Go runtime alongside the notices above.

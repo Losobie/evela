@@ -16,11 +16,6 @@ import (
 
 const eventsRegexPreference = "events.search.regex"
 
-type logEvent struct {
-	Second  int64
-	Message string
-}
-
 type eventRow struct {
 	logEvent
 	Character string

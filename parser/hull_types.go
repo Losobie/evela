@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	_ "embed"
@@ -20,7 +20,7 @@ var loadHullClasses = sync.OnceValue(func() map[string]string {
 	}
 	classes := make(map[string]string, len(catalog.Names))
 	for name, class := range catalog.Names {
-		classes[characterKey(name)] = class
+		classes[nameKey(name)] = class
 	}
 	return classes
 })

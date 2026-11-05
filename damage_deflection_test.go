@@ -20,11 +20,11 @@ func TestDamageDeflectionAndOptionalTargetMetadata(t *testing.T) {
 		weapon, strength   string
 		hasDeflection      bool
 	}{
-		{"59 to " + skyhookTargetExample + " - Vespa II - Glances Off", 59, 0, combatEntity{"Orbital Skyhook", "Orbital Skyhook", "R3-K7K IX", "Unfinished Symphony", "MOVMT"}, "Vespa II", "Glances Off", false},
-		{skyhookDeflectionExample, 60, 60, combatEntity{"Orbital Skyhook", "Orbital Skyhook", "R3-K7K IX", "Unfinished Symphony", "MOVMT"}, "Vespa II", "Glances Off", true},
-		{"908 to Grijawlva[SNOOO](Phoenix Navy Issue) - 425mm Railgun II - Penetrates", 908, 0, combatEntity{"Grijawlva", "Phoenix Navy Issue", "", "", "SNOOO"}, "425mm Railgun II", "Penetrates", false},
-		{"80 to Pilot - Name[C](Hulk) - Ogre I - Hits (12 deflected)", 80, 12, combatEntity{"Pilot - Name", "Hulk", "", "", "C"}, "Ogre I", "Hits", true},
-		{"80 to Pilot[C](Hulk) - Ogre I - Penetrates - Glances Off (12 deflected)", 80, 12, combatEntity{"Pilot", "Hulk", "", "", "C"}, "Ogre I", "Penetrates", true},
+		{"59 to " + skyhookTargetExample + " - Vespa II - Glances Off", 59, 0, combatEntity{Name: "Orbital Skyhook", Type: "Orbital Skyhook", Location: "R3-K7K IX", Corporation: "Unfinished Symphony", CorporationTicker: "MOVMT"}, "Vespa II", "Glances Off", false},
+		{skyhookDeflectionExample, 60, 60, combatEntity{Name: "Orbital Skyhook", Type: "Orbital Skyhook", Location: "R3-K7K IX", Corporation: "Unfinished Symphony", CorporationTicker: "MOVMT"}, "Vespa II", "Glances Off", true},
+		{"908 to Grijawlva[SNOOO](Phoenix Navy Issue) - 425mm Railgun II - Penetrates", 908, 0, combatEntity{Name: "Grijawlva", Type: "Phoenix Navy Issue", CorporationTicker: "SNOOO"}, "425mm Railgun II", "Penetrates", false},
+		{"80 to Pilot - Name[C](Hulk) - Ogre I - Hits (12 deflected)", 80, 12, combatEntity{Name: "Pilot - Name", Type: "Hulk", CorporationTicker: "C"}, "Ogre I", "Hits", true},
+		{"80 to Pilot[C](Hulk) - Ogre I - Penetrates - Glances Off (12 deflected)", 80, 12, combatEntity{Name: "Pilot", Type: "Hulk", CorporationTicker: "C"}, "Ogre I", "Penetrates", true},
 		{"80 to Enemy - Ogre I - Hits - Hits (1,234.5 deflected)", 80, 1234.5, combatEntity{Name: "Enemy"}, "Ogre I", "Hits", true},
 		{"80 to Enemy - Ogre I - Hits - Hits (0 deflected)", 80, 0, combatEntity{Name: "Enemy"}, "Ogre I", "Hits", true},
 		{"80 to Enemy - Ogre I - Hits", 80, 0, combatEntity{Name: "Enemy"}, "Ogre I", "Hits", false},
@@ -35,7 +35,7 @@ func TestDamageDeflectionAndOptionalTargetMetadata(t *testing.T) {
 				t.Fatalf("parse: %v, %+v", err, log)
 			}
 			hit := log.Hits[0]
-			entity := combatEntity{hit.Target, hit.TargetType, hit.TargetLocation, hit.TargetCorporation, hit.TargetCorporationTicker}
+			entity := combatEntity{Name: hit.Target, Type: hit.TargetType, Location: hit.TargetLocation, Corporation: hit.TargetCorporation, CorporationTicker: hit.TargetCorporationTicker}
 			if hit.Amount != c.amount || hit.DeflectionAmount != c.deflection || hit.HasDeflection != c.hasDeflection || entity != c.entity || hit.WeaponType != c.weapon || hit.WeaponStrength != c.strength {
 				t.Fatalf("incorrect parsed hit: %+v", hit)
 			}
@@ -51,9 +51,9 @@ func TestCombatEntityMissingFields(t *testing.T) {
 		input string
 		want  combatEntity
 	}{
-		{"Base (System) [Corp][TICK](Fortizar)", combatEntity{"Base", "Fortizar", "System", "Corp", "TICK"}},
-		{"Base [Corp][TICK](Fortizar)", combatEntity{"Base", "Fortizar", "", "Corp", "TICK"}},
-		{"Base (System) [Corp][TICK]", combatEntity{"Base", "", "System", "Corp", "TICK"}},
+		{"Base (System) [Corp][TICK](Fortizar)", combatEntity{Name: "Base", Type: "Fortizar", Location: "System", Corporation: "Corp", CorporationTicker: "TICK"}},
+		{"Base [Corp][TICK](Fortizar)", combatEntity{Name: "Base", Type: "Fortizar", Corporation: "Corp", CorporationTicker: "TICK"}},
+		{"Base (System) [Corp][TICK]", combatEntity{Name: "Base", Location: "System", Corporation: "Corp", CorporationTicker: "TICK"}},
 		{"Pilot[TICK]", combatEntity{Name: "Pilot", CorporationTicker: "TICK"}},
 		{"Base(Fortizar)", combatEntity{Name: "Base", Type: "Fortizar"}},
 		{"Enemy - Name", combatEntity{Name: "Enemy - Name"}},

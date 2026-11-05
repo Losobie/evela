@@ -63,6 +63,23 @@ func (selection *damageFilterSelection) restricted() bool {
 
 type damageFilterOption struct{ Key, Label string }
 
+func selectionLabel(selection *damageFilterSelection, options []damageFilterOption) string {
+	count := 0
+	for _, option := range options {
+		if selection.selected(option.Key) {
+			count++
+		}
+	}
+	switch {
+	case count == 0 && (len(options) > 0 || selection != nil && !selection.Default):
+		return "None"
+	case count < len(options):
+		return fmt.Sprintf("%d/%d", count, len(options))
+	default:
+		return "All"
+	}
+}
+
 func (ui *analyzerUI) initDamageFilters() {
 	var saved map[string]*damageFilterSelection
 	if err := json.Unmarshal([]byte(fyne.CurrentApp().Preferences().String(damageFiltersPreference)), &saved); err != nil {

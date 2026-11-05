@@ -4,6 +4,7 @@ go 1.23
 
 require (
 	fyne.io/fyne/v2 v2.8.0
+	github.com/Losobie/evela/parser v0.0.0
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	golang.org/x/image v0.24.0
@@ -44,3 +45,5 @@ require (
 	golang.org/x/net v0.35.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/Losobie/evela/parser => ./parser

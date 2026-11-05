@@ -74,9 +74,14 @@ an unrecognized compiler installation.
 
 ## CCP materials
 
-`npc_data.json.gz`, `ore_data.json` and `hull_data.json` remain CCP-derived game
+`parser/npc_data.json.gz`, `parser/ore_data.json` and `parser/hull_data.json` remain CCP-derived game
 data, outside the MIT grant. `overview.txt` supplies attribution and links to
 CCP's [Developer License Agreement](https://developers.eveonline.com/license-agreement).
 Downstream redistribution/use of those materials must satisfy CCP's terms;
 an MIT license for Evela's code does not grant a license to CCP game data or marks.
 Do not describe CCP data or third-party fonts as MIT-licensed Evela content.
+
+The in-repository parser is a first-party MIT module, with its own `LICENSE` and
+`NOTICE`. The notice collector accepts its local replacement only at `parser/`;
+other module replacements still require explicit review. Both modules are
+checked in CI, and the parser notices are included in the executable.

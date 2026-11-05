@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	_ "embed"
@@ -28,7 +28,7 @@ var loadOreTypes = sync.OnceValue(func() map[string]string {
 	return names
 })
 
-func oreType(name string) string {
+func OreType(name string) string {
 	names := loadOreTypes()
 	key := strings.ToLower(strings.TrimSpace(name))
 	// Exact names preserve every SDE grade. Historical grades absent from the

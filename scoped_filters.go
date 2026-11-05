@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"slices"
 
 	"fyne.io/fyne/v2"
@@ -234,20 +233,9 @@ func (ui *analyzerUI) refreshScopedFilterBar(scope string) {
 func (ui *analyzerUI) scopeFilterLabel(scope, kind string) string {
 	selection := ui.storedScopeFilter(scope, kind)
 	options := ui.scopeFilterOptions(scope, kind)
-	count := 0
-	for _, option := range options {
-		if selection.selected(option.Key) {
-			count++
-		}
-	}
-	label := "All"
-	if count == 0 && (len(options) > 0 || !selection.Default) {
-		label = "None"
-	} else if count < len(options) {
-		label = fmt.Sprintf("%d/%d", count, len(options))
-	}
-	return kind + ": " + label
+	return kind + ": " + selectionLabel(selection, options)
 }
+
 func (ui *analyzerUI) openScopedFilter(scope, kind string, anchor fyne.CanvasObject) {
 	ui.openSelectionFilter(kind, anchor, func() []damageFilterOption { return ui.scopeFilterOptions(scope, kind) },
 		func(key string) bool { return ui.storedScopeFilter(scope, kind).selected(key) },

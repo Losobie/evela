@@ -97,6 +97,6 @@ For missing data, check **Details…**, the log-loading age limit, the selected 
 
 **About → GitHub** opens the project repository. **About → Author** shows Losobie's GitHub profile, the in-game character **Clento Loso**, and the note that Evela was vibe coded using Codex.
 
-Build, test, catalog regeneration, cache maintenance and profiling instructions are in the [developer guide](docs/DEVELOPMENT.md).
+Build, test, catalog regeneration, cache maintenance and profiling instructions are in the [developer guide](docs/DEVELOPMENT.md). See the [code map](docs/ARCHITECTURE.md) for project structure and the [standalone parser](parser/README.md) for library use.
 
 Evela's original code and assets use the [MIT License](LICENSE). Dependencies and CCP-derived game catalogs retain their own terms; the catalogs are outside the MIT grant and subject to CCP's EVE-related, non-commercial/non-profit terms. See [third-party notices](THIRD_PARTY_NOTICES.txt) or **About → Licenses**. EVE Online and related trademarks belong to CCP hf.; Evela is not affiliated with or endorsed by CCP. Details are in the [license maintenance guide](licenses/README.md).

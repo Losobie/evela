@@ -3,14 +3,14 @@
 package main
 
 import (
-	"archive/zip"
-	"bufio"
 	"compress/gzip"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"sort"
+
+	"evela/internal/sde"
 )
 
 type npcType struct {
@@ -21,7 +21,7 @@ type npcType struct {
 
 func main() {
 	archive := flag.String("sde", "", "official CCP JSONL SDE zip")
-	output := flag.String("out", "npc_data.json.gz", "generated lookup")
+	output := flag.String("out", "parser/npc_data.json.gz", "generated lookup")
 	flag.Parse()
 	if err := generate(*archive, *output); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -30,33 +30,19 @@ func main() {
 }
 
 func generate(path, output string) error {
-	archive, err := zip.OpenReader(path)
+	archive, err := sde.Open(path)
 	if err != nil {
 		return err
 	}
 	defer archive.Close()
-	read := func(name string, consume func([]byte) error) error {
-		file, err := archive.Open(name)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		scanner.Buffer(make([]byte, 4096), 8*1024*1024)
-		for scanner.Scan() {
-			if err := consume(scanner.Bytes()); err != nil {
-				return fmt.Errorf("%s: %w", name, err)
-			}
-		}
-		return scanner.Err()
-	}
+
 	data := struct {
 		Build   int            `json:"build"`
 		Release string         `json:"release"`
 		Groups  map[int]string `json:"groups"`
 		Types   []npcType      `json:"types"`
 	}{Groups: map[int]string{}}
-	if err := read("_sde.jsonl", func(line []byte) error {
+	if err := archive.Read("_sde.jsonl", func(line []byte) error {
 		var record struct {
 			Key     string `json:"_key"`
 			Build   int    `json:"buildNumber"`
@@ -72,7 +58,7 @@ func generate(path, output string) error {
 	}); err != nil {
 		return err
 	}
-	if err := read("groups.jsonl", func(line []byte) error {
+	if err := archive.Read("groups.jsonl", func(line []byte) error {
 		var record struct {
 			ID       int               `json:"_key"`
 			Category int               `json:"categoryID"`
@@ -90,7 +76,7 @@ func generate(path, output string) error {
 	}); err != nil {
 		return err
 	}
-	if err := read("types.jsonl", func(line []byte) error {
+	if err := archive.Read("types.jsonl", func(line []byte) error {
 		var record struct {
 			ID    int               `json:"_key"`
 			Group int               `json:"groupID"`

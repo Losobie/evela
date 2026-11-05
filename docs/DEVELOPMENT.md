@@ -2,6 +2,8 @@
 
 [User guide](../README.md) · [Data and history](DATA.md) · [ESI setup](ESI.md) · [License maintenance](../licenses/README.md)
 
+The [architecture map](ARCHITECTURE.md) explains the code layout and module boundaries.
+
 ## Run, build and test
 
 Evela uses Go, Fyne and SQLite. Development requires Go 1.23 or later and [Fyne's desktop build prerequisites](https://docs.fyne.io/started/), including a C compiler. On Windows, use MinGW GCC. Python 3 is needed for distribution-notice maintenance.
@@ -18,6 +20,7 @@ Verify and build the Windows application:
 ```powershell
 python tools/licenses/generate.py --check
 go test ./...
+go -C parser test ./...
 go build -ldflags="-H=windowsgui" -o evela.exe .
 Compress-Archive -LiteralPath evela.exe -DestinationPath evela.zip -Force
 ```
@@ -63,7 +66,7 @@ CI checks the committed notices, then collects native notices from the compiler 
 
 ## Embedded game catalogs
 
-The compact catalogs come from CCP's [official Static Data Export](https://developers.eveonline.com/docs/services/static-data/), JSONL build **3607705**, released **2026-10-12**. They work offline and load lazily.
+The compact catalogs in `parser/` come from CCP's [official Static Data Export](https://developers.eveonline.com/docs/services/static-data/), JSONL build **3607705**, released **2026-10-12**. They work offline and load lazily.
 
 | File | Contents | SDE selection |
 | --- | --- | --- |
@@ -81,7 +84,7 @@ go run ./tools/oredata -sde .cache/eve-sde-<build>-jsonl.zip
 go run ./tools/hulldata -sde .cache/eve-sde-<build>-jsonl.zip
 ```
 
-The generators read build/release metadata from the archive. Update this page's snapshot details and counts, increment the parser version when the changed catalog affects parsed results, then test, build and recreate the ZIP as above. CCP-derived catalogs retain CCP's terms and are excluded from Evela's MIT grant.
+Run the generators from the repository root; their default outputs are in `parser/`. The generators read build/release metadata from the archive. Update this page's snapshot details and counts, increment the parser version when the changed catalog affects parsed results, then test, build and recreate the ZIP as above. CCP-derived catalogs retain CCP's terms and are excluded from Evela's MIT grant.
 
 ## Parsed-log cache maintenance
 

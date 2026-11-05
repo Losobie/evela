@@ -35,7 +35,9 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache-dependency-path: go.sum
+          cache-dependency-path: |
+            go.sum
+            parser/go.sum
 
       - name: Install MinGW GCC
         id: msys2
@@ -86,7 +88,11 @@ jobs:
 
       - name: Run tests
         timeout-minutes: 10
-        run: go test -v -timeout 5m ./...
+        run: |
+          go test -v -timeout 5m ./...
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go -C parser test -v -timeout 5m ./...
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publish release for this commit
         env:

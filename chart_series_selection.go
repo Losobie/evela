@@ -6,12 +6,6 @@ import (
 	"fyne.io/fyne/v2"
 )
 
-type chartSeriesKey struct{ name, unit string }
-
-func seriesKey(series plotSeries) chartSeriesKey {
-	return chartSeriesKey{series.Name, series.Unit}
-}
-
 func (chart *damageChart) selectSeriesAt(position fyne.Position) {
 	chart.mu.Lock()
 	hit := closestChartLine(chart.data, chart.Size(), position)

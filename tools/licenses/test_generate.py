@@ -8,6 +8,16 @@ import generate
 
 
 class NativeLicenseTests(unittest.TestCase):
+    def test_only_in_repository_parser_replacement_is_accepted(self):
+        path, version = "github.com/Losobie/evela/parser", "v0.0.0"
+        module = {"Dir": str(generate.ROOT / "parser"), "Version": version, "Replace": {"Path": "./parser"}}
+        self.assertEqual(generate.module_directory(path, version, module), generate.ROOT / "parser")
+        with self.assertRaises(RuntimeError):
+            generate.module_directory("example.com/unreviewed", version, module)
+        module["Dir"] = str(generate.ROOT / "somewhere-else")
+        with self.assertRaises(RuntimeError):
+            generate.module_directory(path, version, module)
+
     def test_installed_layouts_collect_every_notice(self):
         for gcc_directory in ("gcc-libs", "libgcc"):
             with self.subTest(gcc_directory=gcc_directory), tempfile.TemporaryDirectory() as directory:

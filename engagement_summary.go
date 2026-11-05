@@ -16,9 +16,6 @@ type engagementIdentities struct {
 
 func newEngagementIdentities(ships shipHistory) *engagementIdentities {
 	classes := map[string]string{}
-	for name, class := range loadHullClasses() {
-		classes[name] = class
-	}
 	for _, periods := range ships {
 		for _, ship := range periods {
 			key := characterKey(ship.TypeName)
@@ -30,11 +27,18 @@ func newEngagementIdentities(ships shipHistory) *engagementIdentities {
 	return &engagementIdentities{classes: classes, targets: map[[2]string]engagementIdentity{}, sources: map[damageSource]engagementIdentity{}}
 }
 
+func (identities *engagementIdentities) class(name string) string {
+	if class := hullClass(name); class != "" {
+		return class
+	}
+	return identities.classes[characterKey(name)]
+}
+
 func (identities *engagementIdentities) hull(name string) engagementIdentity {
 	if name == "" {
 		return engagementIdentity{}
 	}
-	class := identities.classes[characterKey(name)]
+	class := identities.class(name)
 	group := "hull:" + class
 	if class == "" {
 		group = "hull-type:" + name
@@ -45,7 +49,7 @@ func (identities *engagementIdentities) hull(name string) engagementIdentity {
 func engagementNPC(name string, groupID int) engagementIdentity {
 	group, class := "npc-name:"+name, ""
 	if groupID > 0 {
-		class = loadNPCCatalog().Groups[groupID]
+		class = npcGroup(groupID)
 		if class != "" {
 			group = "npc-group:" + strconv.Itoa(groupID)
 		}
@@ -59,12 +63,12 @@ func (identities *engagementIdentities) target(name, hull string) engagementIden
 		return identity
 	}
 	identity := identities.hull(hull)
-	if class := identities.classes[characterKey(name)]; class != "" && (hull == "" || hull == class) {
+	if class := identities.class(name); class != "" && (hull == "" || hull == class) {
 		// A catalog fallback stores the class in Target Type. Keep the specific
 		// SDE name available for single-type engagement summaries.
 		identity = identities.hull(name)
 	} else if hull == "" {
-		if npc, ok := loadNPCCatalog().names[characterKey(name)]; ok {
+		if npc, ok := lookupNPC(name); ok {
 			identity = engagementNPC(name, npc.GroupID)
 		}
 	}

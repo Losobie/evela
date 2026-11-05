@@ -2,43 +2,13 @@ package main
 
 import (
 	"fmt"
-	"regexp"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 )
 
-var (
-	logJump             = regexp.MustCompile(`^Jumping from (.+?) to (.+?)\.?$`)
-	logConduitPassenger = regexp.MustCompile(`^A Conduit Field activated by .+ jumps you to (.+)\.$`)
-	logConduitPilot     = regexp.MustCompile(`^Activating a Conduit Field jumps you to (.+), bringing along [0-9]+ passengers?\.$`)
-)
-
-const spatialPhenomenaMessage = "Local spatial phenomena may cause strange effects on your ship systems."
 const wormholeJumpGrace = 30 * time.Second
 const inferredLogLocationSource = "Game log (assumed)"
-
-type logLocationEvent struct {
-	Second   int64
-	From     string
-	To       string
-	Inferred bool `json:",omitempty"`
-}
-
-func parseLogLocation(message string, second int64) (logLocationEvent, bool) {
-	event := logLocationEvent{Second: second}
-	if match := logJump.FindStringSubmatch(message); match != nil {
-		event.From, event.To = strings.TrimSpace(match[1]), strings.TrimSpace(match[2])
-	} else if match := logConduitPassenger.FindStringSubmatch(message); match != nil {
-		event.To = strings.TrimSpace(match[1])
-	} else if match := logConduitPilot.FindStringSubmatch(message); match != nil {
-		event.To = strings.TrimSpace(match[1])
-	} else if message == spatialPhenomenaMessage {
-		event.To, event.Inferred = "Wormhole", true
-	}
-	return event, event.To != ""
-}
 
 // A log session supplies continuous coverage between timestamped entries. Never
 // carry its last jump across an unobserved session or an arbitrary offline gap.

@@ -72,17 +72,6 @@ func (ui *analyzerUI) incomingDamageFilterBar() fyne.CanvasObject {
 	return ui.scopedFilterBar(graphIncoming, ui.incomingGroupButton)
 }
 
-func (ui *analyzerUI) damageFilterCounts(kind string) (int, int) {
-	options := ui.filterOptions[kind]
-	selected := 0
-	for _, option := range options {
-		if ui.damageFilterSelected(kind, option.Key) {
-			selected++
-		}
-	}
-	return selected, len(options)
-}
-
 func (ui *analyzerUI) refreshDamageFilterControls() {
 	for scope, buttons := range ui.scopedFilterButtons {
 		for kind, button := range buttons {
