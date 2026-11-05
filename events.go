@@ -98,9 +98,6 @@ func newEventsViewer(window fyne.Window) *eventsViewer {
 			}
 		})
 	viewer.table.StickyRowCount = 1
-	viewer.table.SetColumnWidth(0, 200)
-	viewer.table.SetColumnWidth(1, 190)
-	viewer.table.SetColumnWidth(2, 1000)
 	viewer.table.OnSelected = func(id widget.TableCellID) {
 		viewer.table.UnselectAll()
 		if id.Row == 0 {
@@ -121,7 +118,7 @@ func newEventsViewer(window fyne.Window) *eventsViewer {
 	search := container.NewBorder(nil, nil, widget.NewLabel("Message search"), viewer.regex, viewer.search)
 	note := widget.NewLabel("Characters and Character Group filters · EVE time · Click Timestamp to reverse order; select a row to read its message and extracted fields.")
 	note.Truncation = fyne.TextTruncateEllipsis
-	viewer.content = container.NewBorder(container.NewVBox(search, viewer.status), note, nil, nil, viewer.table)
+	viewer.content = container.NewBorder(container.NewVBox(search, viewer.status), note, nil, nil, newFillingTable(viewer.table, 200, 190))
 	viewer.applySearch()
 	return viewer
 }

@@ -7,7 +7,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -54,7 +53,7 @@ func (viewer *engagementsViewer) initTable() {
 			}
 		})
 	viewer.table.StickyRowCount = 1
-	table := container.New(&engagementTableLayout{table: viewer.table}, viewer.table)
+	table := newFillingTable(viewer.table, 220, 100)
 	note := widget.NewLabel("All loaded logs · 10-minute inactivity gap · Damage, E-War, mining and nonzero repairs · Independent of graph range and filters")
 	note.Wrapping = fyne.TextWrapWord
 	viewer.content.Objects = []fyne.CanvasObject{container.NewBorder(container.NewVBox(note, viewer.status), viewer.selection, nil, nil, table)}
@@ -140,24 +139,6 @@ func (ui *analyzerUI) refreshEngagements() {
 			viewer.loading, viewer.dirty = false, false
 		})
 	}()
-}
-
-// The last column always fills the viewport. Its labels truncate instead of
-// increasing the table content width and exposing a horizontal scrollbar.
-type engagementTableLayout struct{ table *widget.Table }
-
-func (l *engagementTableLayout) MinSize([]fyne.CanvasObject) fyne.Size {
-	return fyne.NewSize(400, l.table.MinSize().Height)
-}
-
-func (l *engagementTableLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
-	available := max(0, size.Width-2*l.table.Theme().Size(theme.SizeNamePadding))
-	timestamp, duration := min(float32(220), available*0.4), min(float32(100), available*0.2)
-	l.table.SetColumnWidth(0, timestamp)
-	l.table.SetColumnWidth(1, duration)
-	l.table.SetColumnWidth(2, max(0, available-timestamp-duration))
-	l.table.Move(fyne.NewPos(0, 0))
-	l.table.Resize(size)
 }
 
 func (ui *analyzerUI) openEngagement(row engagement) {

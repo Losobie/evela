@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 	"golang.org/x/text/encoding/unicode"
@@ -74,6 +75,51 @@ func newEventsTestUI(t *testing.T) (*analyzerUI, time.Time) {
 	ui.applyGraphRange(start, start.Add(10*time.Second))
 	ui.tabs.SelectIndex(2)
 	return ui, start
+}
+
+func TestEventsTableFitsViewportAndRetainsFullMessages(t *testing.T) {
+	application := test.NewTempApp(t)
+	window := application.NewWindow("Responsive Events table")
+	t.Cleanup(window.Close)
+	viewer := newEventsViewer(window)
+	start := time.Unix(1, 0)
+	message := "(chat) " + strings.Repeat("Long event message ", 100) + "[full message end]"
+	log := &parsedLog{Character: "A character with a long name"}
+	for i := 0; i < 200; i++ {
+		log.Events = append(log.Events, logEvent{Second: start.Unix() + int64(i), Message: message})
+	}
+	viewer.setRange(&logSnapshot{Logs: []*parsedLog{log}}, start, start.Add(201*time.Second), nil)
+	window.SetContent(viewer.content)
+	window.Show()
+	var scroll *container.Scroll
+	for _, object := range test.WidgetRenderer(viewer.table).Objects() {
+		if candidate, ok := object.(*container.Scroll); ok {
+			scroll = candidate
+		}
+	}
+	if scroll == nil {
+		t.Fatal("table scroll viewport missing")
+	}
+	for _, width := range []float32{480, 1440, 900, 520} {
+		window.Resize(fyne.NewSize(width, 500))
+		viewer.table.ScrollTo(widget.TableCellID{Row: len(viewer.rows), Col: 2})
+		contentWidth := scroll.Content.MinSize().Width
+		if contentWidth > scroll.Size().Width+0.1 || contentWidth < scroll.Size().Width-0.1 || scroll.Offset.X > 0.1 {
+			t.Fatalf("width %.0f: content %.1f / viewport %.1f, horizontal offset %.1f", width, contentWidth, scroll.Size().Width, scroll.Offset.X)
+		}
+		if scroll.Offset.Y <= 0 {
+			t.Fatal("vertical scrolling was disabled")
+		}
+	}
+	label := viewer.table.CreateCell().(*widget.Label)
+	viewer.table.UpdateCell(widget.TableCellID{Row: 1, Col: 2}, label)
+	if label.Truncation != fyne.TextTruncateEllipsis || label.Text != message || !strings.Contains(viewer.eventDetails(viewer.rows[0]), message) {
+		t.Fatal("visual truncation discarded the full event message")
+	}
+	viewer.table.OnSelected(widget.TableCellID{Row: 1, Col: 2})
+	if window.Canvas().Overlays().Top() == nil {
+		t.Fatal("truncated event no longer opens the details dialog")
+	}
 }
 
 func TestEventsTabRangeSortingAndMessageSearch(t *testing.T) {
