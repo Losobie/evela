@@ -186,6 +186,8 @@ func TestFilterBarsWrapWhileKeepingActionsAligned(t *testing.T) {
 	ui, _ := newDamageFilterTestUI(t)
 	for _, width := range []float32{2400, 1200, 1600, 1200} {
 		ui.window.Resize(fyne.NewSize(width, 900))
+		// The headless canvas does not process queued layout invalidations.
+		ui.window.Content().Refresh()
 		ui.window.Canvas().Capture()
 		for _, scope := range []string{globalFilterScope, graphOutgoing, graphIncoming} {
 			bar := ui.scopedFilterBars[scope]

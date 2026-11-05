@@ -9,7 +9,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -116,7 +115,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.loadCharacterGroups()
 	ui.rangeLabel = widget.NewLabel("")
 	ui.rangeLabel.Selectable = true
-	ui.rangeLabel.Wrapping = fyne.TextWrapWord
+	ui.rangeLabel.Truncation = fyne.TextTruncateEllipsis
 	ui.quickSelect = ui.toggleMenuButton("Quick Select", ui.quickRangeMenu, nil)
 	ui.status = widget.NewLabel("Ready to read game logs")
 	ui.status.Wrapping = fyne.TextWrapWord
@@ -236,9 +235,9 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	// changes the height available to the graphs.
 	progressSlot := container.NewGridWrap(fyne.NewSize(140, ui.progress.MinSize().Height), ui.progress)
 	details := widget.NewButton("Details…", func() { ui.showRefreshDetails("Log refresh", ui.status.Text+"\n\n"+ui.directoryInfo.Text) })
-	heading := container.NewHBox(layout.NewSpacer(), progressSlot, ui.auto, ui.refresh, details)
-	filters := container.NewBorder(nil, nil, nil, ui.quickSelect, ui.rangeLabel)
-	controls := container.NewVBox(heading, filters, widget.NewSeparator())
+	refreshControls := container.NewHBox(progressSlot, ui.auto, ui.refresh, details)
+	heading := container.NewBorder(nil, nil, ui.quickSelect, refreshControls, ui.rangeLabel)
+	controls := container.NewVBox(heading, widget.NewSeparator())
 	filterBar := ui.damageFilterBar()
 	ui.graphCards = map[string]*widget.Card{}
 	ui.graphStack = container.NewVBox(
