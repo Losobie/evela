@@ -614,6 +614,16 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 	if inspectionTime == nil {
 		targetLine = closestChartLine(data, chart.Size(), position)
 	}
+	if !data.IndividualHits && selected != nil {
+		for index, series := range data.Series {
+			if seriesKey(series) == *selected {
+				if point, ok := chartSeriesPositionAtX(data, chart.Size(), index, position.X); ok {
+					targetLine = chartLineHover{series: index, hit: -1, position: point, found: true}
+				}
+				break
+			}
+		}
+	}
 	type reading struct {
 		name      string
 		value     float64
@@ -700,6 +710,14 @@ func (chart *damageChart) updateHoverReadout(position fyne.Position, inspectionT
 		return readings[i].value > readings[j].value
 	})
 	if targetLine.found && chart.hoverDot != nil {
+		if !data.IndividualHits {
+			if point, ok := chartSeriesPositionAtX(data, chart.Size(), targetLine.series, position.X); ok {
+				targetLine.position = point
+			}
+		}
+		// Individual-hit readouts still use the actual hit's timestamp/amount;
+		// the indicator itself shares the cursor's horizontal position.
+		targetLine.position.X = chartPlotLeft + float32(x)
 		chart.hoverDot.FillColor = palette.seriesColor(data.Series[targetLine.series].Color)
 		chart.hoverDot.StrokeColor = palette.background
 		chart.hoverDot.Move(targetLine.position.Subtract(fyne.NewPos(4, 4)))

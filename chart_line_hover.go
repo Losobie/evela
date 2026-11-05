@@ -15,6 +15,27 @@ type chartLineHover struct {
 	found       bool
 }
 
+// Interpolate the rendered line at the cursor's time, rather than projecting
+// the pointer onto its nearest point (which can move sideways on steep lines).
+func chartSeriesPositionAtX(data plotData, size fyne.Size, seriesIndex int, cursorX float32) (fyne.Position, bool) {
+	w, h := float64(size.Width-chartPlotLeft-data.plotRight()), float64(size.Height-chartPlotTop-chartPlotBottom)
+	if w <= 0 || h <= 0 || data.Bucket <= 0 || !data.End.After(data.Start) || seriesIndex < 0 || seriesIndex >= len(data.Series) {
+		return fyne.Position{}, false
+	}
+	series := data.Series[seriesIndex]
+	if data.IndividualHits || len(series.Values) == 0 {
+		return fyne.Position{}, false
+	}
+	x := math.Max(0, math.Min(w, float64(cursorX-chartPlotLeft)))
+	sample := x / w * data.End.Sub(data.Start).Seconds() / data.Bucket.Seconds()
+	bin := min(int(sample), len(series.Values)-1)
+	value := series.Values[bin]
+	if bin+1 < len(series.Values) {
+		value += (series.Values[bin+1] - value) * (sample - float64(bin))
+	}
+	return fyne.NewPos(chartPlotLeft+float32(x), chartPlotTop+float32(h*(1-data.seriesFraction(series, value)))), true
+}
+
 // Hit-test the actual rendered geometry. Only inspect samples within the
 // pointer's horizontal tolerance rather than walking every plotted sample.
 func closestChartLine(data plotData, size fyne.Size, pointer fyne.Position) chartLineHover {

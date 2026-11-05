@@ -48,7 +48,7 @@ Choose a preset such as **30 minutes** or **All history**, or enter a **Custom**
 | Left-click and drag across a plot | Select a range; release to zoom. The readout shows the selected duration. |
 | Hold right-click and drag | Move the timeline left or right. |
 | **Ctrl+Z / Ctrl+Y**, or mouse **Back / Forward** | Undo or redo zooming and panning. |
-| Hover over a line or point | Mark it with a dot and show its reading first, even outside the top three. |
+| Hover over a line or point | Show a dot aligned with the vertical cursor and put its reading first, even outside the top three. A selected line's dot follows the cursor across graphs. |
 | Click a line or point | Emphasize its series and dim the others; keep that series first in the readout. Click it again or click empty plot space to clear. |
 | **Left / Right** | Pan earlier or later by a quarter of the visible time range. |
 | **+ / −** (or **=**) | Zoom in or out around the center of the visible range. |

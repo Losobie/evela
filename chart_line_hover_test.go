@@ -97,6 +97,40 @@ func TestHoveredLineUsesSlopeDualAxisAndFinalSegment(t *testing.T) {
 	chart.DragEnd()
 }
 
+func TestHoverDotStaysOnCursorAndSelectedSeries(t *testing.T) {
+	chart, window, data := newLineHoverTestChart(t)
+	data.Series[4].Values = []float64{10, 90, 30}
+	data.Series[4].Unit = "GJ"
+	data.SecondaryUnit, data.SecondaryMaximum = "GJ", 150
+	chart.setData(data)
+	point := hoverLinePosition(chart, 1.0/16, data.Series[4], 50)
+	// An off-line pointer projects sideways onto this steep segment. The dot
+	// must instead remain at the cursor time and interpolate its height.
+	chart.MouseMoved(testMouseEvent(point.X, point.Y+4, 0))
+	center := chart.hoverDot.Position().Add(fyne.NewPos(4, 4))
+	if !chart.hoverDot.Visible() || math.Abs(float64(center.X-chart.cursor.Position1.X)) > .01 || math.Abs(float64(center.Y-point.Y)) > .01 {
+		t.Fatalf("sloping line dot is off the cursor intersection: dot=%v expected=%v cursor=%v", center, point, chart.cursor.Position1)
+	}
+	chart.MouseDown(testMouseEvent(point.X, point.Y, desktop.MouseButtonPrimary))
+	chart.MouseUp(testMouseEvent(point.X, point.Y, desktop.MouseButtonPrimary))
+	other := newDamageChart()
+	window.SetContent(container.NewVBox(chart, other))
+	window.Resize(fyne.NewSize(1100, 600))
+	other.setData(data)
+	linkChartHovers(chart, other)
+	// Hovering a different graph must also move the selected graph's dot.
+	width := other.Size().Width - chartPlotLeft - other.plotRight()
+	other.MouseMoved(testMouseEvent(chartPlotLeft+width*.8, chartPlotTop+5, 0))
+	center = chart.hoverDot.Position().Add(fyne.NewPos(4, 4))
+	if !chart.hoverDot.Visible() || math.Abs(float64(center.X-chart.cursor.Position1.X)) > .01 {
+		t.Fatal("selected series dot did not follow the shared vertical cursor")
+	}
+	expected := hoverLinePosition(chart, .8, data.Series[4], 30)
+	if math.Abs(float64(center.Y-expected.Y)) > .01 {
+		t.Fatal("selected series dot left the extended final segment")
+	}
+}
+
 func TestHoveredIndividualHitPromotesExactHit(t *testing.T) {
 	chart, _, data := newLineHoverTestChart(t)
 	data.IndividualHits = true
@@ -112,6 +146,10 @@ func TestHoveredIndividualHitPromotesExactHit(t *testing.T) {
 	}
 	if chart.hover.Text != "Oct 17 02:00:02 EVE time" {
 		t.Fatal("hovered hit lost its exact timestamp")
+	}
+	chart.MouseMoved(testMouseEvent(position.X+3, position.Y, 0))
+	if center := chart.hoverDot.Position().Add(fyne.NewPos(4, 4)); !chart.hoverDot.Visible() || math.Abs(float64(center.X-chart.cursor.Position1.X)) > .01 {
+		t.Fatal("individual-hit dot snapped horizontally away from the cursor")
 	}
 }
 
