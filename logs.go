@@ -144,7 +144,9 @@ func parseLog(input io.Reader) (*parsedLog, error) {
 		if locationChannel {
 			if event, ok := parseLogLocation(message, at.Unix()); ok {
 				result.LocationEvents = append(result.LocationEvents, event)
-				structurePending = false // A target in the old system cannot carry over.
+				if !event.Inferred {
+					structurePending = false // A target in the old system cannot carry over.
+				}
 				continue
 			}
 		}

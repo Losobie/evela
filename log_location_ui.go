@@ -10,11 +10,11 @@ import (
 
 func logLocationHistoryContent(history logLocationHistory) fyne.CanvasObject {
 	periods := history.periods()
-	note := widget.NewLabel("Jump and Conduit Field messages establish the destination from their timestamp through the remaining log session. Jump origins also identify the earlier part of that session. Game logs take precedence over ESI, including newer cached ESI responses. Coverage ends 45 seconds after the last timestamped entry; sessions are kept separate. The table shows session coverage before that allowance. Close and reopen to see newer locations.")
+	note := widget.NewLabel("Jump and Conduit Field messages establish the destination through the remaining log session and take precedence over ESI. A spatial-phenomena notification with no jump in the preceding 30 seconds provides an assumed Wormhole location; ESI takes priority over that assumption. Coverage ends 45 seconds after the last timestamped entry; sessions are kept separate. The table shows log evidence before that allowance. Close and reopen to see newer locations.")
 	note.Wrapping = fyne.TextWrapWord
 	top := container.NewVBox(widget.NewLabel(fmt.Sprintf("%d log sessions · %d system periods", len(history), len(periods))), note, widget.NewSeparator())
 	if len(periods) == 0 {
-		return container.NewBorder(top, nil, nil, nil, widget.NewLabel("No log locations yet. Load logs containing jump or Conduit Field messages; ESI sign-in is optional."))
+		return container.NewBorder(top, nil, nil, nil, widget.NewLabel("No log locations yet. Load logs containing jump, Conduit Field or spatial-phenomena messages; ESI sign-in is optional."))
 	}
 	table := widget.NewTable(func() (int, int) { return len(periods) + 1, 4 }, func() fyne.CanvasObject {
 		label := widget.NewLabel("")
@@ -28,7 +28,11 @@ func logLocationHistoryContent(history logLocationHistory) fyne.CanvasObject {
 			return
 		}
 		period := periods[id.Row-1]
-		label.SetText([]string{period.CharacterName, period.SystemName, period.FirstSeen.Format("2006-01-02 15:04:05"), period.LastSeen.Format("2006-01-02 15:04:05")}[id.Col])
+		system := period.SystemName
+		if period.Source == inferredLogLocationSource {
+			system += " (assumed)"
+		}
+		label.SetText([]string{period.CharacterName, system, period.FirstSeen.Format("2006-01-02 15:04:05"), period.LastSeen.Format("2006-01-02 15:04:05")}[id.Col])
 	})
 	for col, width := range []float32{220, 180, 260, 260} {
 		table.SetColumnWidth(col, width)

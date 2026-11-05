@@ -106,6 +106,11 @@ func (viewer *eventsViewer) eventFields(event eventRow) []extractedEventField {
 		add("Amount", number(mining.Amount))
 	}
 	for _, location := range parsed.LocationEvents {
+		if location.Inferred {
+			add("Activity", "Spatial phenomena")
+			add("Location hint", location.To)
+			continue
+		}
 		add("Activity", "Travel")
 		add("From system", location.From)
 		add("To system", location.To)

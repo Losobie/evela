@@ -15,10 +15,15 @@ var (
 	logConduitPilot     = regexp.MustCompile(`^Activating a Conduit Field jumps you to (.+), bringing along [0-9]+ passengers?\.$`)
 )
 
+const spatialPhenomenaMessage = "Local spatial phenomena may cause strange effects on your ship systems."
+const wormholeJumpGrace = 30 * time.Second
+const inferredLogLocationSource = "Game log (assumed)"
+
 type logLocationEvent struct {
-	Second int64
-	From   string
-	To     string
+	Second   int64
+	From     string
+	To       string
+	Inferred bool `json:",omitempty"`
 }
 
 func parseLogLocation(message string, second int64) (logLocationEvent, bool) {
@@ -29,6 +34,8 @@ func parseLogLocation(message string, second int64) (logLocationEvent, bool) {
 		event.To = strings.TrimSpace(match[1])
 	} else if match := logConduitPilot.FindStringSubmatch(message); match != nil {
 		event.To = strings.TrimSpace(match[1])
+	} else if message == spatialPhenomenaMessage {
+		event.To, event.Inferred = "Wormhole", true
 	}
 	return event, event.To != ""
 }
@@ -83,7 +90,10 @@ func (history logLocationHistory) merge(other logLocationHistory) bool {
 			if a.To != b.To {
 				return a.To < b.To
 			}
-			return a.From < b.From
+			if a.From != b.From {
+				return a.From < b.From
+			}
+			return !a.Inferred && b.Inferred
 		})
 		session.Events = slices.Compact(session.Events)
 		if !exists || previous.Start != session.Start || previous.End != session.End || !slices.Equal(previous.Events, session.Events) {
@@ -106,23 +116,31 @@ func (history logLocationHistory) clone() logLocationHistory {
 // movement messages and session bounds, rather than sampled ESI observations.
 func (history logLocationHistory) periods() []locationPeriod {
 	var result []locationPeriod
-	for _, session := range history {
-		if len(session.Events) == 0 {
-			continue
-		}
-		appendPeriod := func(name string, first, last int64) {
-			if name != "" && last >= first {
-				result = append(result, locationPeriod{CharacterName: session.CharacterName, SystemName: name,
-					FirstSeen: time.Unix(first, 0).UTC(), LastSeen: time.Unix(last, 0).UTC(), Observations: 1})
+	// Apply the same recent-jump suppression as the resolver. This viewer shows
+	// log evidence; an assumed period can still be superseded by ESI at lookup.
+	for _, index := range newLocationResolver(nil, history).logs {
+		for _, session := range index.sessions {
+			if len(session.Events) == 0 {
+				continue
 			}
-		}
-		appendPeriod(session.Events[0].From, session.Start, session.Events[0].Second-1)
-		for i, event := range session.Events {
-			end := session.End
-			if i+1 < len(session.Events) {
-				end = min(end, session.Events[i+1].Second-1)
+			appendPeriod := func(name string, first, last int64, inferred bool) {
+				if name != "" && last >= first {
+					period := locationPeriod{CharacterName: session.CharacterName, SystemName: name,
+						FirstSeen: time.Unix(first, 0).UTC(), LastSeen: time.Unix(last, 0).UTC(), Observations: 1}
+					if inferred {
+						period.Source = inferredLogLocationSource
+					}
+					result = append(result, period)
+				}
 			}
-			appendPeriod(event.To, event.Second, end)
+			appendPeriod(session.Events[0].From, session.Start, session.Events[0].Second-1, false)
+			for i, event := range session.Events {
+				end := session.End
+				if i+1 < len(session.Events) {
+					end = min(end, session.Events[i+1].Second-1)
+				}
+				appendPeriod(event.To, event.Second, end, event.Inferred)
+			}
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {
@@ -162,6 +180,25 @@ func newLocationResolver(esi locationHistory, logs logLocationHistory) locationR
 		resolver.logs[key].sessions = append(resolver.logs[key].sessions, session)
 	}
 	for _, index := range resolver.logs {
+		var jumps []int64
+		for _, session := range index.sessions {
+			for _, event := range session.Events {
+				if !event.Inferred {
+					jumps = append(jumps, event.Second)
+				}
+			}
+		}
+		slices.Sort(jumps)
+		jumps = slices.Compact(jumps)
+		for i := range index.sessions {
+			index.sessions[i].Events = selectRecords(index.sessions[i].Events, func(event logLocationEvent) bool {
+				if !event.Inferred {
+					return true
+				}
+				previous := sort.Search(len(jumps), func(i int) bool { return jumps[i] > event.Second }) - 1
+				return previous < 0 || event.Second-jumps[previous] > int64(wormholeJumpGrace/time.Second)
+			})
+		}
 		sort.Slice(index.sessions, func(i, j int) bool { return index.sessions[i].Start < index.sessions[j].Start })
 		var end int64
 		for i, session := range index.sessions {
@@ -179,6 +216,7 @@ func (resolver locationResolver) atName(name string, at time.Time) (locationPeri
 	var system string
 	var latest int64
 	found := false
+	inferred := false
 	logs := resolver.logs[characterKey(name)]
 	if logs == nil {
 		return resolver.esi[characterKey(name)].atName(name, at)
@@ -191,8 +229,10 @@ func (resolver locationResolver) atName(name string, at time.Time) (locationPeri
 		}
 		index := sort.Search(len(session.Events), func(i int) bool { return session.Events[i].Second > second }) - 1
 		candidate, established := session.Events[0].From, session.Start
+		assumed := false
 		if index >= 0 {
 			candidate, established = session.Events[index].To, session.Events[index].Second
+			assumed = session.Events[index].Inferred
 			// Conflicting exports at the same timestamp must not pick a system
 			// based on map order or fall back to a cached ESI response.
 			for previous := index - 1; previous >= 0 && session.Events[previous].Second == established; previous-- {
@@ -206,11 +246,22 @@ func (resolver locationResolver) atName(name string, at time.Time) (locationPeri
 		}
 		if !found || established > latest {
 			system, latest, found = candidate, established, true
-		} else if established == latest && characterKey(system) != characterKey(candidate) {
-			system = ""
+			inferred = assumed
+		} else if established == latest {
+			if inferred && !assumed {
+				system, inferred = candidate, false
+			} else if inferred == assumed && characterKey(system) != characterKey(candidate) {
+				system = ""
+			}
 		}
 	}
 	if found {
+		if inferred && system != "" {
+			if location, ok := resolver.esi[characterKey(name)].atName(name, at); ok && (location.SystemID > 0 || location.SystemName != "") {
+				return location, true
+			}
+			return locationPeriod{CharacterName: name, SystemName: system, Source: inferredLogLocationSource}, true
+		}
 		return locationPeriod{CharacterName: name, SystemName: system, SystemID: resolver.systems[characterKey(system)], Source: "Game log"}, system != ""
 	}
 	return resolver.esi[characterKey(name)].atName(name, at)
