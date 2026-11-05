@@ -20,10 +20,11 @@ SEPARATOR = "\n\n" + "=" * 72 + "\n"
 NOTICE_NAME = re.compile(r"^(licen[cs]e|copying|notice|authors|patents|ofl)([._-]|$)", re.I)
 SKIP_DIRS = {".git", "testdata", "tests", "examples", "cmd", "tools"}
 NATIVE_FILES = {
-    "MinGW-w64-runtime.txt": "crt/COPYING.MinGW-w64-runtime.txt",
-    "GCC-Runtime-Exception-3.1.txt": "gcc-libs/COPYING.RUNTIME",
-    "GPL-3.0.txt": "gcc-libs/COPYING3",
-    "Winpthreads.txt": "libwinpthread/COPYING",
+    "MinGW-w64-runtime.txt": ("crt/COPYING.MinGW-w64-runtime.txt",),
+    # MSYS2 split the runtime out of gcc-libs into libgcc in GCC 16.
+    "GCC-Runtime-Exception-3.1.txt": ("libgcc/COPYING.RUNTIME", "gcc-libs/COPYING.RUNTIME"),
+    "GPL-3.0.txt": ("libgcc/COPYING3", "gcc-libs/COPYING3"),
+    "Winpthreads.txt": ("libwinpthread/COPYING",),
 }
 EXTRA_HEADERS = {
     "github.com/go-gl/gl": [
@@ -55,6 +56,18 @@ def json_stream(text):
 
 def read(path):
     return path.read_text(encoding="utf-8-sig").replace("\r\n", "\n").rstrip() + "\n"
+
+
+def native_license_file(name, native_root):
+    if native_root is None:
+        return ROOT / "licenses/native" / name
+    candidates = [native_root / relative for relative in NATIVE_FILES[name]]
+    for file in candidates:
+        if file.is_file():
+            return file
+    attempted = ", ".join(str(file) for file in candidates)
+    raise RuntimeError(f"Missing native notice {name}; checked: {attempted}. "
+                       "Review the installed MinGW package layout before distribution.")
 
 
 def license_files(directory):
@@ -115,8 +128,8 @@ def generate(native_root):
         graphics += "\n--- " + file.name + " ---\n\n" + read(file)
     section("Additional graphics and header license texts", graphics)
     native = "Sources and scope: licenses/README.md\n"
-    for name, relative in sorted(NATIVE_FILES.items()):
-        file = native_root / relative if native_root else ROOT / "licenses/native" / name
+    for name in sorted(NATIVE_FILES):
+        file = native_license_file(name, native_root)
         native += "\n--- " + name + " ---\n\n" + read(file)
     section("Windows native runtime notices", native)
     return SEPARATOR.join(sections)

@@ -29,7 +29,9 @@ Unicode's current V3 text from https://www.unicode.org/license.txt.
   `mingw64/share/licenses/crt/COPYING.MinGW-w64-runtime.txt`.
 - `native/Winpthreads.txt`: from the MSYS2 libwinpthread package's `COPYING`.
 - `native/GPL-3.0.txt` and `native/GCC-Runtime-Exception-3.1.txt`: from the
-  MSYS2 gcc-libs package, `COPYING3` and `COPYING.RUNTIME`. The exception permits
+  MSYS2 GCC runtime, `COPYING3` and `COPYING.RUNTIME`. Current packages put these
+  in `share/licenses/libgcc`; older installations use `share/licenses/gcc-libs`.
+  The collector supports both, preferring `libgcc` when both exist. The exception permits
   eligible compiled combinations under chosen terms; the compiler executable
   and unrelated GCC libraries are not shipped. These baseline files came from
   the local MSYS2 GCC 14.2.0 installation.
@@ -56,6 +58,19 @@ runtime notices from the compiler installation actually used in each release.
 When changing compilers, refresh the baseline snapshots and check the executable's
 DLL imports as well as statically incorporated libraries. Current Windows builds
 import only Windows system DLLs; the operating system's DLLs are not redistributed.
+
+Using GCC to compile Evela does not by itself require distributing the compiler's
+license or licensing Evela under the GPL. The native build can incorporate GCC
+runtime code, so we retain the runtime's GPL text and Runtime Library Exception
+as distribution notices. The exception permits eligible compiled combinations
+under the terms of their independent modules, including Evela's MIT license.
+These notices cover runtime code, not distribution of the GCC compiler itself.
+See the [GCC runtime exception text](https://gcc.gnu.org/onlinedocs/libstdc++/manual/license.html).
+
+Run `python -m unittest discover -s tools/licenses -v` to check both MSYS2 layouts.
+When `--native-root` is supplied, missing notices still fail with the attempted
+paths listed; the collector never silently substitutes reviewed snapshots for
+an unrecognized compiler installation.
 
 ## CCP materials
 
