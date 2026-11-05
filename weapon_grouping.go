@@ -80,6 +80,13 @@ func (view damageView) damageAttributeSeries(snapshot *logSnapshot, selected map
 				group.series.TotalOutgoing += point.Outgoing
 				group.series.IncomingHits += point.IncomingHits
 				group.series.OutgoingHits += point.OutgoingHits
+				if hit.WeaponStrength == "Misses" {
+					if hit.Incoming {
+						group.series.IncomingMisses = true
+					} else {
+						group.series.OutgoingMisses = true
+					}
+				}
 			}
 			for bin := int((left - first) / bucket); bin <= int((right-1-first)/bucket); bin++ {
 				binStart := first + int64(bin)*bucket

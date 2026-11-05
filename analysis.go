@@ -3,18 +3,19 @@ package main
 import (
 	"fmt"
 	"math"
+	"slices"
 	"time"
 )
 
 type characterSeries struct {
-	HasMisses                    bool
-	Name                         string
-	Members                      []string
-	MemberCounts                 []int
-	MemberShips                  map[string][]string
-	Incoming, Outgoing           []float64
-	TotalIncoming, TotalOutgoing float64
-	IncomingHits, OutgoingHits   int
+	IncomingMisses, OutgoingMisses bool
+	Name                           string
+	Members                        []string
+	MemberCounts                   []int
+	MemberShips                    map[string][]string
+	Incoming, Outgoing             []float64
+	TotalIncoming, TotalOutgoing   float64
+	IncomingHits, OutgoingHits     int
 }
 
 type damageView struct {
@@ -30,11 +31,20 @@ type damageView struct {
 func (view damageView) activeSeries() []characterSeries {
 	var active []characterSeries
 	for _, series := range view.Series {
-		if series.HasMisses || series.TotalIncoming > 0 || series.TotalOutgoing > 0 || series.IncomingHits > 0 || series.OutgoingHits > 0 {
+		if series.IncomingMisses || series.OutgoingMisses || series.TotalIncoming > 0 || series.TotalOutgoing > 0 || series.IncomingHits > 0 || series.OutgoingHits > 0 {
 			active = append(active, series)
 		}
 	}
 	return active
+}
+
+func (series characterSeries) hasActivity(incoming bool) bool {
+	total, hits, misses, values := series.TotalOutgoing, series.OutgoingHits, series.OutgoingMisses, series.Outgoing
+	if incoming {
+		total, hits, misses, values = series.TotalIncoming, series.IncomingHits, series.IncomingMisses, series.Incoming
+	}
+	// A pre-range hit may still contribute to a visible rolling average.
+	return total > 0 || hits > 0 || misses || slices.ContainsFunc(values, func(value float64) bool { return value > 0 })
 }
 
 func buildView(snapshot *logSnapshot, start, end time.Time, requestedBucket time.Duration) damageView {
@@ -61,7 +71,11 @@ func buildView(snapshot *logSnapshot, start, end time.Time, requestedBucket time
 		series := &view.Series[byCharacter[log.Character]]
 		for _, hit := range log.Hits {
 			if hit.WeaponStrength == "Misses" && hit.Second >= start.Unix() && hit.Second < end.Unix() {
-				series.HasMisses = true
+				if hit.Incoming {
+					series.IncomingMisses = true
+				} else {
+					series.OutgoingMisses = true
+				}
 			}
 		}
 		for _, point := range log.Points {

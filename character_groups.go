@@ -246,6 +246,8 @@ func (ui *analyzerUI) groupCharacterSeriesIn(scope string, series []characterSer
 			group.TotalOutgoing += character.TotalOutgoing
 			group.IncomingHits += character.IncomingHits
 			group.OutgoingHits += character.OutgoingHits
+			group.IncomingMisses = group.IncomingMisses || character.IncomingMisses
+			group.OutgoingMisses = group.OutgoingMisses || character.OutgoingMisses
 			for index, value := range character.Incoming {
 				group.Incoming[index] += value
 			}

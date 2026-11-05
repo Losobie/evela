@@ -153,13 +153,16 @@ func (ui *analyzerUI) renderSelection() {
 		graphSeries = ui.groupCustomCharacterSeries(graphSeries, selected)
 	}
 	for _, series := range graphSeries {
-		if !ui.anyGrouping() && !selected[series.Name] {
+		if !series.hasActivity(false) || !ui.anyGrouping() && !selected[series.Name] {
 			continue
 		}
 		ink := characterColor(series.Name)
 		out.Series = append(out.Series, plotSeries{Name: series.Name, Color: ink, Values: series.Outgoing, MemberCount: len(series.Members), MemberCounts: series.MemberCounts})
 	}
 	for _, series := range ui.incomingGraphSeries(selected) {
+		if !series.hasActivity(true) {
+			continue
+		}
 		in.Series = append(in.Series, plotSeries{Name: series.Name, Color: characterColor(series.Name), Values: series.Incoming, MemberCount: len(series.Members), MemberCounts: series.MemberCounts})
 	}
 	if ui.graphAverageWindow == 0 {

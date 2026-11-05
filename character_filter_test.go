@@ -50,8 +50,8 @@ func TestCharacterFiltersFollowDamageWindow(t *testing.T) {
 			if !strings.HasPrefix(ui.summary.Text, "2 selected") {
 				t.Fatalf("out-of-range selections counted in summary: %s", ui.summary.Text)
 			}
-			if len(ui.tableSeries) != 2 || len(ui.outgoing.data.Series) != 2 {
-				t.Fatal("inactive characters or ships remained in totals or plots")
+			if len(ui.tableSeries) != 2 || len(ui.outgoing.data.Series) != 1 || len(ui.incoming.data.Series) != 1 {
+				t.Fatal("totals should include both directions while each graph shows its own activity")
 			}
 			if grouping == "Ship history" {
 				var headers []string
