@@ -8,7 +8,7 @@ import (
 )
 
 // Ship, starbase and structure classes from CCP's official SDE. EVE Online and
-// its game data are copyright CCP hf. See README for the regeneration command.
+// its game data are copyright CCP hf. See docs/DEVELOPMENT.md for regeneration.
 //
 //go:embed hull_data.json
 var hullData []byte

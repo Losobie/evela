@@ -13,7 +13,7 @@ import (
 
 // NPC names and groups are derived from CCP's official Static Data Export.
 // EVE Online and its game data are copyright CCP hf.
-// See README for the source, version and regeneration command.
+// See docs/DEVELOPMENT.md for the source, version and regeneration command.
 //
 //go:embed npc_data.json.gz
 var npcData []byte

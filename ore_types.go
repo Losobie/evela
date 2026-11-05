@@ -9,7 +9,7 @@ import (
 )
 
 // Derived from CCP's official SDE, category 25 (Asteroid).
-// EVE Online and its game data are copyright CCP hf. See README for regeneration.
+// EVE Online and its game data are copyright CCP hf. See docs/DEVELOPMENT.md for regeneration.
 //
 //go:embed ore_data.json
 var oreData []byte
