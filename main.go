@@ -36,6 +36,7 @@ type analyzerUI struct {
 	start, end                        *dateTimePicker
 	rangeSelect                       *widget.Select
 	status, summary, directoryInfo    *widget.Label
+	releaseLink                       *widget.Hyperlink
 	progress                          *widget.ProgressBar
 	refresh                           *widget.Button
 	auto                              *widget.Check
@@ -135,6 +136,7 @@ func main() {
 	application.Lifecycle().SetOnStarted(func() {
 		ui.restoreWindowGeometry()
 		ui.initGraphMouseNavigation()
+		go ui.watchReleases()
 	})
 	window.ShowAndRun()
 }
@@ -163,6 +165,8 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.summary = widget.NewLabel("Waiting for logs…")
 	ui.summary.TextStyle.Bold = true
 	ui.summary.Truncation = fyne.TextTruncateEllipsis
+	ui.releaseLink = widget.NewHyperlink("New release available", nil)
+	ui.releaseLink.Hide()
 	ui.progress = widget.NewProgressBar()
 	ui.progress.Hide()
 	ui.refresh = widget.NewButtonWithIcon("Refresh logs", theme.ViewRefreshIcon(), ui.requestLoad)
@@ -320,7 +324,7 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 			ui.engagements.cancelBuild()
 		}
 	}
-	footer := container.NewVBox(widget.NewSeparator(), ui.summary)
+	footer := container.NewVBox(widget.NewSeparator(), container.NewBorder(nil, nil, nil, ui.releaseLink, ui.summary))
 	return container.NewPadded(container.NewBorder(controls, footer, nil, nil, tabs))
 }
 

@@ -43,6 +43,8 @@ The [release workflow](../.github/workflows/release.yml) runs on pushes to `main
 
 New pushes cancel older runs. A run checks that its commit is still the tip of `main` before publishing, and rerunning that commit updates its existing release. The workflow uses GitHub's built-in token, with no additional secrets. Go module/build caches and the MSYS2 action cache reduce repeat setup work. Cold Fyne/CGO builds can take several minutes; separate download, compile and test steps provide progress and time limits.
 
+Update checks read Go's embedded `vcs.revision` and compare it with the latest published `build-<SHA>` release through GitHub's public API. A link appears only when the release commit is ahead of the running build; older, identical and diverged commits are excluded. CI verifies that the executable's revision matches the release commit. Build from a Git checkout with VCS stamping enabled (the default); builds without revision metadata skip update checks. Checks run at startup and every six hours, with a ten-second timeout and no authentication or log uploads.
+
 After dependency or compiler changes, review upstream terms and regenerate notices:
 
 ```powershell

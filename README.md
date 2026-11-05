@@ -79,6 +79,8 @@ See [ESI setup and connection help](docs/ESI.md) for custom applications, permis
 
 **Settings → Theme** offers **System**, **Light** and **Dark**. The default follows Windows, and your choice is saved.
 
+Evela checks GitHub for a newer release at startup and every six hours while open. When one is available, **New release available** appears on the right of the bottom information panel. Click it to open that release's page and download the update. Checks run in the background; unavailable connections leave the app usable.
+
 Evela reads English game logs without modifying or uploading them. SQLite caching is built in. Optional ESI connections send authorization and ship/location requests to CCP; saved tokens are encrypted for your Windows user.
 
 For missing data, check **Details…**, the log-loading age limit, the selected time range and visible filters. See [data and history reference](docs/DATA.md) for parsing coverage, unknown values and cache locations.
