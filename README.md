@@ -61,9 +61,9 @@ Time navigation updates all graphs and Totals together. Graph intervals adjust a
 
 ### Filter and group results
 
-Use **Add filter** above the graphs to filter across graphs, or inside a graph to filter that graph. Checkboxes let you add several filters before clicking away to close the menu.
+Use **Add global filter** above the graphs to filter across graphs, or **Add filter** inside a graph to filter that graph. Checkboxes let you add several filters before clicking away to close the menu.
 
-**Only visible filters apply.** Remove one with **×** or uncheck it in Add filter to stop applying it. Adding it again restores its previous selections. Each filter supports search, **All**, and individual choices. Choices within one filter combine; different filters narrow the result together.
+**Only visible filters apply.** Remove one with **×** or uncheck its box in the filter menu to stop applying it. Adding it again restores its previous selections. Each filter supports search, **All**, and individual choices. Choices within one filter combine; different filters narrow the result together.
 
 Available choices depend on the graph: characters, character groups, ship type/class and system, plus **Weapon Type**, **Weapon Strength**, **Target**, **Target Type**, attackers and NPCs, logistics types, E-War effects, or ore and mining message types. Use **Group By** on the right of each graph to choose what its colored series represent. Outgoing damage grouping also controls Totals; damage filters update the matching direction in Totals.
 

@@ -223,7 +223,11 @@ func (ui *analyzerUI) refreshScopedFilterBar(scope string) {
 		remove := widget.NewButtonWithIcon("", theme.CancelIcon(), func() { ui.setFilterVisible(scope, kind, false) })
 		chips = append(chips, container.NewHBox(button, remove))
 	}
-	add := ui.toggleMenuButton("Add filter", func() *fyne.Menu { return ui.addFilterMenu(scope) }, func(popup *widget.PopUpMenu, model *fyne.Menu) { ui.keepAddFilterMenuOpen(scope, popup, model) })
+	addLabel := "Add filter"
+	if scope == globalFilterScope {
+		addLabel = "Add global filter"
+	}
+	add := ui.toggleMenuButton(addLabel, func() *fyne.Menu { return ui.addFilterMenu(scope) }, func(popup *widget.PopUpMenu, model *fyne.Menu) { ui.keepAddFilterMenuOpen(scope, popup, model) })
 	bar.Objects = append([]fyne.CanvasObject{add}, chips...)
 	if trailing := bar.Layout.(*filterBarLayout).trailing; trailing != nil {
 		bar.Objects = append(bar.Objects, trailing)

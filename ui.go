@@ -250,9 +250,7 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	ui.graphsScroll = container.NewVScroll(ui.graphStack)
 	ui.graphsEmpty = newGraphsEmptyState()
 	ui.applyGraphVisibility()
-	scrollHint := widget.NewLabel("Use the scrollbar or wheel over graph headings to scroll · Wheel over a plot zooms all graphs")
-	scrollHint.Truncation = fyne.TextTruncateEllipsis
-	graphContent := container.NewBorder(container.NewVBox(filterBar, scrollHint), nil, nil, nil, ui.graphsScroll)
+	graphContent := container.NewBorder(filterBar, nil, nil, nil, ui.graphsScroll)
 	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.")
 	totalsNote.Wrapping = fyne.TextWrapWord
 	totals := container.NewBorder(totalsNote, nil, nil, nil, ui.totals)
