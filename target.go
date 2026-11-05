@@ -73,8 +73,9 @@ func logisticsTarget(detail string) combatEntity {
 }
 
 // Remote assistance can put the hull before alliance, corporation and pilot
-// brackets, followed by a module with either a single or double dash separator.
-var logisticsShipTarget = regexp.MustCompile(`^(.+?)\s+\[([^\[\]]*)\]\s*\[([^\[\]]*)\]\s*\[([^\[\]]+)\](?:\s+-\s+.*)?$`)
+// brackets (alliance is optional), followed by a module with either a single or
+// double dash separator. Parentheses distinguish structure locations / hulls.
+var logisticsShipTarget = regexp.MustCompile(`^([^()\[\]]+?)\s+(?:\[([^\[\]]*)\]\s*)?\[([^\[\]]*)\]\s*\[([^\[\]]+)\](?:\s+-\s+.*)?$`)
 
 func logisticsTargetDetails(detail string) (combatEntity, string) {
 	if match := logisticsShipTarget.FindStringSubmatch(strings.TrimSpace(detail)); match != nil {

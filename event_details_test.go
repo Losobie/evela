@@ -59,6 +59,7 @@ func TestEventDetailsExtractedFields(t *testing.T) {
 	}{
 		{customsOfficeRepair, []string{"Activity: Logistics", "Direction: Outgoing", "Logistics type: Shield repair", "Amount: 472", "Target: Customs Office\n", "Target type: Customs Office", "Target location: R3-K7K IX", "Target corporation: Way So Mad"}, []string{"Target corporation ticker:", "Weapon strength:", "Target type: R3-K7K IX"}},
 		{bracketedLogisticsExample, []string{"Amount: 299", "Target: Clento Loso\n", "Target type: Basilisk", "Target corporation ticker: .AE..", "Target alliance ticker: THIRD"}, []string{"Target corporation:", "Target location:"}},
+		{unalliedLogisticsExample, []string{"Amount: 0", "Target: Alpha Arterius\n", "Target type: Stork", "Target corporation ticker: 53C0N"}, []string{"Target alliance ticker:", "Target corporation:", "Target location:"}},
 		{"(combat) " + skyhookDeflectionExample, []string{"Activity: Damage", "Amount: 60", "Weapon type: Vespa II", "Weapon strength: Glances Off", "Deflection amount: 60", "Target corporation ticker: MOVMT"}, nil},
 		{"(combat) Blood Raiders Apocalypse misses you completely", []string{"Direction: Incoming", "Amount: 0", "Weapon strength: Misses", "Attacker: Blood Raiders Apocalypse"}, []string{"Deflection amount:", "Target type:"}},
 		{"(combat) Amarr Sentry Gun misses you completely", []string{"Attacker NPC: true", "Attacker type ID: 1194", "Attacker group ID: 99"}, nil},
