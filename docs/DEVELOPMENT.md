@@ -50,25 +50,7 @@ New pushes cancel older runs. A run checks that its commit is still the tip of `
 
 Update checks read Go's embedded `vcs.revision` and compare it with the commit identified by the latest published version tag through GitHub's public API. Legacy `build-<SHA>` releases are also supported. A link appears only when the release commit is ahead of the running build; older, identical and diverged commits are excluded, regardless of version number. CI verifies that the executable's revision matches the release commit. Build from a Git checkout with VCS stamping enabled (the default); builds without revision metadata skip update checks. Checks run at startup and every six hours, with a ten-second timeout and no authentication or log uploads.
 
-### Migrate existing hash-based releases
-
-Wait for the new release workflow to finish. Install the [GitHub CLI](https://cli.github.com/) and run these commands from a full repository checkout, using an account with write access:
-
-```powershell
-gh auth login
-git fetch origin --tags
-.\tools\migrate-releases.ps1
-```
-
-The script previews the old and new tags without changing GitHub. For example, the existing `build-02664143ed8c0399dee3c32f7c37f68deec0f70b` release becomes `v0.1.76`. Review the mapping, then apply it:
-
-```powershell
-.\tools\migrate-releases.ps1 -Apply
-```
-
-The script creates version tags at the original commits and edits the existing releases. Notes, assets and download counts are retained. Old Git tags remain as source-history aliases, but release and asset URLs use the new version tags. The highest published version is marked **Latest**, including a newer version that the workflow may already have published. The script checks tag conflicts and immutable releases before making changes and can resume after a partial failure. It does not rebuild old executables.
-
-Executables built before this change recognize only `build-<SHA>` release tags. Users of those builds need to download a current executable once; subsequent update checks support both tag formats.
+Executables built before versioned release tags recognize only `build-<SHA>` tags. Users of those builds need to download a current executable once; subsequent update checks support both tag formats.
 
 After dependency or compiler changes, review upstream terms and regenerate notices:
 
