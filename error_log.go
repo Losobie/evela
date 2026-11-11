@@ -43,7 +43,7 @@ func reportRuntimeError(context string, err error) {
 	}
 }
 
-func newErrorLogDialog(window fyne.Window, store *runtimeErrorLog) *dialog.CustomDialog {
+func newErrorLogDialog(window fyne.Window, store *runtimeErrorLog, diagnostics func() string) *dialog.CustomDialog {
 	text := widget.NewLabel("")
 	text.Wrapping, text.Selectable = fyne.TextWrapWord, true
 	refresh := func() {
@@ -51,10 +51,16 @@ func newErrorLogDialog(window fyne.Window, store *runtimeErrorLog) *dialog.Custo
 		if value == "" {
 			value = "No errors recorded during this session."
 		}
+		if diagnostics != nil {
+			value = "Diagnostics report\n" + diagnostics() + "\nSession errors\n" + value
+		}
 		text.SetText(value)
 	}
 	refresh()
-	copyAll := widget.NewButton("Copy all", func() { window.Clipboard().SetContent(store.Text()) })
+	copyAll := widget.NewButton("Copy all", func() {
+		refresh()
+		window.Clipboard().SetContent(text.Text)
+	})
 	controls := container.NewHBox(widget.NewButton("Refresh", refresh), copyAll)
 	content := container.NewBorder(nil, controls, nil, nil, container.NewVScroll(text))
 	viewer := dialog.NewCustom("Error log", "Close", content, window)
@@ -67,7 +73,7 @@ func (ui *analyzerUI) openErrorLog() {
 		ui.errorLogDialog.Show()
 		return
 	}
-	ui.errorLogDialog = newErrorLogDialog(ui.window, &runtimeErrors)
+	ui.errorLogDialog = newErrorLogDialog(ui.window, &runtimeErrors, ui.diagnosticsReport)
 	ui.errorLogDialog.SetOnClosed(func() { ui.errorLogDialog = nil })
 	ui.errorLogDialog.Show()
 }

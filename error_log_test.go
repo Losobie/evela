@@ -59,17 +59,7 @@ type errorLogTestWindow struct {
 
 func (window errorLogTestWindow) Clipboard() fyne.Clipboard { return window.clipboard }
 
-func TestErrorLogDialogSelectionRefreshAndCopy(t *testing.T) {
-	application := test.NewTempApp(t)
-	window := errorLogTestWindow{application.NewWindow("Error log test"), test.NewClipboard()}
-	defer window.Close()
-	window.SetContent(widget.NewLabel("Evela"))
-	window.Resize(fyne.NewSize(1100, 800))
-	window.Show()
-	var store runtimeErrorLog
-	viewer := newErrorLogDialog(window, &store)
-	viewer.Show()
-	defer viewer.Hide()
+func errorLogDialogControls(window fyne.Window) (*widget.Label, *container.Scroll, map[string]*widget.Button) {
 	var text *widget.Label
 	var scroll *container.Scroll
 	buttons := map[string]*widget.Button{}
@@ -100,6 +90,21 @@ func TestErrorLogDialogSelectionRefreshAndCopy(t *testing.T) {
 		}
 	}
 	visit(window.Canvas().Overlays().Top())
+	return text, scroll, buttons
+}
+
+func TestErrorLogDialogSelectionRefreshAndCopy(t *testing.T) {
+	application := test.NewTempApp(t)
+	window := errorLogTestWindow{application.NewWindow("Error log test"), test.NewClipboard()}
+	defer window.Close()
+	window.SetContent(widget.NewLabel("Evela"))
+	window.Resize(fyne.NewSize(1100, 800))
+	window.Show()
+	var store runtimeErrorLog
+	viewer := newErrorLogDialog(window, &store, nil)
+	viewer.Show()
+	defer viewer.Hide()
+	text, scroll, buttons := errorLogDialogControls(window)
 	if text == nil || scroll == nil || text.Text != "No errors recorded during this session." {
 		t.Fatal("error log must provide selectable, scrollable text and an empty state")
 	}
@@ -121,7 +126,7 @@ func TestErrorLogDialogSelectionRefreshAndCopy(t *testing.T) {
 
 func TestSettingsErrorLogMenu(t *testing.T) {
 	application := test.NewTempApp(t)
-	window := application.NewWindow("Settings")
+	window := errorLogTestWindow{application.NewWindow("Settings"), test.NewClipboard()}
 	defer window.Close()
 	ui := newAnalyzerUI(window)
 	window.SetContent(ui.content())
@@ -138,6 +143,14 @@ func TestSettingsErrorLogMenu(t *testing.T) {
 		item.Action()
 		if ui.errorLogDialog != first {
 			t.Fatal("menu opened duplicate dialogs")
+		}
+		text, _, buttons := errorLogDialogControls(window)
+		if text == nil || !strings.Contains(text.Text, "Diagnostics report") || !strings.Contains(text.Text, "Graph pipeline") || !strings.Contains(text.Text, "Session errors") {
+			t.Fatal("Error log omitted diagnostics or session errors")
+		}
+		test.Tap(buttons["Copy all"])
+		if window.Clipboard().Content() != text.Text {
+			t.Fatal("Copy all omitted the report")
 		}
 		first.Hide()
 		if ui.errorLogDialog != nil {

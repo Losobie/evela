@@ -126,6 +126,7 @@ func (ui *analyzerUI) watch() {
 				reportRuntimeError("Log loading", fmt.Errorf("%s", warning))
 			}
 			ui.snapshot = snapshot
+			ui.lastLogRefresh = time.Now().UTC()
 			ui.rememberLogLocations(snapshot.locationSessions())
 			directoryKey := strings.Join(directories, "\n")
 			if ui.logDirectory != directoryKey {

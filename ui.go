@@ -66,6 +66,7 @@ type analyzerUI struct {
 	engagements                       *engagementsViewer
 	loadRequests                      chan []string
 	forceReprocess                    atomic.Bool
+	lastLogRefresh                    time.Time
 	stop                              chan struct{}
 	ships                             map[string]shipRecord
 	shipHistory                       shipHistory

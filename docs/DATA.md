@@ -25,6 +25,8 @@ Unchanged files reuse cached parsed data across launches. Size or modification-t
 
 Live snapshots are read-only, in-memory views of complete lines in the original `.txt` files. Evela creates no CSVs or temporary snapshot files in Gamelogs and ignores existing CSV files.
 
+**Settings → Error log** includes a selectable diagnostics report before the session errors. **Refresh** and **Copy all** recapture the current build, loading status, time range, character/group selections, filter state and graph pipeline counts. File details include parsed-snapshot hashes and cache state, with range matches first and a 200-file display limit. Diagnostics inspect loaded data without rereading source files or changing filters.
+
 For implementation and versioning requirements, see [parsed-log cache maintenance](DEVELOPMENT.md#parsed-log-cache-maintenance).
 
 ## Damage and extracted fields
