@@ -138,7 +138,7 @@ func TestTargetFiltersGroupingAndPersistence(t *testing.T) {
 	window := fyne.CurrentApp().NewWindow("Restored targets")
 	defer window.Close()
 	restored := newAnalyzerUI(window)
-	if restored.groupSelect.Selected != filterTargetType || restored.visibleFilters[graphOutgoing][filterTargetType] || !restored.storedScopeFilter(graphOutgoing, filterTarget).selected("name:Grijawlva") || restored.storedScopeFilter(graphOutgoing, filterTarget).selected("name:Other") {
+	if restored.groupSelect.Selected != filterTargetType || restored.visibleFilters[graphOutgoing][filterTargetType] || !restored.storedScopeFilter(graphOutgoing, filterTarget).selected("name:Grijawlva") || !restored.storedScopeFilter(graphOutgoing, filterTarget).selected("name:Other") || restored.storedScopeFilter(graphOutgoing, filterTargetType).restricted() {
 		t.Fatal("target grouping/filter preferences did not persist")
 	}
 }

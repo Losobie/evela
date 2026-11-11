@@ -151,7 +151,7 @@ func TestIncomingGroupingMenusAndPreferences(t *testing.T) {
 	if !reflect.DeepEqual(labels, []string{"Character", "Character Group", "Attacker", "Ship", "NPC", "NPC Type", "Weapon Type", "Weapon Strength", eventByShip, eventByClass, filterSystem}) {
 		t.Fatalf("incoming choices: %v", labels)
 	}
-	if len(ui.graphOptionsMenu().Items) != 4+len(graphVisibilityOptions) {
+	if len(ui.graphOptionsMenu().Items) != 6+len(graphVisibilityOptions) {
 		t.Fatal("Options must contain the three format toggles, a separator and every graph visibility toggle")
 	}
 	chooseGraphMenuItem(t, ui.incomingGroupingMenu(), incomingByNPC)

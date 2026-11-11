@@ -80,6 +80,9 @@ func TestScopedFiltersAddRemovePersistAndIntersect(t *testing.T) {
 		t.Fatal("removed filter button is still visible")
 	}
 	ui.setFilterVisible(graphOutgoing, filterWeaponType, true)
+	assertTotal(700, 300)
+	ui.setAllScopeFilters(graphOutgoing, filterWeaponType, false)
+	ui.setScopeFilter(graphOutgoing, filterWeaponType, "name:Ogre I", true)
 	assertTotal(700, 200)
 	ui.setFilterVisible(graphIncoming, filterCharacters, true)
 	ui.setAllScopeFilters(graphIncoming, filterCharacters, false)
@@ -167,6 +170,76 @@ func TestGraphFilterAndGroupingCatalogs(t *testing.T) {
 	}
 	if !slices.Contains(eventGroupingOptions(graphMining), eventByOreName) || slices.Contains(eventGroupingOptions(graphMining), filterMiningMessage) {
 		t.Fatal("mining must support ore names without redundant message grouping")
+	}
+}
+
+func TestClearAllFiltersRestoresMiningAndPersists(t *testing.T) {
+	ui := newMiningTestUI(t)
+	for scope := range ui.visibleFilters {
+		for _, kind := range availableFilters(scope) {
+			ui.visibleFilters[scope][kind] = true
+			selection := ui.storedScopeFilter(scope, kind)
+			selection.Default = false
+			selection.Values = map[string]bool{"stale option": true}
+		}
+	}
+	ui.selected["Miner"] = false
+	ui.rebuildFilteredView()
+	if len(ui.mining.data.Series) != 0 {
+		t.Fatal("test restrictions did not hide mining")
+	}
+	start, end := ui.view.Start, ui.view.End
+	ui.eventGraphGroupings[graphMining] = eventByOreName
+	menu := ui.graphOptionsMenu()
+	last := len(menu.Items) - 1
+	if menu.Items[last].Label != "Clear all filters" || !menu.Items[last-1].IsSeparator || menu.Items[last-2].Label != "Show Mining" {
+		t.Fatal("Clear all filters needs its own section below graph visibility")
+	}
+	menu.Items[last].Action()
+	if len(ui.mining.data.Series) == 0 || ui.miningTotal.Text != "Mining total: 530 units" || !ui.selected["Miner"] {
+		t.Fatal("clearing filters did not restore mining and character selection")
+	}
+	if !ui.view.Start.Equal(start) || !ui.view.End.Equal(end) || ui.eventGraphGroupings[graphMining] != eventByOreName {
+		t.Fatal("clearing filters changed the range or grouping")
+	}
+	checkCleared := func(ui *analyzerUI) {
+		t.Helper()
+		for scope := range ui.visibleFilters {
+			for _, kind := range availableFilters(scope) {
+				selection := ui.storedScopeFilter(scope, kind)
+				if ui.visibleFilters[scope][kind] || selection.restricted() || !selection.selected("new option") || len(selection.Values) != 0 {
+					t.Fatalf("%s/%s was not removed and reset", scope, kind)
+				}
+			}
+		}
+	}
+	checkCleared(ui)
+	window := fyne.CurrentApp().NewWindow("Restored cleared filters")
+	defer window.Close()
+	checkCleared(newAnalyzerUI(window))
+	ui.setFilterVisible(graphMining, filterOreName, true)
+	if ui.miningTotal.Text != "Mining total: 530 units" {
+		t.Fatal("readding a cleared ore filter restored old exclusions")
+	}
+}
+
+func TestRemovingFiltersResetsGlobalAndGraphSelections(t *testing.T) {
+	ui := newMiningTestUI(t)
+	for scope := range ui.visibleFilters {
+		for _, kind := range availableFilters(scope) {
+			ui.setFilterVisible(scope, kind, true)
+			ui.setAllScopeFilters(scope, kind, false)
+			ui.setScopeFilter(scope, kind, "old option", true)
+			ui.setFilterVisible(scope, kind, false)
+			ui.setFilterVisible(scope, kind, true)
+			selection := ui.storedScopeFilter(scope, kind)
+			if selection.restricted() || !selection.selected("new option") || len(selection.Values) != 0 {
+				t.Fatalf("readding %s/%s restored exclusions", scope, kind)
+			}
+		}
+	}
+	if !ui.selected["Miner"] || ui.miningTotal.Text != "Mining total: 530 units" {
+		t.Fatal("removing and readding filters lost the selected miner or yield")
 	}
 }
 

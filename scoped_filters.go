@@ -115,16 +115,13 @@ func (ui *analyzerUI) setFilterVisible(scope, kind string, visible bool) {
 	if !slices.Contains(availableFilters(scope), kind) {
 		return
 	}
+	if !visible || !ui.visibleFilters[scope][kind] {
+		ui.resetScopeFilter(scope, kind)
+	}
 	ui.visibleFilters[scope][kind] = visible
 	if scope == globalFilterScope && kind == filterCharacters && visible {
 		for name := range ui.selected {
 			ui.selected[name] = ui.damageFilters[filterCharacters].selected(name)
-		}
-	}
-	if scope == globalFilterScope && kind == filterCharacters && !visible {
-		// Character checkboxes and the global Characters popup share one selection.
-		for name := range ui.selected {
-			ui.selected[name] = true
 		}
 	}
 	if ui.filterPopup != nil {
@@ -134,6 +131,32 @@ func (ui *analyzerUI) setFilterVisible(scope, kind string, visible bool) {
 	ui.refreshScopedFilterBars()
 	ui.rebuildFilteredView()
 }
+
+func (ui *analyzerUI) resetScopeFilter(scope, kind string) {
+	selection := ui.storedScopeFilter(scope, kind)
+	*selection = damageFilterSelection{Default: true}
+	if scope == globalFilterScope && kind == filterCharacters {
+		for name := range ui.selected {
+			ui.selected[name] = true
+		}
+	}
+}
+
+func (ui *analyzerUI) clearAllFilters() {
+	for scope := range ui.visibleFilters {
+		for _, kind := range availableFilters(scope) {
+			ui.resetScopeFilter(scope, kind)
+			ui.visibleFilters[scope][kind] = false
+		}
+	}
+	if ui.filterPopup != nil {
+		ui.filterPopup.popup.Hide()
+	}
+	ui.saveScopedFilters()
+	ui.refreshScopedFilterBars()
+	ui.rebuildFilteredView()
+}
+
 func (ui *analyzerUI) setScopeFilter(scope, kind, key string, checked bool) {
 	ui.storedScopeFilter(scope, kind).set(key, checked)
 	if scope == globalFilterScope && kind == filterCharacters {

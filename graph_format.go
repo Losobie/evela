@@ -173,5 +173,7 @@ func (ui *analyzerUI) graphOptionsMenu() *fyne.Menu {
 	})
 	invulnerability.Checked = ui.graphInvulnerabilityMarkers
 	items = append(items, invulnerability, fyne.NewMenuItemSeparator())
-	return fyne.NewMenu("Options", append(items, ui.graphVisibilityMenuItems()...)...)
+	items = append(items, ui.graphVisibilityMenuItems()...)
+	items = append(items, fyne.NewMenuItemSeparator(), fyne.NewMenuItem("Clear all filters", ui.clearAllFilters))
+	return fyne.NewMenu("Options", items...)
 }
