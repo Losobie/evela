@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/app"
 )
 
 func main() {
@@ -17,8 +16,7 @@ func main() {
 		defer stopProfiling()
 	}
 
-	application := app.NewWithID("io.evela.damage-analyzer")
-	application.SetIcon(fyne.NewStaticResource("icon.svg", applicationIcon))
+	application := newEvelaApp()
 	applySavedAppearance(application)
 	window := application.NewWindow("Evela · EVE Online log analyzer")
 	ui := newAnalyzerUI(window)

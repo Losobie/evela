@@ -34,6 +34,8 @@ to build the application: the root `go.mod` resolves the parser locally.
 - Graph-specific code chooses events, grouping names and units. The event plot
   builder owns time clipping, rolling-window contributions, hit sorting and
   partial buckets. HP, GJ and mining message kinds remain separate.
+- UI thread ownership and background handoffs are audited in
+  [UI_THREADING.md](UI_THREADING.md); startup opts into Fyne's `fyneDo` migration.
 - History and engagement logic stay outside the parser: their results depend
   on multiple logs, observed ships/locations and user choices.
 - Theme, hover and emphasis changes should refresh renderers without reparsing

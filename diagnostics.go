@@ -38,6 +38,7 @@ func (ui *analyzerUI) diagnosticsReport() string {
 		}
 	}
 	fmt.Fprintf(&report, "Parser version: %d; cache schema: %d\n", logParserVersion, logCacheSchemaVersion)
+	fmt.Fprintf(&report, "Fyne Do migration: %t\n", fyne.CurrentApp().Metadata().Migrations["fyneDo"])
 	if currentBuildRevision() == "" {
 		report.WriteString("Build revision: unavailable (no VCS metadata)\n")
 	}

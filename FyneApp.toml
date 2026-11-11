@@ -1,0 +1,7 @@
+[Details]
+  Icon = "icon.svg"
+  Name = "Evela"
+  ID = "io.evela.damage-analyzer"
+
+[Migrations]
+  fyneDo = true
