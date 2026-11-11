@@ -178,6 +178,7 @@ func (ui *analyzerUI) renderSelection() {
 	ui.totals.Refresh()
 	var ewarCount int
 	var drained float64
+	var mined float64
 	for _, log := range ui.analysisSnapshot().Logs {
 		if !selected[log.Character] {
 			continue
@@ -197,12 +198,18 @@ func (ui *analyzerUI) renderSelection() {
 		for _, event := range log.Mining {
 			if event.Second >= ui.view.Start.Unix() && event.Second < ui.view.End.Unix() {
 				contributing[log.Character] = true
+				if event.Kind == miningMined && ui.scopeFilter(graphMining, filterOreName).selected(event.Ore) && ui.scopeFilter(graphMining, filterOreType).selected(oreType(event.Ore)) && ui.scopeFilter(graphMining, filterMiningMessage).selected(event.Kind) {
+					mined += event.Amount
+				}
 			}
 		}
 	}
 	summary := fmt.Sprintf("%d selected   |   Outgoing %s damage / %d hits   |   Incoming %s damage / %d hits", len(contributing), shortNumber(outgoing), hitsOut, shortNumber(incoming), hitsIn)
 	if ewarCount > 0 {
 		summary += fmt.Sprintf("   |   Incoming E-War %d events / %s GJ", ewarCount, shortNumber(drained))
+	}
+	if mined > 0 {
+		summary += fmt.Sprintf("   |   Mining %s units", shortNumber(mined))
 	}
 	ui.summary.SetText(summary)
 	ui.refreshDamageFilterControls()

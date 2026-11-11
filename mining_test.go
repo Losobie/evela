@@ -100,6 +100,22 @@ func newMiningTestUI(t *testing.T) *analyzerUI {
 	return ui
 }
 
+func TestMiningSummaryTotal(t *testing.T) {
+	ui := newMiningTestUI(t)
+	if !strings.Contains(ui.summary.Text, "Mining 530 units") {
+		t.Fatalf("mined total must exclude waste and compression: %s", ui.summary.Text)
+	}
+	start := time.Date(2024, 12, 24, 6, 51, 58, 0, time.UTC)
+	ui.applyGraphRange(start, start.Add(time.Second))
+	if !strings.Contains(ui.summary.Text, "Mining 100 units") {
+		t.Fatalf("mining total must respect range boundaries: %s", ui.summary.Text)
+	}
+	ui.applyGraphRange(start.Add(36*time.Second), start.Add(37*time.Second))
+	if strings.Contains(ui.summary.Text, "Mining") {
+		t.Fatalf("compression alone must not show a mining total: %s", ui.summary.Text)
+	}
+}
+
 func TestMiningGraphFiltersGroupsPersistenceAndVisibility(t *testing.T) {
 	ui := newMiningTestUI(t)
 	assertGraphVisibility(t, ui, graphMining, false)
