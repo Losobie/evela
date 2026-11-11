@@ -85,6 +85,8 @@ The footer reports mined units and volume. Totals adds one row per mined ore and
 
 Global filters intersect graph-specific filters before grouping, bucketing and averaging. Choices within one filter use OR; separate visible filters use AND. Hidden filters are inactive. Events uses only the range and global Characters/Character Group filters; Engagements uses all loaded logs.
 
+Each graph's Group By applies only to that graph. A saved named group on outgoing damage does not restrict incoming damage, logistics, E-War, mining, or the footer totals. Use a global Character Group filter when you want a group restriction across graphs.
+
 Named character groups can overlap. A shared character contributes to each matching group series/row, while overall selected-character summaries count it once. Incoming source grouping combines the same logged attacker/corporation/hull; game logs do not supply a unique attacking ship item ID or custom ship name. Outgoing target grouping does not assign incoming damage to those targets.
 
 Graph intervals are automatic, with up to 1,200 buckets and a one-second minimum width. With averaging off, events retain their original timestamp and amount, including zero values. The 10- and 30-second rolling averages divide a trailing window's events by its full duration, including idle seconds and available events before the displayed range. Coarse buckets show the mean of those rates. Units are damage/s, HP/s, GJ/s, events/s or mining units/s as appropriate. Totals use original records in the selected range; average DPS there includes the entire range's idle time.

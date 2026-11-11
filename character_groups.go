@@ -187,7 +187,9 @@ func (ui *analyzerUI) characterMatchesGroupFilter(name string) bool {
 	return false
 }
 
-func (ui *analyzerUI) filteredCharacterSelection() map[string]bool {
+// A named outgoing group limits only outgoing data, never another graph's
+// selected characters or the session summary.
+func (ui *analyzerUI) outgoingCharacterSelection() map[string]bool {
 	id := ui.selectedCharacterGroupID()
 	if id == "" {
 		return ui.selected

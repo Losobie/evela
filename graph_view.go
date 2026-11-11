@@ -110,9 +110,10 @@ func (ui *analyzerUI) renderSelection() {
 		in.AverageWindow = ui.graphAverageWindow
 	}
 	out := in
-	selected := ui.filteredCharacterSelection()
+	selected := ui.selected
+	outgoingSelected := ui.outgoingCharacterSelection()
 	if ui.graphInvulnerabilityMarkers {
-		out.Markers = ui.view.structureMarkers(ui.analysisSnapshot(), selected)
+		out.Markers = ui.view.structureMarkers(ui.analysisSnapshot(), outgoingSelected)
 	}
 	var incoming, outgoing float64
 	var hitsIn, hitsOut int
@@ -130,7 +131,7 @@ func (ui *analyzerUI) renderSelection() {
 	}
 	var filtered []characterSeries
 	for _, series := range active {
-		if selected[series.Name] {
+		if outgoingSelected[series.Name] {
 			filtered = append(filtered, series)
 		}
 	}
@@ -140,20 +141,20 @@ func (ui *analyzerUI) renderSelection() {
 		graphSeries = ui.view.rollingAverage(ui.analysisSnapshot(), ui.graphAverageWindow)
 	}
 	if ui.systemGrouping() {
-		ui.tableSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, filterSystem, 0, ui.graphMetadata())
-		graphSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, selected, filterSystem, ui.graphAverageWindow, ui.graphMetadata())
+		ui.tableSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, outgoingSelected, filterSystem, 0, ui.graphMetadata())
+		graphSeries = ui.view.historicalAttributeSeries(ui.analysisSnapshot(), ui.shipHistory, ui.locationLookup, outgoingSelected, filterSystem, ui.graphAverageWindow, ui.graphMetadata())
 	} else if ui.damageAttributeGrouping() {
-		ui.tableSeries = ui.view.damageAttributeSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, 0)
-		graphSeries = ui.view.damageAttributeSeries(ui.analysisSnapshot(), selected, ui.groupSelect.Selected, ui.graphAverageWindow)
+		ui.tableSeries = ui.view.damageAttributeSeries(ui.analysisSnapshot(), outgoingSelected, ui.groupSelect.Selected, 0)
+		graphSeries = ui.view.damageAttributeSeries(ui.analysisSnapshot(), outgoingSelected, ui.groupSelect.Selected, ui.graphAverageWindow)
 	} else if ui.shipGrouping() {
-		ui.tableSeries = ui.groupedShipSeries(selected, 0)
-		graphSeries = ui.groupedShipSeries(ui.selected, ui.graphAverageWindow)
+		ui.tableSeries = ui.groupedShipSeries(outgoingSelected, 0)
+		graphSeries = ui.groupedShipSeries(outgoingSelected, ui.graphAverageWindow)
 	} else if ui.characterGroupGrouping() {
-		ui.tableSeries = ui.groupCustomCharacterSeries(active, selected)
-		graphSeries = ui.groupCustomCharacterSeries(graphSeries, selected)
+		ui.tableSeries = ui.groupCustomCharacterSeries(active, outgoingSelected)
+		graphSeries = ui.groupCustomCharacterSeries(graphSeries, outgoingSelected)
 	}
 	for _, series := range graphSeries {
-		if !series.hasActivity(false) || !ui.anyGrouping() && !selected[series.Name] {
+		if !series.hasActivity(false) || !ui.anyGrouping() && !outgoingSelected[series.Name] {
 			continue
 		}
 		ink := characterColor(series.Name)

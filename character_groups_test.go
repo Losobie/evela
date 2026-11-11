@@ -350,7 +350,7 @@ func TestCharacterGroupGroupingFilteringPersistenceAndDeletion(t *testing.T) {
 		t.Fatal("group averaging changed raw totals or combined rolling DPS incorrectly")
 	}
 	ui.groupSelect.SetSelected("Group: Scouts")
-	if len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Name != "Scouts" || len(ui.tableSeries) != 1 || !strings.Contains(ui.summary.Text, "1 selected") {
+	if len(ui.outgoing.data.Series) != 1 || ui.outgoing.data.Series[0].Name != "Scouts" || len(ui.tableSeries) != 1 || !strings.Contains(ui.summary.Text, "3 selected") {
 		t.Fatal("individual group filter included other characters or groups")
 	}
 	ui.selectRangeCharacters(false)
