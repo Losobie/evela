@@ -23,6 +23,7 @@ type analyzerUI struct {
 	scopedFilterButtons map[string]map[string]*widget.Button
 
 	window                            fyne.Window
+	errorLogDialog                    *dialog.CustomDialog
 	snapshot                          *logSnapshot
 	view                              damageView
 	analysis                          *logSnapshot

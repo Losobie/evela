@@ -68,6 +68,7 @@ func (ui *analyzerUI) openLogLoadingSettings() {
 		dialog.NewFolderOpen(func(selected fyne.ListableURI, err error) {
 			if err != nil {
 				dialog.ShowError(err, ui.window)
+				reportRuntimeError("Browse log folders", err)
 				return
 			}
 			if selected != nil {

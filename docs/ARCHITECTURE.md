@@ -19,6 +19,7 @@ to build the application: the root `go.mod` resolves the parser locally.
 | Events/engagements | `events.go`, `event_details.go`, `engagements.go`, `engagement_summary.go`, `engagements_ui.go` | Searchable records and activity discovery |
 | ESI/history | `esi*.go`, `ship_history.go`, `location_history.go`, `log_location.go` | Optional SSO, observations and time-based attribution |
 | Appearance | `appearance.go`, `color_vision.go` | Theme and graph accessibility colors |
+| Runtime diagnostics | `error_log.go` | Session error capture and the selectable Settings error dialog |
 | Maintenance | `tools/`, `internal/sde/`, `licenses/` | Catalog generation, shared SDE reading and distribution notices |
 
 ## Boundaries worth preserving

@@ -19,6 +19,7 @@ func (ui *analyzerUI) aboutMenu() *fyne.Menu {
 		fyne.NewMenuItem("GitHub", func() {
 			if err := fyne.CurrentApp().OpenURL(repository); err != nil {
 				dialog.ShowError(err, ui.window)
+				reportRuntimeError("Open link", err)
 			}
 		}),
 		fyne.NewMenuItem("Author", ui.openAuthor),

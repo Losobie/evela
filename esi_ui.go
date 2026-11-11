@@ -73,6 +73,7 @@ func (ui *analyzerUI) watchESI() {
 	directory, err := os.UserConfigDir()
 	if err != nil {
 		fyne.Do(func() { ui.setESIStatus("Find ESI settings folder: " + err.Error()) })
+		reportRuntimeError("Find ESI settings folder", err)
 		return
 	}
 	service := newESIService(filepath.Join(directory, "Evela", "esi.dat"))
@@ -137,6 +138,7 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 	}
 	message := "Connect characters to record ship history for damage grouping."
 	if loadErr != nil {
+		reportRuntimeError("Load ESI settings", loadErr)
 		message = loadErr.Error()
 	}
 	publish(message)
@@ -166,6 +168,7 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 		}
 		message := "Ships and locations updated " + time.Now().Format("15:04:05") + " · " + strconv.Itoa(len(service.config.Accounts)) + " connected characters."
 		if err != nil {
+			reportRuntimeError("Refresh ESI ships and locations", err)
 			message = err.Error()
 		}
 		publish(message)
@@ -181,6 +184,7 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 			return
 		}
 		if err := service.save(); err != nil {
+			reportRuntimeError("Save log location history", err)
 			publish("Save log location history: " + err.Error())
 		} else {
 			logHistoryDirty = false
@@ -194,6 +198,7 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 		case result := <-loginResults:
 			close(result.taken)
 			if err := service.acceptLogin(result.action.ClientID, result.action.CallbackPort, result.account); err != nil {
+				reportRuntimeError("Save EVE sign-in", err)
 				publish("EVE sign-in: " + err.Error())
 			} else {
 				publish("Connected " + result.account.Ship.CharacterName + ".")
@@ -221,6 +226,7 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 			switch action.Kind {
 			case "configure":
 				if err := service.configure(action.ClientID, action.CallbackPort); err != nil {
+					reportRuntimeError("Save ESI configuration", err)
 					publish(err.Error())
 					continue
 				}
@@ -231,6 +237,7 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 				account := service.config.Accounts[action.CharacterID]
 				delete(service.config.Accounts, action.CharacterID)
 				if err := service.save(); err != nil {
+					reportRuntimeError("Save ESI disconnect", err)
 					if account != nil {
 						service.config.Accounts[action.CharacterID] = account
 					}

@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	captureRuntimeErrors()
 	stopProfiling, err := startPerformanceProfiler(os.Getenv("EVELA_PROFILE_ADDR"))
 	if err != nil {
 		log.Printf("Performance profiler unavailable: %v", err)

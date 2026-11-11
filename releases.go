@@ -122,6 +122,7 @@ func (ui *analyzerUI) watchReleases() {
 		if ctx.Err() != nil {
 			return
 		}
+		reportRuntimeError("Check for updates", err)
 		if err == nil {
 			fyne.Do(func() {
 				select {

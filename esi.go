@@ -358,6 +358,9 @@ func (service *esiService) refreshShips(ctx context.Context) error {
 		issues = append(issues, "Save ESI connections: "+err.Error())
 	}
 	if len(issues) > 0 {
+		for _, issue := range issues {
+			reportRuntimeError("ESI refresh", errors.New(issue))
+		}
 		return fmt.Errorf("%d ESI issue(s). %s", len(issues), issues[0])
 	}
 	return nil

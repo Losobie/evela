@@ -87,6 +87,7 @@ func (ui *analyzerUI) watchESILogins(ctx context.Context, source *esiService, re
 				ui.cancelLogin.Hide()
 				if err != nil {
 					ui.setESIStatus("EVE sign-in: " + err.Error())
+					reportRuntimeError("EVE sign-in", err)
 				} else {
 					select {
 					case <-result.taken:

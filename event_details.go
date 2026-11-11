@@ -53,6 +53,7 @@ func (viewer *eventsViewer) eventFields(event eventRow) []extractedEventField {
 	line := "[ " + time.Unix(event.Second, 0).UTC().Format(logTimeLayout) + " ] " + html.EscapeString(event.Message)
 	parsed, err := parseLog(strings.NewReader(line))
 	if err != nil {
+		reportRuntimeError("Extract event details", err)
 		add("Parsing error", err.Error())
 		return fields
 	}

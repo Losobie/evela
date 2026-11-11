@@ -14,6 +14,7 @@ import (
 func (ui *analyzerUI) requestLoad() {
 	folders, err := parseLogFolders(ui.path.Text)
 	if err != nil {
+		reportRuntimeError("Read log folder settings", err)
 		dialog.ShowError(err, ui.window)
 		return
 	}
@@ -79,6 +80,7 @@ func (ui *analyzerUI) watch() {
 			ui.refresh.Enable()
 			ui.progress.Hide()
 			if err != nil {
+				reportRuntimeError("Load log folders", err)
 				ui.status.SetText("Could not load folders: " + err.Error())
 				return
 			}
@@ -90,6 +92,9 @@ func (ui *analyzerUI) watch() {
 			}
 			if cacheErr != nil {
 				snapshot.Warnings = append(snapshot.Warnings, "SQLite cache unavailable; using source logs: "+cacheErr.Error())
+			}
+			for _, warning := range snapshot.Warnings {
+				reportRuntimeError("Log loading", fmt.Errorf("%s", warning))
 			}
 			ui.snapshot = snapshot
 			ui.rememberLogLocations(snapshot.locationSessions())
