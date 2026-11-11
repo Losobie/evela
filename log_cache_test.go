@@ -91,6 +91,7 @@ func TestSQLiteCachePersistsAcrossRestartAndReprocessesChangedFiles(t *testing.T
 func TestSQLiteCacheRoundTripsAllParsedEventTypes(t *testing.T) {
 	folder := t.TempDir()
 	content := sampleLog + logisticsTestLog + miningTestLog +
+		"[ 2026.10.20 02:00:00 ] (mining) Critical mining success! You mined an additional 156 units of Loparite\n" +
 		"[ 2026.10.20 02:00:01 ] (notify) Jumping from Jita to Amarr.\n" +
 		"[ 2026.10.20 02:00:02 ] (combat) 912 to Grijawlva[SNOOO](Phoenix Navy Issue) - 425mm Railgun II - Penetrates\n" +
 		"[ 2026.10.20 02:00:03 ] (combat) 120 remote shield boosted to Grijawlva[SNOOO](Phoenix Navy Issue)\n" +
@@ -107,6 +108,13 @@ func TestSQLiteCacheRoundTripsAllParsedEventTypes(t *testing.T) {
 		t.Fatal("persistent serialization lost parsed data")
 	}
 	for _, log := range second.Logs {
+		foundCritical := false
+		for _, event := range log.Mining {
+			foundCritical = foundCritical || event.Critical && event.Kind == miningMined && event.Amount == 156 && event.Ore == "Loparite"
+		}
+		if !foundCritical {
+			t.Fatal("persistent cache lost critical mining bonus")
+		}
 		foundHit, foundLogistics, foundCustomsOffice := false, false, false
 		foundBracketedLogistics := false
 		foundUnalliedLogistics := false

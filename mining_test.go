@@ -100,6 +100,35 @@ func newMiningTestUI(t *testing.T) *analyzerUI {
 	return ui
 }
 
+func TestCriticalMiningGroupingAndTotals(t *testing.T) {
+	ui := newMiningTestUI(t)
+	log, err := parseLog(strings.NewReader(miningTestLog + "[ 2024.12.24 06:51:59 ] (mining) Critical mining success! You mined an additional 156 units of Loparite\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ui.snapshot = &logSnapshot{SourceFiles: map[string]cachedLog{"mining.txt": {Log: log}}}
+	ui.snapshot.populateLogs()
+	ui.selectQuickRange("All history")
+	chooseGraphMenuItem(t, ui.eventGroupingMenu(graphMining), eventByCriticals)
+	regular := findLogisticsSeries(t, ui.mining, "Regular mining")
+	critical := findLogisticsSeries(t, ui.mining, "Critical mining")
+	if len(regular.Hits) != 3 || len(critical.Hits) != 1 || critical.Hits[0].Damage != 156 || !strings.Contains(critical.Hits[0].Detail, "Critical mining success!") {
+		t.Fatalf("incorrect regular/critical split: %+v / %+v", regular.Hits, critical.Hits)
+	}
+	if !strings.Contains(ui.summary.Text, "Mining 686 units") || ui.miningTotal.Text != "Mining total: 686 units" {
+		t.Fatalf("critical bonus missing from totals: %s / %s", ui.summary.Text, ui.miningTotal.Text)
+	}
+	ui.initEventGraphGrouping()
+	if ui.eventGraphGroupings[graphMining] != eventByCriticals {
+		t.Fatal("critical grouping preference was not restored")
+	}
+	ui.miningFilters[filterMiningMessage].set(miningMined, false)
+	ui.saveMiningFilters()
+	if ui.miningTotal.Text != "Mining total: 0 units" {
+		t.Fatalf("mined filter must exclude regular and critical ore: %s", ui.miningTotal.Text)
+	}
+}
+
 func TestMiningSummaryTotal(t *testing.T) {
 	ui := newMiningTestUI(t)
 	if !strings.Contains(ui.summary.Text, "Mining 530 units") {
@@ -178,7 +207,7 @@ func TestMiningGraphFiltersGroupsPersistenceAndVisibility(t *testing.T) {
 	ui.characterGroups = []characterGroup{{ID: "fleet", Name: "Mining fleet", Members: []string{"Miner"}}, {ID: "other", Name: "Other fleet", Members: []string{"Miner"}}}
 	before := ui.outgoing.data
 	chooseGraphMenuItem(t, ui.eventGroupingMenu(graphMining), eventByGroup)
-	if len(ui.eventGroupingMenu(graphMining).Items) != 7 || len(ui.mining.data.Series) != 2 || !reflect.DeepEqual(before, ui.outgoing.data) {
+	if len(ui.eventGroupingMenu(graphMining).Items) != 8 || len(ui.mining.data.Series) != 2 || !reflect.DeepEqual(before, ui.outgoing.data) {
 		t.Fatal("grouping did not stay independent or lost overlapping memberships")
 	}
 	ui.setDamageFilterOption(filterCharacterGroup, "group:other", false)

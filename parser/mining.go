@@ -20,6 +20,7 @@ type MiningEvent struct {
 	Ore, Kind string
 	Amount    float64
 	Message   string
+	Critical  bool
 }
 
 func miningAmount(text string) (float64, bool) {
@@ -42,7 +43,13 @@ func miningAmount(text string) (float64, bool) {
 
 func ParseMining(message, channel string, second int64) []MiningEvent {
 	if channel == "(mining)" {
-		match := minedMessage.FindStringSubmatch(message)
+		const criticalPrefix = "Critical mining success! You mined an additional "
+		critical := strings.HasPrefix(message, criticalPrefix)
+		text := message
+		if critical {
+			text = "You mined " + strings.TrimPrefix(message, criticalPrefix)
+		}
+		match := minedMessage.FindStringSubmatch(text)
 		if match == nil {
 			return nil
 		}
@@ -54,7 +61,7 @@ func ParseMining(message, channel string, second int64) []MiningEvent {
 		if ore == "" || strings.Contains(ore, " with a lost residue") {
 			return nil
 		}
-		events := []MiningEvent{{Second: second, Ore: strings.Clone(ore), Kind: Mined, Amount: amount, Message: strings.Clone(message)}}
+		events := []MiningEvent{{Second: second, Ore: strings.Clone(ore), Kind: Mined, Amount: amount, Message: strings.Clone(message), Critical: critical}}
 		if match[3] != "" {
 			waste, ok := miningAmount(match[3])
 			if !ok {

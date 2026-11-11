@@ -77,8 +77,21 @@ func (ui *analyzerUI) miningPlot(selected map[string]bool) plotData {
 				kind = event.Ore
 			}
 			names := ui.eventGroupingNames(graphMining, log.Character, kind, event.Second)
+			if ui.eventGraphGroupings[graphMining] == eventByCriticals {
+				label := event.Kind
+				if event.Kind == miningMined {
+					label = "Regular mining"
+					if event.Critical {
+						label = "Critical mining"
+					}
+				}
+				names = []string{label}
+			}
 			for _, name := range names {
 				label := name + " · " + event.Kind
+				if ui.eventGraphGroupings[graphMining] == eventByCriticals {
+					label = name
+				}
 				builder.add(label, "units", plotHit{Second: event.Second, Damage: event.Amount, Character: log.Character, Detail: event.Message})
 			}
 		}
