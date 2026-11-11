@@ -47,6 +47,11 @@ func (ui *analyzerUI) diagnosticsReport() string {
 	}
 	fmt.Fprintf(&report, "Driver: %T; window: %v; scale: %g; appearance: %s; graph colors: %s\n", fyne.CurrentApp().Driver(), ui.window.Canvas().Size(), ui.window.Canvas().Scale(), savedAppearance(fyne.CurrentApp()), savedColorVision(fyne.CurrentApp()))
 	fmt.Fprintf(&report, "Last successful refresh: %s\nRefresh status: %s\n", diagnosticTime(ui.lastLogRefresh), ui.status.Text)
+	updateStatus := ui.releaseCheckStatus
+	if updateStatus == "" {
+		updateStatus = "Not checked yet."
+	}
+	fmt.Fprintf(&report, "Update check: %s\n", updateStatus)
 	fmt.Fprintf(&report, "Folders: %q\nLoading limit: %d days (0 = all); cutoff: %s\n", ui.path.Text, ui.logLookbackDays, diagnosticTime(logLoadingCutoff(time.Now(), ui.logLookbackDays)))
 	fmt.Fprintf(&report, "Auto refresh: %t; force reprocess pending: %t\n", ui.auto.Checked, ui.forceReprocess.Load())
 	fmt.Fprintf(&report, "Range: [%s, %s), preset: %q\nBucket: %s; averaging: %s\n", diagnosticTime(ui.view.Start), diagnosticTime(ui.view.End), ui.rangePreset, ui.view.Bucket, ui.graphAverageWindow)

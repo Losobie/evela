@@ -95,6 +95,12 @@ func TestReleaseCheckFailures(t *testing.T) {
 				if err == nil || link != nil {
 					t.Fatalf("failed/invalid response must not advertise a release: %v, %v", link, err)
 				}
+				if errors.Is(err, errReleaseCheckUnavailable) != (status == http.StatusNotFound) {
+					t.Fatalf("404 must be unavailable while genuine failures remain errors: %v", err)
+				}
+				if status != http.StatusOK && !strings.Contains(err.Error(), server.URL) {
+					t.Fatal("HTTP failure omitted the failed endpoint")
+				}
 			})
 		}
 	}

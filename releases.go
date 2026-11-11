@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +21,8 @@ const releaseAPI = "https://api.github.com/repos/Losobie/evela"
 const releaseCheckInterval = 6 * time.Hour
 
 var releaseVersionTag = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+
+var errReleaseCheckUnavailable = errors.New("update check unavailable")
 
 func validBuildRevision(revision string) bool {
 	if len(revision) != 40 {
@@ -92,8 +95,14 @@ func releaseJSON(ctx context.Context, client *http.Client, endpoint string, resu
 		return err
 	}
 	defer response.Body.Close()
+	if response.StatusCode == http.StatusNotFound {
+		// GitHub cannot compare unpublished local commits, and may have no
+		// public latest release. Neither means the application failed or that
+		// this build is up to date. Retain the endpoint for diagnostics.
+		return fmt.Errorf("%w: GitHub returned HTTP 404 for %s (release or revision not publicly available)", errReleaseCheckUnavailable, endpoint)
+	}
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("release check: GitHub returned HTTP %d", response.StatusCode)
+		return fmt.Errorf("release check: GitHub returned HTTP %d for %s", response.StatusCode, endpoint)
 	}
 	return json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(result)
 }
@@ -101,6 +110,7 @@ func releaseJSON(ctx context.Context, client *http.Client, endpoint string, resu
 func (ui *analyzerUI) watchReleases() {
 	revision := currentBuildRevision()
 	if revision == "" {
+		fyne.Do(func() { ui.releaseCheckStatus = "Unavailable: this build has no Git revision metadata." })
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -122,22 +132,31 @@ func (ui *analyzerUI) watchReleases() {
 		if ctx.Err() != nil {
 			return
 		}
-		reportRuntimeError("Check for updates", err)
-		if err == nil {
-			fyne.Do(func() {
-				select {
-				case <-ui.stop:
-					return
-				default:
-				}
-				ui.releaseLink.SetURL(link)
-				if link != nil {
-					ui.releaseLink.Show()
-				} else {
-					ui.releaseLink.Hide()
-				}
-			})
+		if !errors.Is(err, errReleaseCheckUnavailable) {
+			reportRuntimeError("Check for updates", err)
 		}
+		checkedAt := time.Now().UTC().Format(time.RFC3339)
+		fyne.Do(func() {
+			select {
+			case <-ui.stop:
+				return
+			default:
+			}
+			if err != nil {
+				ui.releaseCheckStatus = checkedAt + ": " + err.Error()
+				return
+			}
+			ui.releaseCheckStatus = checkedAt + ": no newer release found."
+			if link != nil {
+				ui.releaseCheckStatus = checkedAt + ": newer release available at " + link.String()
+			}
+			ui.releaseLink.SetURL(link)
+			if link != nil {
+				ui.releaseLink.Show()
+			} else {
+				ui.releaseLink.Hide()
+			}
+		})
 		select {
 		case <-ctx.Done():
 			return

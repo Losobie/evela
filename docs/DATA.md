@@ -27,6 +27,8 @@ Live snapshots are read-only, in-memory views of complete lines in the original 
 
 **Settings → Error log** displays selectable session errors. **Refresh** updates the errors and **Copy all** copies them. **Copy diagnostic report** separately captures the current build, loading status, time range, character/group selections, filter state and graph pipeline counts directly to the clipboard. File details include parsed-snapshot hashes and cache state, with range matches first and a 200-file display limit. Diagnostics inspect loaded data without rereading source files or changing filters; the report is not inserted into the error pane.
 
+The diagnostic report also includes the last update-check result. GitHub HTTP 404 means release information or the build revision was not publicly available for comparison (which can happen with unpublished local builds). This is reported as an unavailable check rather than a runtime error or a claim that the build is up to date. Other HTTP failures remain in the error log, including the failed endpoint.
+
 For implementation and versioning requirements, see [parsed-log cache maintenance](DEVELOPMENT.md#parsed-log-cache-maintenance).
 
 ## Damage and extracted fields

@@ -41,6 +41,7 @@ type analyzerUI struct {
 	hasMining                         bool
 	miningVolume                      bool
 	releaseLink                       *widget.Hyperlink
+	releaseCheckStatus                string
 	progress                          *widget.ProgressBar
 	refresh                           *widget.Button
 	auto                              *widget.Check
