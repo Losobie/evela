@@ -105,14 +105,23 @@ func TestMiningSummaryTotal(t *testing.T) {
 	if !strings.Contains(ui.summary.Text, "Mining 530 units") {
 		t.Fatalf("mined total must exclude waste and compression: %s", ui.summary.Text)
 	}
+	if ui.miningTotal.Text != "Mining total: 530 units" {
+		t.Fatalf("incorrect Totals tab mining total: %s", ui.miningTotal.Text)
+	}
 	start := time.Date(2024, 12, 24, 6, 51, 58, 0, time.UTC)
 	ui.applyGraphRange(start, start.Add(time.Second))
 	if !strings.Contains(ui.summary.Text, "Mining 100 units") {
 		t.Fatalf("mining total must respect range boundaries: %s", ui.summary.Text)
 	}
+	if ui.miningTotal.Text != "Mining total: 100 units" {
+		t.Fatalf("Totals tab mining total did not follow range: %s", ui.miningTotal.Text)
+	}
 	ui.applyGraphRange(start.Add(36*time.Second), start.Add(37*time.Second))
 	if strings.Contains(ui.summary.Text, "Mining") {
 		t.Fatalf("compression alone must not show a mining total: %s", ui.summary.Text)
+	}
+	if ui.miningTotal.Text != "Mining total: 0 units" {
+		t.Fatalf("Totals tab retained stale mining total: %s", ui.miningTotal.Text)
 	}
 }
 

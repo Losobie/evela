@@ -35,6 +35,7 @@ type analyzerUI struct {
 	dayDialog                         *dialog.CustomDialog
 	dayCalendar                       *widget.Calendar
 	status, summary, directoryInfo    *widget.Label
+	miningTotal                       *widget.Label
 	releaseLink                       *widget.Hyperlink
 	progress                          *widget.ProgressBar
 	refresh                           *widget.Button
@@ -124,6 +125,8 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.directoryInfo.Wrapping = fyne.TextWrapWord
 	ui.directoryInfo.Truncation = fyne.TextTruncateEllipsis
 	ui.summary = widget.NewLabel("Waiting for logs…")
+	ui.miningTotal = widget.NewLabel("Mining total: 0 units")
+	ui.miningTotal.TextStyle.Bold = true
 	ui.summary.TextStyle.Bold = true
 	ui.summary.Truncation = fyne.TextTruncateEllipsis
 	ui.releaseLink = widget.NewHyperlink("New release available", nil)
@@ -253,7 +256,7 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	graphContent := container.NewBorder(filterBar, nil, nil, nil, ui.graphsScroll)
 	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.")
 	totalsNote.Wrapping = fyne.TextWrapWord
-	totals := container.NewBorder(totalsNote, nil, nil, nil, ui.totals)
+	totals := container.NewBorder(container.NewVBox(ui.miningTotal, totalsNote), nil, nil, nil, ui.totals)
 	tabs := container.NewAppTabs(container.NewTabItem("Graphs", graphContent), container.NewTabItem("Totals", totals), container.NewTabItem("Events", ui.events.content), container.NewTabItem("Engagements", ui.engagements.content), container.NewTabItem("ESI & ships", ui.esiContent()))
 	ui.tabs = tabs
 	tabs.OnSelected = func(item *container.TabItem) {

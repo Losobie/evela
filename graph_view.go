@@ -212,6 +212,7 @@ func (ui *analyzerUI) renderSelection() {
 		summary += fmt.Sprintf("   |   Mining %s units", shortNumber(mined))
 	}
 	ui.summary.SetText(summary)
+	ui.miningTotal.SetText(fmt.Sprintf("Mining total: %.0f units", mined))
 	ui.refreshDamageFilterControls()
 	ui.refreshLogisticsTypeControls()
 	ui.refreshMiningControls()
