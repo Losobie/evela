@@ -19,7 +19,7 @@ func diagnosticTime(value time.Time) string {
 	return value.UTC().Format(time.RFC3339)
 }
 
-// Generated on the UI thread only when the dialog opens, refreshes or copies.
+// Generated on the UI thread only when Copy diagnostic report is clicked.
 // Inspect published snapshots; never reopen source logs or change selections.
 func (ui *analyzerUI) diagnosticsReport() string {
 	var report strings.Builder

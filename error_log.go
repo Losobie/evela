@@ -51,9 +51,6 @@ func newErrorLogDialog(window fyne.Window, store *runtimeErrorLog, diagnostics f
 		if value == "" {
 			value = "No errors recorded during this session."
 		}
-		if diagnostics != nil {
-			value = "Diagnostics report\n" + diagnostics() + "\nSession errors\n" + value
-		}
 		text.SetText(value)
 	}
 	refresh()
@@ -62,6 +59,11 @@ func newErrorLogDialog(window fyne.Window, store *runtimeErrorLog, diagnostics f
 		window.Clipboard().SetContent(text.Text)
 	})
 	controls := container.NewHBox(widget.NewButton("Refresh", refresh), copyAll)
+	if diagnostics != nil {
+		controls.Add(widget.NewButton("Copy diagnostic report", func() {
+			window.Clipboard().SetContent(diagnostics())
+		}))
+	}
 	content := container.NewBorder(nil, controls, nil, nil, container.NewVScroll(text))
 	viewer := dialog.NewCustom("Error log", "Close", content, window)
 	viewer.Resize(fyne.NewSize(900, 520))

@@ -89,24 +89,30 @@ func TestErrorLogDiagnosticsRefreshAndCopy(t *testing.T) {
 	ui, _ := newMiningVolumeTestUI(t)
 	window := errorLogTestWindow{ui.window, test.NewClipboard()}
 	var store runtimeErrorLog
-	viewer := newErrorLogDialog(window, &store, ui.diagnosticsReport)
+	captures := 0
+	viewer := newErrorLogDialog(window, &store, func() string { captures++; return ui.diagnosticsReport() })
 	viewer.Show()
 	defer viewer.Hide()
 	text, _, buttons := errorLogDialogControls(window)
-	if !text.Selectable || !strings.Contains(text.Text, "No errors recorded during this session.") || !strings.Contains(text.Text, "Diagnostics report") {
-		t.Fatal("diagnostics must be available even without runtime errors")
+	if !text.Selectable || text.Text != "No errors recorded during this session." || captures != 0 {
+		t.Fatal("opening Error log must display only errors and not generate diagnostics")
 	}
 	ui.selected["Miner"] = false
 	ui.renderSelection()
 	test.Tap(buttons["Refresh"])
-	if !strings.Contains(diagnosticGraphSection(text.Text, "Mining"), "after character selection: 0") {
-		t.Fatal("Refresh did not recapture current UI state")
+	if text.Text != "No errors recorded during this session." || captures != 0 {
+		t.Fatal("Refresh must display only session errors")
 	}
 	_, _ = store.Write([]byte("Test runtime failure\n"))
 	test.Tap(buttons["Copy all"])
 	copied := window.Clipboard().Content()
-	if copied != text.Text || !strings.Contains(copied, "Test runtime failure") || !strings.Contains(copied, "Graph pipeline") {
-		t.Fatal("Copy all must include fresh diagnostics and session errors")
+	if copied != text.Text || copied != "Test runtime failure\n" || captures != 0 {
+		t.Fatal("Copy all must copy only session errors")
+	}
+	test.Tap(buttons["Copy diagnostic report"])
+	copied = window.Clipboard().Content()
+	if captures != 1 || !strings.Contains(diagnosticGraphSection(copied, "Mining"), "after character selection: 0") || strings.Contains(copied, "Test runtime failure") || text.Text != "Test runtime failure\n" {
+		t.Fatal("diagnostic copy must capture current state without changing the error pane")
 	}
 	captureWindowPreview(t, window, os.Getenv("EVELA_DIAGNOSTICS_CAPTURE"))
 }

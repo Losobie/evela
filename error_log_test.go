@@ -145,12 +145,16 @@ func TestSettingsErrorLogMenu(t *testing.T) {
 			t.Fatal("menu opened duplicate dialogs")
 		}
 		text, _, buttons := errorLogDialogControls(window)
-		if text == nil || !strings.Contains(text.Text, "Diagnostics report") || !strings.Contains(text.Text, "Graph pipeline") || !strings.Contains(text.Text, "Session errors") {
-			t.Fatal("Error log omitted diagnostics or session errors")
+		if text == nil || strings.Contains(text.Text, "Graph pipeline") || buttons["Copy diagnostic report"] == nil {
+			t.Fatal("Error log must keep diagnostics separate from session errors")
 		}
 		test.Tap(buttons["Copy all"])
 		if window.Clipboard().Content() != text.Text {
-			t.Fatal("Copy all omitted the report")
+			t.Fatal("Copy all omitted the errors")
+		}
+		test.Tap(buttons["Copy diagnostic report"])
+		if !strings.Contains(window.Clipboard().Content(), "Graph pipeline") {
+			t.Fatal("diagnostic report button did not copy the report")
 		}
 		first.Hide()
 		if ui.errorLogDialog != nil {
