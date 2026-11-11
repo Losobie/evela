@@ -99,26 +99,17 @@ func (index *logIndex) refresh(ctx context.Context, directory string, cutoff tim
 			for task := range work {
 				parsed, cacheErr := index.cache.load(ctx, task.path, task.info)
 				reused := parsed != nil
+				cached := cachedLog{task.info.Size(), task.info.ModTime(), parsed}
 				var openErr error
 				if parsed == nil {
 					var file *os.File
 					file, openErr = os.Open(task.path)
 					if openErr == nil {
-						parsed, openErr = parseLog(file)
-						if openErr == nil {
-							// Do not persist an incomplete read while a live log is growing.
-							current, statErr := file.Stat()
-							if statErr != nil {
-								openErr = statErr
-							} else if current.Size() != task.info.Size() || !current.ModTime().Equal(task.info.ModTime()) {
-								openErr = fmt.Errorf("log changed while being read; retrying next refresh")
-							}
-						}
+						cached, openErr = readLogSnapshot(file)
 						file.Close()
 					}
 				}
-				cached := cachedLog{task.info.Size(), task.info.ModTime(), parsed}
-				if openErr == nil && !reused && ctx.Err() == nil {
+				if openErr == nil && !reused && cached.Size >= 0 && ctx.Err() == nil {
 					if err := index.cache.store(ctx, task.path, cached); err != nil && cacheErr == nil {
 						cacheErr = err
 					}

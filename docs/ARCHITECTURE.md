@@ -10,6 +10,7 @@ to build the application: the root `go.mod` resolves the parser locally.
 | Parsing | [`parser/`](../parser/README.md) | Log decoding, extracted records and embedded catalogs |
 | Parser boundary | `log_parser.go` | Local aliases, without a second model or conversions |
 | Log loading/cache | `log_worker.go`, `logs.go`, `multi_log_index.go`, `log_cache.go` | Background folder scans, immutable snapshots, deduplication and SQLite cache |
+| Live log reads | `live_log.go` | Fixed-size reads through complete UTF-8/UTF-16 lines; growing prefixes bypass caching |
 | Analysis | `analysis.go`, `graph_view.go`, `graph_window.go`, `dps_average.go` | Ranges, filtered snapshots, graph/totals updates |
 | Event plots | `event_plot.go`, `logistics.go`, `mining.go`, `ewar.go` | Shared bucketing/averaging, with graph-specific filtering and units |
 | Chart widget | `chart.go`, `chart_data.go`, `chart_render.go` | Widget layout, plot records and drawing |
