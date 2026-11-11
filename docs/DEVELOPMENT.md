@@ -75,10 +75,10 @@ The compact catalogs in `parser/` come from CCP's [official Static Data Export](
 | File | Contents | SDE selection |
 | --- | --- | --- |
 | `npc_data.json.gz` | 7,418 NPC types and 415 groups, with all supplied name translations | Entity category, `categoryID = 11`; includes unpublished types |
-| `ore_data.json` | 502 English ore names, including ice and compressed variants | Asteroid category, `categoryID = 25` |
+| `ore_data.json` | 502 English ore names, including ice and compressed variants; 498 known unit volumes | Asteroid category, `categoryID = 25` |
 | `hull_data.json` | 834 English ship, starbase and structure names with classes | Categories 6, 23 and 65 |
 
-Types join their `groupID` to `groups._key`. Ore group labels replace “Moon Asteroids” with “Moon Ore” for display. Only compact names, type/group IDs and group names are embedded; the full archive stays out of version control.
+Types join their `groupID` to `groups._key`. Ore group labels replace “Moon Asteroids” with “Moon Ore” for display. Only compact names, type/group IDs, group names and ore unit volumes are embedded; the full archive stays out of version control. Zero/missing volumes (such as cosmetic asteroids) remain unknown.
 
 Download the [latest JSONL SDE](https://developers.eveonline.com/static-data/eve-online-static-data-latest-jsonl.zip) into `.cache`, then substitute its filename below:
 

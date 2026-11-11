@@ -28,7 +28,7 @@ func (cell *totalsCell) CreateRenderer() fyne.WidgetRenderer {
 }
 
 func (ui *analyzerUI) sortTotalsByColumn(column int) {
-	if column < 0 || column >= 7 {
+	if column < 0 || column >= ui.totalsColumnCount() {
 		return
 	}
 	if ui.totalsSortColumn == column {
@@ -72,6 +72,8 @@ func (ui *analyzerUI) sortDamageTotals() {
 			if order == 0 {
 				order = cmp.Compare(left.IncomingHits, right.IncomingHits)
 			}
+		case 7, 8, 9, 10:
+			order = cmp.Compare(miningColumnValue(left, ui.totalsSortColumn), miningColumnValue(right, ui.totalsSortColumn))
 		}
 		if order == 0 {
 			// Keep ties deterministic as new logs and ESI snapshots arrive.

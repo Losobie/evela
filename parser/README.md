@@ -22,7 +22,8 @@ activity, excluding travel/chat; `Hash` identifies the original input bytes.
 
 The package documentation explains timestamps, source indices and ownership.
 Exact catalog lookups are available through `HullClass`, `NPCGroup`, `LookupNPC`
-and `OreType`. Catalogs load lazily and work offline. They are not writable API
+and `OreType`. `OreVolume` returns cubic metres per unit and whether the volume
+is known. Catalogs load lazily and work offline. They are not writable API
 state. Cross-file merging, historical location inference, caching and graph
 queries remain in the desktop application.
 

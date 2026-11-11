@@ -54,6 +54,19 @@ func (ui *analyzerUI) eventGroupingMenu(id string) *fyne.Menu {
 		item.Checked = ui.eventGraphGroupings[id] == grouping
 		menu.Items = append(menu.Items, item)
 	}
+	if id == graphMining {
+		menu.Items = append(menu.Items, fyne.NewMenuItemSeparator())
+		for _, unit := range []string{"Units", "Volume"} {
+			volume := unit == "Volume"
+			item := fyne.NewMenuItem(unit, func() {
+				ui.miningVolume = volume
+				fyne.CurrentApp().Preferences().SetBool("graph.mining.volume", volume)
+				ui.renderSelection()
+			})
+			item.Checked = ui.miningVolume == volume
+			menu.Items = append(menu.Items, item)
+		}
+	}
 	return menu
 }
 

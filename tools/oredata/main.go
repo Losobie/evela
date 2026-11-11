@@ -1,4 +1,4 @@
-// Command oredata extracts ore names and groups from CCP's official JSONL SDE.
+// Command oredata extracts ore names, groups and unit volumes from CCP's official JSONL SDE.
 // Usage: go run ./tools/oredata -sde .cache/eve-sde-<build>-jsonl.zip
 package main
 
@@ -30,10 +30,11 @@ func generate(path, output string) error {
 	defer archive.Close()
 
 	data := struct {
-		Build   int               `json:"build"`
-		Release string            `json:"release"`
-		Names   map[string]string `json:"names"`
-	}{Names: map[string]string{}}
+		Build   int                `json:"build"`
+		Release string             `json:"release"`
+		Names   map[string]string  `json:"names"`
+		Volumes map[string]float64 `json:"volumes"`
+	}{Names: map[string]string{}, Volumes: map[string]float64{}}
 	if err := archive.Read("_sde.jsonl", func(line []byte) error {
 		var record struct {
 			Key     string `json:"_key"`
@@ -70,14 +71,18 @@ func generate(path, output string) error {
 	}
 	if err := archive.Read("types.jsonl", func(line []byte) error {
 		var record struct {
-			Group int               `json:"groupID"`
-			Name  map[string]string `json:"name"`
+			Group  int               `json:"groupID"`
+			Name   map[string]string `json:"name"`
+			Volume float64           `json:"volume"`
 		}
 		if err := json.Unmarshal(line, &record); err != nil {
 			return err
 		}
 		if group, name := groups[record.Group], record.Name["en"]; group != "" && name != "" {
 			data.Names[name] = group
+			if record.Volume > 0 {
+				data.Volumes[name] = record.Volume
+			}
 		}
 		return nil
 	}); err != nil {

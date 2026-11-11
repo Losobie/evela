@@ -36,7 +36,9 @@ type analyzerUI struct {
 	dayDialog                         *dialog.CustomDialog
 	dayCalendar                       *widget.Calendar
 	status, summary, directoryInfo    *widget.Label
-	miningTotal                       *widget.Label
+	miningTotals                      miningAmounts
+	hasMining                         bool
+	miningVolume                      bool
 	releaseLink                       *widget.Hyperlink
 	progress                          *widget.ProgressBar
 	refresh                           *widget.Button
@@ -126,8 +128,6 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.directoryInfo.Wrapping = fyne.TextWrapWord
 	ui.directoryInfo.Truncation = fyne.TextTruncateEllipsis
 	ui.summary = widget.NewLabel("Waiting for logs…")
-	ui.miningTotal = widget.NewLabel("Mining total: 0 units")
-	ui.miningTotal.TextStyle.Bold = true
 	ui.summary.TextStyle.Bold = true
 	ui.summary.Truncation = fyne.TextTruncateEllipsis
 	ui.releaseLink = widget.NewHyperlink("New release available", nil)
@@ -154,7 +154,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	linkChartHovers(ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar, ui.mining)
 	ui.initEventGraphGrouping()
 	ui.totals = widget.NewTable(
-		func() (int, int) { return len(ui.tableSeries) + 1, 7 },
+		func() (int, int) { return len(ui.tableSeries) + 1, ui.totalsColumnCount() },
 		func() fyne.CanvasObject { return newTotalsCell() },
 		func(id widget.TableCellID, object fyne.CanvasObject) {
 			cell := object.(*totalsCell)
@@ -181,7 +181,10 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 				if ui.damageAttributeGrouping() || ui.systemGrouping() {
 					first, second = ui.groupSelect.Selected, "Members"
 				}
-				heading := []string{first, second, "Outgoing damage", "Incoming damage", "Avg out DPS", "Avg in DPS", "Hits out / in"}[id.Col]
+				if ui.hasMining {
+					first += " / Ore"
+				}
+				heading := []string{first, second, "Outgoing damage", "Incoming damage", "Avg out DPS", "Avg in DPS", "Hits out / in", "Mined units", "Mined volume (m3)", "Mining crit units", "Mining crit volume (m3)"}[id.Col]
 				if id.Col == ui.totalsSortColumn {
 					cell.icon.SetResource(theme.MoveUpIcon())
 					if ui.totalsSortDescending {
@@ -197,6 +200,16 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 				return
 			}
 			series := ui.tableSeries[id.Row-1]
+			if series.Mining != nil {
+				label.SetText(miningTotalsCell(series, id.Col))
+				cell.Refresh()
+				return
+			}
+			if id.Col >= 7 {
+				label.SetText("")
+				cell.Refresh()
+				return
+			}
 			duration := ui.view.End.Sub(ui.view.Start).Seconds()
 			if duration <= 0 {
 				duration = 1
@@ -209,6 +222,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 			cell.Refresh()
 		})
 	ui.totals.StickyRowCount = 1
+	ui.totals.StickyColumnCount = 1
 	ui.totals.OnSelected = func(id widget.TableCellID) {
 		if id.Row == 0 {
 			ui.sortTotalsByColumn(id.Col)
@@ -216,7 +230,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 			ui.totals.UnselectAll()
 		}
 	}
-	for col, width := range []float32{190, 145, 175, 175, 130, 130, 140} {
+	for col, width := range []float32{190, 145, 175, 175, 130, 130, 140, 150, 180, 170, 210} {
 		ui.totals.SetColumnWidth(col, width)
 	}
 	ui.events = newEventsViewer(window)
@@ -255,9 +269,9 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	ui.graphsEmpty = newGraphsEmptyState()
 	ui.applyGraphVisibility()
 	graphContent := container.NewBorder(filterBar, nil, nil, nil, ui.graphsScroll)
-	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.")
+	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.\nMined totals include critical bonuses; mining crit columns show the bonus portion.")
 	totalsNote.Wrapping = fyne.TextWrapWord
-	totals := container.NewBorder(container.NewVBox(ui.miningTotal, totalsNote), nil, nil, nil, ui.totals)
+	totals := container.NewBorder(totalsNote, nil, nil, nil, ui.totals)
 	tabs := container.NewAppTabs(container.NewTabItem("Graphs", graphContent), container.NewTabItem("Totals", totals), container.NewTabItem("Events", ui.events.content), container.NewTabItem("Engagements", ui.engagements.content), container.NewTabItem("ESI & ships", ui.esiContent()))
 	ui.tabs = tabs
 	tabs.OnSelected = func(item *container.TabItem) {

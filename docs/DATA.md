@@ -75,6 +75,10 @@ Incoming E-War shows **Effect events** or **Capacitor drained (GJ)**. It include
 
 Mining keeps **Ore mined**, **Compressed** and **Waste** as separate series. Ore Name preserves exact grades; Ore Type uses CCP groups, including ice and compressed variants. Missing names can match a known ore-name suffix; unresolved entries remain **Unknown ore type**. Compression uses reported output units and the original ore grade for filtering.
 
+Mining's **Group By** menu includes independent **Units** and **Volume** choices below the grouping options. Volume uses CCP's per-unit cubic metres, including compressed volumes for compression events. Unknown volumes are omitted from volume plots and marked **Unknown** in totals. **Criticals** separates ordinary yield from the additional ore reported by critical successes.
+
+The footer reports mined units and volume. Totals adds one row per mined ore and four mining columns when the current selection contains mined records. Mined units/volume include critical bonuses; Mining crit units/volume show the bonus portion separately. Waste and compression do not add to mined totals. The same character, ore and time filters apply to both displays.
+
 ## Ranges, filters and rates
 
 Global filters intersect graph-specific filters before grouping, bucketing and averaging. Choices within one filter use OR; separate visible filters use AND. Hidden filters are inactive. Events uses only the range and global Characters/Character Group filters; Engagements uses all loaded logs.

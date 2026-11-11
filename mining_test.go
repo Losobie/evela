@@ -115,8 +115,8 @@ func TestCriticalMiningGroupingAndTotals(t *testing.T) {
 	if len(regular.Hits) != 3 || len(critical.Hits) != 1 || critical.Hits[0].Damage != 156 || !strings.Contains(critical.Hits[0].Detail, "Critical mining success!") {
 		t.Fatalf("incorrect regular/critical split: %+v / %+v", regular.Hits, critical.Hits)
 	}
-	if !strings.Contains(ui.summary.Text, "Mining 686 units") || ui.miningTotal.Text != "Mining total: 686 units" {
-		t.Fatalf("critical bonus missing from totals: %s / %s", ui.summary.Text, ui.miningTotal.Text)
+	if !strings.Contains(ui.summary.Text, "Mining 686 units") || ui.miningTotals.Units != 686 {
+		t.Fatalf("critical bonus missing from totals: %v / %v", ui.summary.Text, ui.miningTotals.Units)
 	}
 	ui.initEventGraphGrouping()
 	if ui.eventGraphGroupings[graphMining] != eventByCriticals {
@@ -124,8 +124,8 @@ func TestCriticalMiningGroupingAndTotals(t *testing.T) {
 	}
 	ui.miningFilters[filterMiningMessage].set(miningMined, false)
 	ui.saveMiningFilters()
-	if ui.miningTotal.Text != "Mining total: 0 units" {
-		t.Fatalf("mined filter must exclude regular and critical ore: %s", ui.miningTotal.Text)
+	if ui.miningTotals.Units != 0 {
+		t.Fatalf("mined filter must exclude regular and critical ore: %v", ui.miningTotals.Units)
 	}
 }
 
@@ -134,30 +134,30 @@ func TestMiningSummaryTotal(t *testing.T) {
 	if !strings.Contains(ui.summary.Text, "Mining 530 units") {
 		t.Fatalf("mined total must exclude waste and compression: %s", ui.summary.Text)
 	}
-	if ui.miningTotal.Text != "Mining total: 530 units" {
-		t.Fatalf("incorrect Totals tab mining total: %s", ui.miningTotal.Text)
+	if ui.miningTotals.Units != 530 {
+		t.Fatalf("incorrect Totals tab mining total: %v", ui.miningTotals.Units)
 	}
 	start := time.Date(2024, 12, 24, 6, 51, 58, 0, time.UTC)
 	ui.applyGraphRange(start, start.Add(time.Second))
 	if !strings.Contains(ui.summary.Text, "Mining 100 units") {
 		t.Fatalf("mining total must respect range boundaries: %s", ui.summary.Text)
 	}
-	if ui.miningTotal.Text != "Mining total: 100 units" {
-		t.Fatalf("Totals tab mining total did not follow range: %s", ui.miningTotal.Text)
+	if ui.miningTotals.Units != 100 {
+		t.Fatalf("Totals tab mining total did not follow range: %v", ui.miningTotals.Units)
 	}
 	ui.applyGraphRange(start.Add(36*time.Second), start.Add(37*time.Second))
 	if strings.Contains(ui.summary.Text, "Mining") {
 		t.Fatalf("compression alone must not show a mining total: %s", ui.summary.Text)
 	}
-	if ui.miningTotal.Text != "Mining total: 0 units" {
-		t.Fatalf("Totals tab retained stale mining total: %s", ui.miningTotal.Text)
+	if ui.miningTotals.Units != 0 {
+		t.Fatalf("Totals tab retained stale mining total: %v", ui.miningTotals.Units)
 	}
 }
 
 func TestMiningGraphFiltersGroupsPersistenceAndVisibility(t *testing.T) {
 	ui := newMiningTestUI(t)
 	assertGraphVisibility(t, ui, graphMining, false)
-	if !ui.selected["Miner"] || len(ui.filterOptions[filterCharacters]) != 1 || len(ui.filterOptions[filterShipType]) != 1 || !strings.HasPrefix(ui.summary.Text, "1 selected") || len(ui.tableSeries) != 0 {
+	if !ui.selected["Miner"] || len(ui.filterOptions[filterCharacters]) != 1 || len(ui.filterOptions[filterShipType]) != 1 || !strings.HasPrefix(ui.summary.Text, "1 selected") || len(ui.tableSeries) != 3 {
 		t.Fatal("mining-only character lost or damage totals contaminated")
 	}
 	if !ui.snapshot.First.Equal(time.Date(2024, 12, 24, 6, 51, 57, 0, time.UTC)) || !ui.snapshot.Last.Equal(time.Date(2024, 12, 24, 6, 52, 36, 0, time.UTC)) {
@@ -207,7 +207,7 @@ func TestMiningGraphFiltersGroupsPersistenceAndVisibility(t *testing.T) {
 	ui.characterGroups = []characterGroup{{ID: "fleet", Name: "Mining fleet", Members: []string{"Miner"}}, {ID: "other", Name: "Other fleet", Members: []string{"Miner"}}}
 	before := ui.outgoing.data
 	chooseGraphMenuItem(t, ui.eventGroupingMenu(graphMining), eventByGroup)
-	if len(ui.eventGroupingMenu(graphMining).Items) != 8 || len(ui.mining.data.Series) != 2 || !reflect.DeepEqual(before, ui.outgoing.data) {
+	if len(ui.eventGroupingMenu(graphMining).Items) != 11 || len(ui.mining.data.Series) != 2 || !reflect.DeepEqual(before, ui.outgoing.data) {
 		t.Fatal("grouping did not stay independent or lost overlapping memberships")
 	}
 	ui.setDamageFilterOption(filterCharacterGroup, "group:other", false)

@@ -18,6 +18,7 @@ var miningFilterKinds = []string{filterOreName, filterOreType, filterMiningMessa
 var miningMessageOptions = []damageFilterOption{{Key: miningMined, Label: miningMined}, {Key: miningCompressed, Label: miningCompressed}, {Key: miningWaste, Label: miningWaste}}
 
 func (ui *analyzerUI) initMining() {
+	ui.miningVolume = fyne.CurrentApp().Preferences().Bool("graph.mining.volume")
 	ui.mining = newDamageChart()
 	ui.mining.OnRangeSelected, ui.mining.OnWheelZoom = ui.applyGraphRange, ui.applyGraphWheelRange
 	if err := json.Unmarshal([]byte(fyne.CurrentApp().Preferences().String(miningFiltersPreference)), &ui.miningFilters); err != nil {
@@ -57,6 +58,10 @@ func (ui *analyzerUI) refreshMiningControls() {
 func (ui *analyzerUI) miningPlot(selected map[string]bool) plotData {
 	data := plotData{Start: ui.view.Start, End: ui.view.End, Bucket: ui.view.Bucket, RateUnit: "units/s", HitUnit: "units", IndividualHits: ui.graphAverageWindow == 0,
 		EmptyText: "No mining records for the selected ores, message types and characters"}
+	if ui.miningVolume {
+		data.RateUnit, data.HitUnit = "m3/s", "m3"
+		data.EmptyText = "No mining records with known ore volumes for the current filters and time range"
+	}
 	builder, ok := newEventPlotBuilder(&data, ui.graphAverageWindow)
 	if !ok {
 		return data
@@ -66,11 +71,19 @@ func (ui *analyzerUI) miningPlot(selected map[string]bool) plotData {
 			continue
 		}
 		for _, event := range log.Mining {
-			if !ui.scopeFilter(graphMining, filterOreName).selected(event.Ore) || !ui.scopeFilter(graphMining, filterOreType).selected(oreType(event.Ore)) || !ui.scopeFilter(graphMining, filterMiningMessage).selected(event.Kind) {
+			if !ui.miningEventSelected(event) {
 				continue
 			}
 			if !builder.includes(event.Second) {
 				continue
+			}
+			amount := event.Amount
+			if ui.miningVolume {
+				var known bool
+				amount, known = miningEventVolume(event)
+				if !known {
+					continue
+				}
 			}
 			kind := oreType(event.Ore)
 			if ui.eventGraphGroupings[graphMining] == eventByOreName {
@@ -92,10 +105,14 @@ func (ui *analyzerUI) miningPlot(selected map[string]bool) plotData {
 				if ui.eventGraphGroupings[graphMining] == eventByCriticals {
 					label = name
 				}
-				builder.add(label, "units", plotHit{Second: event.Second, Damage: event.Amount, Character: log.Character, Detail: event.Message})
+				builder.add(label, data.HitUnit, plotHit{Second: event.Second, Damage: amount, Character: log.Character, Detail: event.Message})
 			}
 		}
 	}
 	data.Series = builder.series()
 	return data
+}
+
+func (ui *analyzerUI) miningEventSelected(event miningEvent) bool {
+	return ui.scopeFilter(graphMining, filterOreName).selected(event.Ore) && ui.scopeFilter(graphMining, filterOreType).selected(oreType(event.Ore)) && ui.scopeFilter(graphMining, filterMiningMessage).selected(event.Kind)
 }

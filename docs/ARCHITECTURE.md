@@ -13,6 +13,7 @@ to build the application: the root `go.mod` resolves the parser locally.
 | Live log reads | `live_log.go` | Fixed-size reads through complete UTF-8/UTF-16 lines; growing prefixes bypass caching |
 | Analysis | `analysis.go`, `graph_view.go`, `graph_window.go`, `dps_average.go` | Ranges, filtered snapshots, graph/totals updates |
 | Event plots | `event_plot.go`, `logistics.go`, `mining.go`, `ewar.go` | Shared bucketing/averaging, with graph-specific filtering and units |
+| Mining totals | `mining_totals.go` | Ore rows, critical bonus breakdowns and volume conversion using parser catalogs |
 | Chart widget | `chart.go`, `chart_data.go`, `chart_render.go` | Widget layout, plot records and drawing |
 | Chart input | `chart_inspection.go`, `chart_drag.go`, `chart_line_hover.go`, `chart_series_selection.go` | Hover, range selection and series emphasis |
 | Timeline navigation | `quick_range.go`, `graph_history.go`, `graph_pan.go`, `graph_wheel.go` | Presets, day selection, keyboard/mouse changes and undo/redo |

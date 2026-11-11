@@ -10,6 +10,7 @@ import (
 type characterSeries struct {
 	IncomingMisses, OutgoingMisses bool
 	Name                           string
+	Mining                         *miningAmounts
 	Members                        []string
 	MemberCounts                   []int
 	MemberShips                    map[string][]string

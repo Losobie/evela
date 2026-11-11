@@ -5,6 +5,26 @@ import (
 	"testing"
 )
 
+func TestOreVolumes(t *testing.T) {
+	for name, want := range map[string]float64{
+		"Loparite": 10, " loparite ": 10, "Veldspar": 0.1,
+		"Compressed Loparite": 0.1, "Bountiful Xenotime": 10, "Prismatic Gneiss": 5,
+	} {
+		if got, ok := OreVolume(name); !ok || got != want {
+			t.Errorf("OreVolume(%q) = %v/%v, want %v", name, got, ok, want)
+		}
+	}
+	for _, name := range []string{"Unknown ore", "Compressed Prismatic Gneiss", "Cosmetic Asteroid 1"} {
+		if got, ok := OreVolume(name); ok || got != 0 {
+			t.Errorf("unknown type %q received an inferred volume: %v", name, got)
+		}
+	}
+	catalog := loadOreCatalog()
+	if len(catalog.Volumes) < 490 {
+		t.Fatal("embedded ore volume catalog is incomplete")
+	}
+}
+
 func TestNPCSourceResolution(t *testing.T) {
 	for _, tc := range []struct {
 		text            string

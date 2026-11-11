@@ -20,7 +20,7 @@ import (
 // Increment whenever parsing, extracted fields, source classification, embedded
 // catalogs, or the serialized parsedLog format changes. Old results are never
 // used by a new parser version, even when source files have not changed.
-const logParserVersion = 12
+const logParserVersion = 13
 const logCacheSchemaVersion = 1
 
 type logCache struct {

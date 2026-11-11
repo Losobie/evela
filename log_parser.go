@@ -37,6 +37,7 @@ var (
 	incomingDamageSource = logparser.IncomingDamageSource
 	loggedTarget         = logparser.LoggedTarget
 	oreType              = logparser.OreType
+	oreVolume            = logparser.OreVolume
 	hullClass            = logparser.HullClass
 	npcGroup             = logparser.NPCGroup
 	lookupNPC            = logparser.LookupNPC

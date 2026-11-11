@@ -174,11 +174,10 @@ func (ui *analyzerUI) renderSelection() {
 	ui.outgoingLogistics.setData(ui.logisticsPlot(selected, false))
 	ui.incomingLogistics.setData(ui.logisticsPlot(selected, true))
 	ui.mining.setData(ui.miningPlot(selected))
-	ui.sortDamageTotals()
-	ui.totals.Refresh()
 	var ewarCount int
 	var drained float64
-	var mined float64
+	ui.miningTotals = miningAmounts{}
+	ores := map[string]*miningAmounts{}
 	for _, log := range ui.analysisSnapshot().Logs {
 		if !selected[log.Character] {
 			continue
@@ -198,21 +197,33 @@ func (ui *analyzerUI) renderSelection() {
 		for _, event := range log.Mining {
 			if event.Second >= ui.view.Start.Unix() && event.Second < ui.view.End.Unix() {
 				contributing[log.Character] = true
-				if event.Kind == miningMined && ui.scopeFilter(graphMining, filterOreName).selected(event.Ore) && ui.scopeFilter(graphMining, filterOreType).selected(oreType(event.Ore)) && ui.scopeFilter(graphMining, filterMiningMessage).selected(event.Kind) {
-					mined += event.Amount
+				if event.Kind == miningMined && ui.miningEventSelected(event) {
+					if ores[event.Ore] == nil {
+						ores[event.Ore] = &miningAmounts{}
+					}
+					ores[event.Ore].add(event)
+					ui.miningTotals.add(event)
 				}
 			}
 		}
 	}
+	ui.hasMining = len(ores) > 0
+	for ore, amounts := range ores {
+		ui.tableSeries = append(ui.tableSeries, characterSeries{Name: ore, Mining: amounts})
+	}
+	if !ui.hasMining && ui.totalsSortColumn >= 7 {
+		ui.totalsSortColumn, ui.totalsSortDescending = 0, false
+	}
+	ui.sortDamageTotals()
+	ui.totals.Refresh()
 	summary := fmt.Sprintf("%d selected   |   Outgoing %s damage / %d hits   |   Incoming %s damage / %d hits", len(contributing), shortNumber(outgoing), hitsOut, shortNumber(incoming), hitsIn)
 	if ewarCount > 0 {
 		summary += fmt.Sprintf("   |   Incoming E-War %d events / %s GJ", ewarCount, shortNumber(drained))
 	}
-	if mined > 0 {
-		summary += fmt.Sprintf("   |   Mining %s units", shortNumber(mined))
+	if ui.miningTotals.Units > 0 {
+		summary += fmt.Sprintf("   |   Mining %s units / %s m3", shortNumber(ui.miningTotals.Units), formatMiningVolume(ui.miningTotals.Volume, ui.miningTotals.UnknownVolume))
 	}
 	ui.summary.SetText(summary)
-	ui.miningTotal.SetText(fmt.Sprintf("Mining total: %.0f units", mined))
 	ui.refreshDamageFilterControls()
 	ui.refreshLogisticsTypeControls()
 	ui.refreshMiningControls()

@@ -196,7 +196,7 @@ func TestClearAllFiltersRestoresMiningAndPersists(t *testing.T) {
 		t.Fatal("Clear all filters needs its own section below graph visibility")
 	}
 	menu.Items[last].Action()
-	if len(ui.mining.data.Series) == 0 || ui.miningTotal.Text != "Mining total: 530 units" || !ui.selected["Miner"] {
+	if len(ui.mining.data.Series) == 0 || ui.miningTotals.Units != 530 || !ui.selected["Miner"] {
 		t.Fatal("clearing filters did not restore mining and character selection")
 	}
 	if !ui.view.Start.Equal(start) || !ui.view.End.Equal(end) || ui.eventGraphGroupings[graphMining] != eventByOreName {
@@ -218,7 +218,7 @@ func TestClearAllFiltersRestoresMiningAndPersists(t *testing.T) {
 	defer window.Close()
 	checkCleared(newAnalyzerUI(window))
 	ui.setFilterVisible(graphMining, filterOreName, true)
-	if ui.miningTotal.Text != "Mining total: 530 units" {
+	if ui.miningTotals.Units != 530 {
 		t.Fatal("readding a cleared ore filter restored old exclusions")
 	}
 }
@@ -238,7 +238,7 @@ func TestRemovingFiltersResetsGlobalAndGraphSelections(t *testing.T) {
 			}
 		}
 	}
-	if !ui.selected["Miner"] || ui.miningTotal.Text != "Mining total: 530 units" {
+	if !ui.selected["Miner"] || ui.miningTotals.Units != 530 {
 		t.Fatal("removing and readding filters lost the selected miner or yield")
 	}
 }
