@@ -12,11 +12,22 @@ import (
 )
 
 func (ui *analyzerUI) requestLoad() {
+	ui.requestLogLoad(false)
+}
+
+func (ui *analyzerUI) requestReprocessLogs() {
+	ui.requestLogLoad(true)
+}
+
+func (ui *analyzerUI) requestLogLoad(force bool) {
 	folders, err := parseLogFolders(ui.path.Text)
 	if err != nil {
 		reportRuntimeError("Read log folder settings", err)
 		dialog.ShowError(err, ui.window)
 		return
+	}
+	if force {
+		ui.forceReprocess.Store(true)
 	}
 	select {
 	case <-ui.loadRequests:
@@ -59,6 +70,13 @@ func (ui *analyzerUI) watch() {
 				continue
 			}
 		}
+		// A force request can arrive during a scan. Use the latest configured
+		// folders and keep the request pending even if refreshes are coalesced.
+		select {
+		case directories = <-ui.loadRequests:
+		default:
+		}
+		force := ui.forceReprocess.Swap(false)
 		var lookbackDays int
 		fyne.DoAndWait(func() {
 			lookbackDays = ui.logLookbackDays
@@ -66,7 +84,18 @@ func (ui *analyzerUI) watch() {
 			ui.progress.SetValue(0)
 			ui.progress.Show()
 			ui.status.SetText("Reading logs… unchanged files use the local cache.")
+			if force {
+				ui.status.SetText("Reprocessing logs… clearing cached results.")
+			}
 		})
+		if force {
+			if err := index.invalidate(ctx); err != nil {
+				cacheErr = fmt.Errorf("could not clear parsed-log cache; reading source logs: %w", err)
+				reportRuntimeError("Force reprocess logs", err)
+			} else if cache != nil {
+				cacheErr = nil
+			}
+		}
 		snapshot, err := index.refresh(ctx, directories, logLoadingCutoff(time.Now(), lookbackDays), func(done, total int) {
 			fyne.Do(func() {
 				ui.progress.SetValue(float64(done) / float64(total))

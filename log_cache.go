@@ -118,6 +118,28 @@ func (cache *logCache) close() error {
 	return cache.db.Close()
 }
 
+func (cache *logCache) invalidate(ctx context.Context) error {
+	if cache == nil {
+		return nil
+	}
+	tx, err := cache.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, "DELETE FROM log_files"); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, "DELETE FROM parsed_logs"); err != nil {
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	cache.disabled.Store(false)
+	return nil
+}
+
 func (cache *logCache) load(ctx context.Context, path string, info os.FileInfo) (*parsedLog, error) {
 	if cache == nil || cache.disabled.Load() {
 		return nil, nil

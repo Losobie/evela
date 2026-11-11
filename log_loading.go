@@ -139,7 +139,15 @@ func (ui *analyzerUI) openLogLoadingSettings() {
 	folderNote := widget.NewLabel("Watch every listed folder together. Add a local folder and a network share, for example \\\\computer\\share\\gamelogs. Edit or delete a line to change or remove a folder. Unavailable folders are retried automatically; their last loaded data stays available. Duplicate exports across folders are counted once.")
 	folderNote.Wrapping = fyne.TextWrapWord
 	pathRow := container.NewBorder(nil, nil, widget.NewLabel("Log folders"), browse)
-	content := container.NewVBox(pathRow, folder, folderNote, widget.NewSeparator(), note, widget.NewForm(widget.NewFormItem("Look back (days)", days)), all, preview, save)
+	reprocessNote := widget.NewLabel("Clear cached parsed results and reprocess the currently saved folders using the saved loading limit. Source logs are unchanged; unsaved edits above are not applied.")
+	reprocessNote.Wrapping = fyne.TextWrapWord
+	reprocess := widget.NewButton("Force reprocess logs", func() {
+		ui.logLoadingDialog.Hide()
+		ui.requestReprocessLogs()
+	})
+	form := container.NewVBox(pathRow, folder, folderNote, widget.NewSeparator(), note, widget.NewForm(widget.NewFormItem("Look back (days)", days)), all, preview)
+	actions := container.NewVBox(widget.NewSeparator(), reprocessNote, container.NewGridWithColumns(2, save, reprocess))
+	content := container.NewBorder(nil, actions, nil, nil, container.NewVScroll(form))
 	ui.logLoadingDialog = dialog.NewCustom("Log loading", "Cancel", content, ui.window)
 	ui.logLoadingDialog.SetOnClosed(func() { ui.logLoadingDialog = nil })
 	ui.logLoadingDialog.Resize(fyne.NewSize(860, 640))

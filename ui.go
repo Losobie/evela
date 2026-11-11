@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -64,6 +65,7 @@ type analyzerUI struct {
 	events                            *eventsViewer
 	engagements                       *engagementsViewer
 	loadRequests                      chan []string
+	forceReprocess                    atomic.Bool
 	stop                              chan struct{}
 	ships                             map[string]shipRecord
 	shipHistory                       shipHistory

@@ -202,6 +202,21 @@ func (index *multiLogIndex) close() {
 	}
 }
 
+// Cancel old scans before clearing SQLite so they cannot repopulate the cache
+// with pre-invalidation results. Detached scans retain only their own folder
+// state; newly requested scans start with empty in-memory indexes.
+func (index *multiLogIndex) invalidate(ctx context.Context) error {
+	index.close()
+	index.folders = nil
+	if err := index.cache.invalidate(ctx); err != nil {
+		if index.cache != nil {
+			index.cache.disabled.Store(true)
+		}
+		return err
+	}
+	return nil
+}
+
 func (snapshot *logSnapshot) warningDetails() string {
 	if len(snapshot.Warnings) == 0 {
 		return ""

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 )
@@ -125,6 +126,9 @@ func characterFilterChecks(root fyne.CanvasObject) map[string]bool {
 
 func walkFilterObjects(root fyne.CanvasObject, visit func(fyne.CanvasObject)) {
 	visit(root)
+	if scroll, ok := root.(*container.Scroll); ok {
+		walkFilterObjects(scroll.Content, visit)
+	}
 	if container, ok := root.(*fyne.Container); ok {
 		for _, child := range container.Objects {
 			walkFilterObjects(child, visit)

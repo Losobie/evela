@@ -118,6 +118,7 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 	}
 	originalFolder := ui.path.Text
 	var folder *widget.Entry
+	var reprocess *widget.Button
 	open := func() (*widget.Entry, *widget.Check, *widget.Button) {
 		t.Helper()
 		for _, menu := range window.MainMenu().Items {
@@ -145,6 +146,7 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 		var save *widget.Button
 		folder = nil
 		browseFound := false
+		reprocessFound := false
 		walkFilterObjects(popup.Content, func(object fyne.CanvasObject) {
 			switch value := object.(type) {
 			case *widget.Form:
@@ -156,13 +158,17 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 					folder = value
 				}
 			case *widget.Button:
+				if value.Text == "Force reprocess logs" {
+					reprocess = value
+				}
 				if value.Text == "Save and refresh" {
 					save = value
 				}
 				browseFound = browseFound || value.Text == "Add folder…"
+				reprocessFound = reprocessFound || value.Text == "Force reprocess logs"
 			}
 		})
-		if days == nil || all == nil || save == nil || folder == nil || !browseFound {
+		if days == nil || all == nil || save == nil || folder == nil || !browseFound || !reprocessFound {
 			t.Fatal("log loading settings are missing their controls")
 		}
 		return days, all, save
@@ -230,6 +236,33 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 	defer secondWindow.Close()
 	if restored := newAnalyzerUI(secondWindow); restored.logLookbackDays != 0 || restored.path.Text != chosenFolder {
 		t.Fatal("new UI did not load persisted settings")
+	}
+	days, _, _ = open()
+	folder.SetText(t.TempDir())
+	days.SetText("invalid unsaved edit")
+	test.Tap(reprocess)
+	if ui.logLoadingDialog != nil || !ui.forceReprocess.Load() || ui.path.Text != chosenFolder || ui.logLookbackDays != 0 {
+		t.Fatal("force reprocess applied unsaved edits or failed to queue")
+	}
+	if folders := <-ui.loadRequests; !slices.Equal(folders, []string{chosenFolder}) {
+		t.Fatalf("forced request used unsaved folders: %v", folders)
+	}
+}
+
+func TestForceReprocessRequestSurvivesQueuedRefresh(t *testing.T) {
+	application := test.NewTempApp(t)
+	window := application.NewWindow("Reprocess")
+	defer window.Close()
+	ui := newAnalyzerUI(window)
+	path := t.TempDir()
+	ui.path.SetText(path)
+	ui.requestReprocessLogs()
+	ui.requestLoad()
+	if !ui.forceReprocess.Load() || len(ui.loadRequests) != 1 {
+		t.Fatal("normal refresh discarded pending forced reprocessing")
+	}
+	if folders := <-ui.loadRequests; !slices.Equal(folders, []string{path}) {
+		t.Fatalf("incorrect folders: %v", folders)
 	}
 }
 

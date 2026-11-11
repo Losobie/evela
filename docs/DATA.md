@@ -21,7 +21,9 @@ If a folder becomes unavailable, its last loaded data remains available subject 
 | `%LOCALAPPDATA%\Evela\logs.sqlite` | Rebuildable parsed-log cache; SQLite is bundled with the app. |
 | `%APPDATA%\Evela\esi.dat` | ESI settings, encrypted tokens, and recorded ship/location history. |
 
-Unchanged files reuse cached parsed data across launches. Size or modification-time changes invalidate file entries; parser updates also trigger reprocessing. Deleted or excluded source files do not contribute simply because a payload remains cached. If the cache is unavailable or damaged, Evela falls back to source logs and reports the issue. To force a rebuild, close Evela before deleting `logs.sqlite`; retain your original logs. Do not delete `esi.dat` as part of a cache rebuild: it contains history and connections.
+Unchanged files reuse cached parsed data across launches. Size or modification-time changes invalidate file entries; parser updates also trigger reprocessing. Deleted or excluded source files do not contribute simply because a payload remains cached. If the cache is unavailable or damaged, Evela falls back to source logs and reports the issue. **Settings → Log loading → Force reprocess logs** clears the parsed-log database and in-memory indexes, then rereads the currently saved folders using the saved loading limit. Unsaved dialog edits are not applied. Source files and ESI history/connections are retained.
+
+Live snapshots are read-only, in-memory views of complete lines in the original `.txt` files. Evela creates no CSVs or temporary snapshot files in Gamelogs and ignores existing CSV files.
 
 For implementation and versioning requirements, see [parsed-log cache maintenance](DEVELOPMENT.md#parsed-log-cache-maintenance).
 
