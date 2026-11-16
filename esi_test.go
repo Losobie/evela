@@ -242,7 +242,7 @@ func TestESILoginPKCEAndEncryptedStorage(t *testing.T) {
 		}
 		query := parsed.Query()
 		f.challenge = query.Get("code_challenge")
-		if query.Get("scope") != shipScope+" "+locationScope+" "+structureScope || query.Get("code_challenge_method") != "S256" || query.Get("client_id") != "test-client" {
+		if query.Get("scope") != shipScope+" "+locationScope || query.Get("code_challenge_method") != "S256" || query.Get("client_id") != "test-client" {
 			t.Error("incorrect authorization parameters")
 		}
 		if query.Get("redirect_uri") != esiCallbackURL(f.service.config.CallbackPort) {

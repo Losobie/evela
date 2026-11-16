@@ -29,6 +29,7 @@ func (ui *analyzerUI) requestESILogin(action esiAction) {
 	case ui.esiLogins <- esiLoginRequest{action: action, ctx: ctx, cancel: cancel}:
 		ui.cancelESILogin = cancel
 		ui.connect.Disable()
+		ui.connectStructures.Disable()
 		ui.cancelLogin.Show()
 		ui.setESIStatus("Opening EVE sign-in…")
 	default:
@@ -63,7 +64,7 @@ func (ui *analyzerUI) watchESILogins(ctx context.Context, source *esiService, re
 		case request := <-ui.esiLogins:
 			stop := context.AfterFunc(ctx, request.cancel)
 			auth.config.ClientID, auth.config.CallbackPort = request.action.ClientID, request.action.CallbackPort
-			account, err := auth.authenticate(request.ctx, openBrowser)
+			account, err := auth.authenticate(request.ctx, openBrowser, request.action.Kind == "connect-structures")
 			request.cancel()
 			stop()
 			if ctx.Err() != nil {
@@ -84,6 +85,7 @@ func (ui *analyzerUI) watchESILogins(ctx context.Context, source *esiService, re
 			fyne.DoAndWait(func() {
 				ui.cancelESILogin = nil
 				ui.connect.Enable()
+				ui.connectStructures.Enable()
 				ui.cancelLogin.Hide()
 				if err != nil {
 					ui.setESIStatus("EVE sign-in: " + err.Error())

@@ -37,6 +37,7 @@ func (ui *analyzerUI) initESI() {
 	ui.shipAuto.SetChecked(true)
 	ui.shipRefresh = widget.NewButton("Refresh ships & locations", func() { ui.requestESI(esiAction{Kind: "refresh"}) })
 	ui.connect = widget.NewButton("Sign in with EVE Online", func() { ui.requestESIConfiguration("connect") })
+	ui.connectStructures = widget.NewButton("Sign in for structure names", func() { ui.requestESIConfiguration("connect-structures") })
 	ui.cancelLogin = widget.NewButton("Cancel sign-in", func() {
 		if ui.cancelESILogin != nil {
 			ui.cancelESILogin()

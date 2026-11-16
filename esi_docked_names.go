@@ -40,7 +40,7 @@ func (service *esiService) lookupStationName(ctx context.Context, id int64) (str
 
 func (service *esiService) lookupStructureName(ctx context.Context, account *esiAccount, id int64) (string, error) {
 	if !slices.Contains(account.Token.Scopes, structureScope) {
-		return "", fmt.Errorf("Structure name unavailable: enable %s in your EVE application and sign in again", structureScope)
+		return "", fmt.Errorf("Structure name unavailable: enable %s in your EVE application, then choose Sign in for structure names", structureScope)
 	}
 	key := structureNameKey{CharacterID: account.Ship.CharacterID, StructureID: id}
 	if cached := service.structureNames[key]; cached.name != "" && service.now().Before(cached.until) {

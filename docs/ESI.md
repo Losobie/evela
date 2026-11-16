@@ -20,7 +20,7 @@ Use **Ship history…** and **Location history…** to inspect recorded observat
 Sign-in uses a public native/desktop application with OAuth PKCE. No client secret is needed or stored.
 
 1. Open [EVE developer applications](https://developers.eveonline.com/applications), also linked from the Application tab.
-2. Configure a native/desktop application with `esi-location.read_ship_type.v1`, `esi-location.read_location.v1` and `esi-universe.read_structures.v1` scopes.
+2. Configure a native/desktop application with `esi-location.read_ship_type.v1` and `esi-location.read_location.v1` scopes. Optionally enable `esi-universe.read_structures.v1` for player-owned structure names.
 3. Register the exact callback URL displayed by Evela. The default is `http://localhost:8080/callback`.
 4. Enter the application's public **Client ID**, set the matching **Callback port**, and choose **Save application configuration**.
 5. Sign in from **Character tokens**.
@@ -29,11 +29,12 @@ The default public Client ID is `b680ade5175c4385a1e800b4bedb70bb`. The callback
 
 Older ship-only sign-ins still work for ships. Sign in again to grant location access. Legacy client-secret settings are ignored and omitted when settings are next saved; old applications may need conversion to PKCE and a new sign-in.
 
-The ESI table shows ship types and resolves NPC station names publicly. Player-owned structure names require `esi-universe.read_structures.v1` and a character with docking access. Enable that scope in the application's EVE registration and sign in again for existing characters to grant it. An unresolved system, station or structure displays its numeric ID; lookup errors remain available through **ESI status…**. Successful station names are cached for the session; structure names are cached separately for each character for five minutes, then checked again. Copied cells use the same values as the table.
+The ESI table shows ship types and resolves NPC station names publicly. Player-owned structure names require `esi-universe.read_structures.v1` and a character with docking access. Enable that scope in the application's EVE registration, then choose **Sign in for structure names** in **Character tokens**. Ordinary **Sign in with EVE Online** requests only ship and location access, so it works without the optional structure permission. An unresolved system, station or structure displays its numeric ID; lookup errors remain available through **ESI status…**. Successful station names are cached for the session; structure names are cached separately for each character for five minutes, then checked again. Copied cells use the same values as the table.
 
 ## Connection behavior and troubleshooting
 
 - **Browser sign-in cannot complete:** check that the callback exactly matches the registered URL and the local port is available. Cancel the current attempt before retrying.
+- **Structure sign-in reports `invalid_scope`:** the optional structure scope may not be enabled for that Client ID in the EVE application registration. Cancel the attempt and use ordinary **Sign in with EVE Online** for ship/location access, or enable the scope in the registration before retrying **Sign in for structure names**. Restart Evela after updating from a version that requested the optional scope on every sign-in.
 - **Ships appear but locations do not:** confirm both scopes are enabled and sign in again if the token predates location access.
 - **History shows unknown values:** observations cover recorded periods, with a short last-observed allowance. Old logs do not acquire earlier ship history just because a character connects now.
 - **ESI is unavailable or rate-limited:** log analysis continues. Check the ESI status/details and retry later; recorded history is retained.

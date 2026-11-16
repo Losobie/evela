@@ -104,7 +104,7 @@ func TestESILoginsOpenDuringBlockedRefreshAndPreserveAccounts(t *testing.T) {
 		deadline := time.Now().Add(5 * time.Second)
 		for {
 			ready := false
-			fyne.DoAndWait(func() { ready = !ui.connect.Disabled() })
+			fyne.DoAndWait(func() { ready = !ui.connect.Disabled() && !ui.connectStructures.Disabled() })
 			if ready {
 				break
 			}
@@ -113,7 +113,16 @@ func TestESILoginsOpenDuringBlockedRefreshAndPreserveAccounts(t *testing.T) {
 			}
 			time.Sleep(time.Millisecond)
 		}
-		fyne.DoAndWait(func() { test.Tap(ui.connect) })
+		fyne.DoAndWait(func() {
+			if attempt == 0 {
+				test.Tap(ui.connect)
+			} else {
+				test.Tap(ui.connectStructures)
+			}
+			if !ui.connect.Disabled() || !ui.connectStructures.Disabled() {
+				t.Error("a pending login left another sign-in button enabled")
+			}
+		})
 		var address string
 		select {
 		case address = <-opened:
@@ -125,6 +134,13 @@ func TestESILoginsOpenDuringBlockedRefreshAndPreserveAccounts(t *testing.T) {
 			t.Fatal(err)
 		}
 		query := parsed.Query()
+		wantScopes := shipScope + " " + locationScope
+		if attempt == 1 {
+			wantScopes += " " + structureScope
+		}
+		if query.Get("scope") != wantScopes {
+			t.Fatalf("sign-in attempt %d requested %q, want %q", attempt, query.Get("scope"), wantScopes)
+		}
 		f.challenge = query.Get("code_challenge")
 		response, err := http.Get(query.Get("redirect_uri") + "?" + url.Values{"state": {query.Get("state")}, "code": {"test-code"}}.Encode())
 		if err != nil {

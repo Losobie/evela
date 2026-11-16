@@ -57,7 +57,7 @@ func (ui *analyzerUI) requestESIConfiguration(kind string) {
 		return
 	}
 	action := esiAction{Kind: kind, ClientID: clientID, CallbackPort: port}
-	if kind == "connect" {
+	if kind == "connect" || kind == "connect-structures" {
 		ui.requestESILogin(action)
 		return
 	}
@@ -88,11 +88,11 @@ func (ui *analyzerUI) openESISettings() {
 	application := container.NewVScroll(container.NewVBox(intro,
 		applicationForm,
 		callbackNote, ui.callbackURL, copyCallback,
-		widget.NewLabel("Ship scope: "+shipScope), widget.NewLabel("Location scope: "+locationScope), widget.NewLabel("Structure names scope: "+structureScope), widget.NewHyperlink("Open EVE developer applications", portal),
+		widget.NewLabel("Ship scope: "+shipScope), widget.NewLabel("Location scope: "+locationScope), widget.NewLabel("Optional structure names scope: "+structureScope), widget.NewHyperlink("Open EVE developer applications", portal),
 		widget.NewButton("Save application configuration", func() { ui.requestESIConfiguration("configure") })))
-	signInNote := widget.NewLabel("Sign in with EVE Online for each character to grant ship, location and structure-name access. Tokens are received and renewed automatically. Existing sign-ins still work; sign in again to grant missing location or structure-name access.")
+	signInNote := widget.NewLabel("Sign in with EVE Online for ship and location access. To also resolve player-owned structure names, first enable " + structureScope + " in your EVE application's registration, then choose Sign in for structure names. If that sign-in reports invalid_scope, use the normal sign-in until the registration is updated. Tokens are received and renewed automatically.")
 	signInNote.Wrapping = fyne.TextWrapWord
-	signInControls := container.NewVBox(signInNote, container.NewHBox(ui.connect, ui.cancelLogin), widget.NewSeparator(), widget.NewLabel("SAVED CHARACTER TOKENS"))
+	signInControls := container.NewVBox(signInNote, container.NewHBox(ui.connect, ui.connectStructures, ui.cancelLogin), widget.NewSeparator(), widget.NewLabel("SAVED CHARACTER TOKENS"))
 	tokens := container.NewBorder(signInControls, nil, nil, nil, container.NewVScroll(ui.tokenConnections))
 	ui.esiSettingsTabs = container.NewAppTabs(container.NewTabItem("Application", application), container.NewTabItem("Character tokens", tokens))
 	security := widget.NewLabel("Sign-ins are saved encrypted for your Windows user. Saved token values are never displayed here.")

@@ -41,7 +41,7 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 	if defaultAction.ClientID != defaultESIClientID || defaultAction.CallbackPort != defaultESICallbackPort || defaultAction.Kind != "connect" {
 		t.Fatal("default sign-in did not use the built-in application")
 	}
-	if !ui.connect.Disabled() || !ui.cancelLogin.Visible() {
+	if !ui.connect.Disabled() || !ui.connectStructures.Disabled() || !ui.cancelLogin.Visible() {
 		t.Fatal("pending sign-in did not immediately expose cancellation and prevent duplicates")
 	}
 	ui.requestESIConfiguration("connect")
@@ -51,6 +51,7 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 	defaultLogin.cancel()
 	ui.cancelESILogin = nil
 	ui.connect.Enable()
+	ui.connectStructures.Enable()
 	ui.cancelLogin.Hide()
 	first := ui.esiDialog
 	ui.openESISettings()

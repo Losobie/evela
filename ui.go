@@ -87,6 +87,7 @@ type analyzerUI struct {
 	esiRows                           [][4]string
 	shipAuto                          *widget.Check
 	shipRefresh, connect, cancelLogin *widget.Button
+	connectStructures                 *widget.Button
 	esiActions                        chan esiAction
 	esiLogins                         chan esiLoginRequest
 	cancelESILogin                    context.CancelFunc
