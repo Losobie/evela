@@ -273,10 +273,7 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	ui.graphsEmpty = newGraphsEmptyState()
 	ui.applyGraphVisibility()
 	graphContent := container.NewBorder(filterBar, nil, nil, nil, ui.graphsScroll)
-	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.\nDrag/Shift-click selects ranges; Ctrl-click adds/removes cells; Ctrl+C copies.\nMined totals include critical bonuses; mining crit columns show the bonus portion.")
-	totalsNote.Wrapping = fyne.TextWrapWord
-	totals := container.NewBorder(totalsNote, nil, nil, nil, ui.totals)
-	tabs := container.NewAppTabs(container.NewTabItem("Graphs", graphContent), container.NewTabItem("Totals", totals), container.NewTabItem("Events", ui.events.content), container.NewTabItem("Engagements", ui.engagements.content), container.NewTabItem("ESI & ships", ui.esiContent()))
+	tabs := container.NewAppTabs(container.NewTabItem("Graphs", graphContent), container.NewTabItem("Totals", ui.totals), container.NewTabItem("Events", ui.events.content), container.NewTabItem("Engagements", ui.engagements.content), container.NewTabItem("ESI & ships", ui.esiContent()))
 	ui.tabs = tabs
 	tabs.OnSelected = func(item *container.TabItem) {
 		if item.Content == ui.events.content {
