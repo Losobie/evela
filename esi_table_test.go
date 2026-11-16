@@ -33,10 +33,8 @@ func TestESITableRangesCopyFullValuesAndRefresh(t *testing.T) {
 	if ui.esiRows[0][1] != "2026-11-16 17:34:56" || ui.esiRows[1][1] != "Not checked" {
 		t.Fatalf("checked times should be EVE time without timezone text: %v", ui.esiRows)
 	}
-	for _, part := range []string{shipName, "Strategic Cruiser", "Ship lookup failed", "Class lookup failed"} {
-		if !strings.Contains(ui.esiRows[0][2], part) {
-			t.Fatalf("ship cell lost details %q", part)
-		}
+	if ui.esiRows[0][2] != "Loki" || ui.esiRows[1][2] != "Ship unavailable" {
+		t.Fatalf("ship cells should contain only the ship type: %v", ui.esiRows)
 	}
 	if ui.esiRows[0][3] != "Jita · Jita IV - Moon 4 - Caldari Navy Assembly Plant" || ui.esiRows[1][3] != "Location unavailable" {
 		t.Fatalf("incorrect locations: %v", ui.esiRows)
@@ -84,7 +82,7 @@ func TestESITableKeepsDockedNamesWhenLogsConfirmSystem(t *testing.T) {
 	ui.logLocations = logLocationHistory{"current": {CharacterName: "Pilot A", Start: now.Add(-time.Minute).Unix(), End: now.Add(time.Minute).Unix(), Events: []logLocationEvent{{Second: now.Add(-time.Minute).Unix(), To: "Jita"}}}}
 	record := shipRecord{CharacterName: "Pilot A", Location: locationRecord{SystemName: "Jita", StationID: 60003760, StationName: "Assembly Plant", CheckedAt: now}}
 	ui.applyShipRecords([]shipRecord{record})
-	if !strings.Contains(ui.esiRows[0][3], "Assembly Plant") || !strings.Contains(ui.esiRows[0][3], "game log") {
+	if ui.esiRows[0][3] != "Jita · Assembly Plant" {
 		t.Fatalf("matching game logs hid a current station name: %s", ui.esiRows[0][3])
 	}
 	record.Location.SystemName = "Amarr"
@@ -97,6 +95,24 @@ func TestESITableKeepsDockedNamesWhenLogsConfirmSystem(t *testing.T) {
 	ui.applyShipRecords([]shipRecord{record})
 	if strings.Contains(ui.esiRows[0][3], "Assembly Plant") {
 		t.Fatal("game logs resurrected a stale docking location")
+	}
+}
+
+func TestESILocationValuesUseNamesOrBareIDs(t *testing.T) {
+	for _, tc := range []struct {
+		location locationRecord
+		want     string
+	}{
+		{locationRecord{SystemID: 30000142, NameError: "lookup failed"}, "30000142"},
+		{locationRecord{StationID: 60003760, DockedNameError: "lookup failed"}, "60003760"},
+		{locationRecord{StructureID: 100000000001, DockedNameError: "missing scope"}, "100000000001"},
+		{locationRecord{SystemName: "Jita", StationID: 60003760, Error: "refresh failed", DockedNameError: "lookup failed"}, "Jita · 60003760"},
+		{locationRecord{SystemID: 30000142, StructureID: 100000000001}, "30000142 · 100000000001"},
+		{locationRecord{SystemName: "Jita", StructureID: 100000000001, StructureName: "Fortizar"}, "Jita · Fortizar"},
+	} {
+		if got := locationLabel(tc.location); got != tc.want {
+			t.Errorf("location value = %q, want %q", got, tc.want)
+		}
 	}
 }
 

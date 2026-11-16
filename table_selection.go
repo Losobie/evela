@@ -62,6 +62,25 @@ func newCellSelectionTable(length func() (int, int), create func() fyne.CanvasOb
 	return t
 }
 
+func (t *cellSelectionTable) CreateRenderer() fyne.WidgetRenderer {
+	base := t.Table.CreateRenderer()
+	objects := base.Objects()
+	// Fyne 2.8 places a draggable separator/marker clip after the frozen
+	// cells. It captures their drags and forwards them to the base Table's
+	// resize handler. Put it underneath the cell layers so frozen cells own
+	// their input, just like the cells in the scrolling body.
+	return &selectionTableRenderer{WidgetRenderer: base, objects: []fyne.CanvasObject{
+		objects[3], objects[0], objects[1], objects[2], objects[4],
+	}}
+}
+
+type selectionTableRenderer struct {
+	fyne.WidgetRenderer
+	objects []fyne.CanvasObject
+}
+
+func (r *selectionTableRenderer) Objects() []fyne.CanvasObject { return r.objects }
+
 func cloneCells(input map[widget.TableCellID]bool) map[widget.TableCellID]bool {
 	result := make(map[widget.TableCellID]bool, len(input))
 	for id, checked := range input {

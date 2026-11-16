@@ -191,6 +191,23 @@ func TestCellDragAfterScrollAndStickyColumn(t *testing.T) {
 	}
 }
 
+func TestCellCanvasDragReachesStickyColumn(t *testing.T) {
+	table, window := selectionFixture(t)
+	for _, row := range []int{1, 11} {
+		table.ScrollTo(widget.TableCellID{Row: row + 1, Col: 2})
+		first := renderedSelectionCell(t, table, widget.TableCellID{Row: row, Col: 0})
+		last := renderedSelectionCell(t, table, widget.TableCellID{Row: row + 1, Col: 2})
+		last.MouseDown(&desktop.MouseEvent{Button: desktop.MouseButtonPrimary})
+		position := fyne.CurrentApp().Driver().AbsolutePositionForObject(first).Add(fyne.NewPos(10, 10))
+		// Use the canvas dispatcher rather than calling cell.Dragged directly:
+		// the desktop driver uses the same hit test when capturing a drag.
+		test.Drag(window.Canvas(), position, 0, 0)
+		if table.active != first.id || len(table.selected) != 6 {
+			t.Fatalf("first-column drag was intercepted: active=%v selected=%v", table.active, table.selected)
+		}
+	}
+}
+
 func TestEventsSelectionDoesNotActivateAndCopiesFullMessages(t *testing.T) {
 	ui, _ := newEventsTestUI(t)
 	table := ui.events.table

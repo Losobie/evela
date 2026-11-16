@@ -90,8 +90,12 @@ func TestDockedNameFailuresRetainLocationAndRetry(t *testing.T) {
 				t.Fatalf("name failure discarded the confirmed system or observation: %+v", location)
 			}
 			label := locationLabel(location)
-			if !strings.Contains(label, "Jita") || !strings.Contains(label, location.DockedNameError) || !strings.Contains(label, "60003760") && !strings.Contains(label, "100000000001") {
-				t.Fatalf("name failure lost its ID fallback or explanation: %s", label)
+			want := "Jita · 100000000001"
+			if scenario == "station network" {
+				want = "Jita · 60003760"
+			}
+			if label != want {
+				t.Fatalf("name failure should show only the numeric ID: %s", label)
 			}
 			if scenario == "missing structure scope" && (f.structureRequests.Load() != 0 || !strings.Contains(location.DockedNameError, "sign in again")) {
 				t.Fatal("missing scope was not explained without a private request")

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -140,34 +141,27 @@ func (service *esiService) refreshLocationHistoryMetadata(ctx context.Context) e
 func locationLabel(location locationRecord) string {
 	name := location.SystemName
 	if name == "" && location.SystemID > 0 {
-		name = fmt.Sprintf("System %d", location.SystemID)
+		name = strconv.FormatInt(location.SystemID, 10)
 	}
-	if name == "" {
-		name = "Location unavailable"
-	} else if location.Error != "" || time.Since(location.CheckedAt) >= locationHistoryMaxGap {
-		name += " (stale)"
-	}
+	docked := ""
 	if location.StationID > 0 {
-		if location.StationName != "" {
-			name += " · " + location.StationName
-		} else {
-			name += fmt.Sprintf(" · Station %d", location.StationID)
+		docked = location.StationName
+		if docked == "" {
+			docked = strconv.FormatInt(location.StationID, 10)
 		}
 	} else if location.StructureID > 0 {
-		if location.StructureName != "" {
-			name += " · " + location.StructureName
-		} else {
-			name += fmt.Sprintf(" · Structure %d", location.StructureID)
+		docked = location.StructureName
+		if docked == "" {
+			docked = strconv.FormatInt(location.StructureID, 10)
 		}
 	}
-	if location.Error != "" {
-		name += " · " + location.Error
+	if name == "" {
+		name = docked
+	} else if docked != "" {
+		name += " · " + docked
 	}
-	if location.NameError != "" {
-		name += " · " + location.NameError
-	}
-	if location.DockedNameError != "" {
-		name += " · " + location.DockedNameError
+	if name == "" {
+		return "Location unavailable"
 	}
 	return name
 }

@@ -29,7 +29,7 @@ The default public Client ID is `b680ade5175c4385a1e800b4bedb70bb`. The callback
 
 Older ship-only sign-ins still work for ships. Sign in again to grant location access. Legacy client-secret settings are ignored and omitted when settings are next saved; old applications may need conversion to PKCE and a new sign-in.
 
-The ESI table resolves NPC station names publicly. Player-owned structure names require `esi-universe.read_structures.v1` and a character with docking access. Enable that scope in the application's EVE registration and sign in again for existing characters to grant it. If a name lookup fails or access is unavailable, the table retains the confirmed system and docking ID with an explanation. Successful station names are cached for the session; structure names are cached separately for each character for five minutes, then checked again. Names are included when copying location cells.
+The ESI table shows ship types and resolves NPC station names publicly. Player-owned structure names require `esi-universe.read_structures.v1` and a character with docking access. Enable that scope in the application's EVE registration and sign in again for existing characters to grant it. An unresolved system, station or structure displays its numeric ID; lookup errors remain available through **ESI status…**. Successful station names are cached for the session; structure names are cached separately for each character for five minutes, then checked again. Copied cells use the same values as the table.
 
 ## Connection behavior and troubleshooting
 

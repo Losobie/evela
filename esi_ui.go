@@ -254,33 +254,24 @@ func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 	var tokens []fyne.CanvasObject
 	for _, record := range records {
 		ui.ships[characterKey(record.CharacterName)] = record
-		text := shipLabel(record.CharacterName, ui.ships)
-		if record.ClassName != "" {
-			text += " · " + record.ClassName
-		}
-		if record.ShipName != "" {
-			text += " · " + record.ShipName
+		text := record.TypeName
+		if text == "" {
+			text = "Ship unavailable"
 		}
 		checked := "Not checked"
 		if !record.CheckedAt.IsZero() {
 			checked = record.CheckedAt.UTC().Format("2006-01-02 15:04:05")
 		}
-		if record.Error != "" {
-			text += " · " + record.Error
-		}
-		if record.ClassError != "" {
-			text += " · " + record.ClassError
-		}
 		locationText := locationLabel(record.Location)
 		if location, known := locations.atName(record.CharacterName, time.Now()); location.Source == "Game log" {
 			locationText = "Unknown system · conflicting game logs"
 			if known {
-				locationText = location.SystemName + " · game log"
+				locationText = location.SystemName
 				current := record.Location
 				sameSystem := current.SystemID > 0 && current.SystemID == location.SystemID || current.SystemName != "" && strings.EqualFold(current.SystemName, location.SystemName)
 				if sameSystem && current.Error == "" && time.Since(current.CheckedAt) < locationHistoryMaxGap {
 					current.SystemName = location.SystemName
-					locationText = locationLabel(current) + " · game log"
+					locationText = locationLabel(current)
 				}
 			}
 		}
