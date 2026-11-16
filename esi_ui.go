@@ -27,7 +27,7 @@ func (ui *analyzerUI) initESI() {
 	ui.esiLogins = make(chan esiLoginRequest, 1)
 	ui.logLocationUpdates = make(chan logLocationHistory, 1)
 	ui.clientID = widget.NewEntry()
-	ui.clientID.SetPlaceHolder(defaultESIClientID)
+	ui.clientID.SetPlaceHolder(defaultESIClientID + " (default)")
 	ui.initESISettings()
 	ui.esiStatus = widget.NewLabel("Set up EVE SSO to look up current ships.")
 	ui.esiStatus.Wrapping = fyne.TextWrapWord

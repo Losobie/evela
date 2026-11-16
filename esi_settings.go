@@ -13,7 +13,7 @@ import (
 
 func (ui *analyzerUI) initESISettings() {
 	ui.callback = widget.NewEntry()
-	ui.callback.SetPlaceHolder(esiCallbackURL(defaultESICallbackPort))
+	ui.callback.SetPlaceHolder(esiCallbackURL(defaultESICallbackPort) + " (default)")
 	ui.callback.Validator = func(value string) error { _, err := parseESICallback(value); return err }
 	ui.clientID.OnChanged = func(string) {
 		if !ui.settingESI {

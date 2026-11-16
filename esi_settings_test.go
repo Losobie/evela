@@ -29,10 +29,10 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 		}
 	}
 	ui.loadESIConfiguration(defaultESIClientID, defaultESICallbackPort)
-	if ui.esiDialog == nil || ui.callback.Text != "" || ui.callback.PlaceHolder != "http://localhost:8080/callback" {
+	if ui.esiDialog == nil || ui.callback.Text != "" || ui.callback.PlaceHolder != "http://localhost:8080/callback (default)" {
 		t.Fatal("menu did not open default ESI settings dialog")
 	}
-	if ui.clientID.Text != "" || ui.clientID.PlaceHolder != defaultESIClientID || ui.esiSettingsDirty {
+	if ui.clientID.Text != "" || ui.clientID.PlaceHolder != defaultESIClientID+" (default)" || ui.esiSettingsDirty {
 		t.Fatal("default application ID was not shown as a placeholder")
 	}
 	ui.requestESIConfiguration("connect")
