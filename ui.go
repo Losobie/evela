@@ -93,9 +93,7 @@ type analyzerUI struct {
 	cancelESILogin                    context.CancelFunc
 	cancelESIRefresh                  context.CancelFunc
 	tabs                              *container.AppTabs
-	callbackPort                      *widget.Entry
-	callbackURL                       *widget.Label
-	esiDialogStatus                   *widget.Label
+	callback                          *widget.Entry
 	tokenConnections                  *fyne.Container
 	esiDialog                         *dialog.CustomDialog
 	esiSettingsTabs                   *container.AppTabs

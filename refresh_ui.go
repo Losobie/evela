@@ -16,8 +16,3 @@ func (ui *analyzerUI) showRefreshDetails(title, message string) {
 	details.Resize(fyne.NewSize(720, 320))
 	details.Show()
 }
-
-func (ui *analyzerUI) esiStatusRow(label *widget.Label) fyne.CanvasObject {
-	return container.NewBorder(nil, nil, nil,
-		widget.NewButton("Details", func() { ui.showRefreshDetails("ESI status", label.Text) }), label)
-}

@@ -80,7 +80,7 @@ func TestRefreshStatusKeepsLayoutStable(t *testing.T) {
 
 	ui.openESISettings()
 	ui.setESIStatus("Ready")
-	objects = []fyne.CanvasObject{ui.esiSettingsTabs, ui.esiDialogStatus}
+	objects = []fyne.CanvasObject{ui.esiSettingsTabs, ui.clientID, ui.callback}
 	before = measure(objects...)
 	ui.setESIStatus(longError)
 	assertSame(before, objects...)

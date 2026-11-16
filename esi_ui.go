@@ -11,6 +11,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -26,8 +27,7 @@ func (ui *analyzerUI) initESI() {
 	ui.esiLogins = make(chan esiLoginRequest, 1)
 	ui.logLocationUpdates = make(chan logLocationHistory, 1)
 	ui.clientID = widget.NewEntry()
-	ui.clientID.SetPlaceHolder("Public EVE application client ID")
-	ui.clientID.SetText(defaultESIClientID)
+	ui.clientID.SetPlaceHolder(defaultESIClientID)
 	ui.initESISettings()
 	ui.esiStatus = widget.NewLabel("Set up EVE SSO to look up current ships.")
 	ui.esiStatus.Wrapping = fyne.TextWrapWord
@@ -82,10 +82,7 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 	loadErr := service.load()
 	fyne.DoAndWait(func() {
 		if !ui.esiSettingsDirty {
-			ui.settingESI = true
-			ui.clientID.SetText(service.config.ClientID)
-			ui.callbackPort.SetText(strconv.Itoa(service.config.CallbackPort))
-			ui.settingESI = false
+			ui.loadESIConfiguration(service.config.ClientID, service.config.CallbackPort)
 		}
 	})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -226,6 +223,7 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 				if err := service.configure(action.ClientID, action.CallbackPort); err != nil {
 					reportRuntimeError("Save ESI configuration", err)
 					publish(err.Error())
+					fyne.Do(func() { dialog.ShowError(err, ui.window) })
 					continue
 				}
 				publish("ESI configuration saved. Register " + esiCallbackURL(service.config.CallbackPort) + " in your EVE application.")

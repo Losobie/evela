@@ -176,7 +176,7 @@ func TestESIIndependentLoginCancellationAndPortRelease(t *testing.T) {
 	opened := make(chan struct{}, 1)
 	done := make(chan struct{})
 	ui.clientID.SetText("test-client")
-	ui.callbackPort.SetText(strconv.Itoa(port))
+	ui.callback.SetText(esiCallbackURL(port))
 	ui.requestESIConfiguration("connect")
 	go func() {
 		defer close(done)

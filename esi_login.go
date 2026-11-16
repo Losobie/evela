@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/dialog"
 )
 
 type esiLoginRequest struct {
@@ -90,6 +92,9 @@ func (ui *analyzerUI) watchESILogins(ctx context.Context, source *esiService, re
 				if err != nil {
 					ui.setESIStatus("EVE sign-in: " + err.Error())
 					reportRuntimeError("EVE sign-in", err)
+					if !errors.Is(err, context.Canceled) {
+						dialog.ShowError(err, ui.window)
+					}
 				} else {
 					select {
 					case <-result.taken:

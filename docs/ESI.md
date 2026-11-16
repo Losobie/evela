@@ -7,7 +7,7 @@ ESI is optional. Evela can analyze local logs without a connection; sign in to r
 ## Connect characters
 
 1. Open **Settings → ESI configuration**, or **Configure ESI…** in the **ESI & ships** tab.
-2. The **Application** tab is prefilled with Evela's public Client ID. Keep it unless you want to use your own application.
+2. The **Application** tab shows Evela's default Client ID and callback as grey placeholders. Leave the fields blank to use those defaults, or type your own values directly.
 3. Open **Character tokens**, choose **Sign in with EVE Online**, and authorize a character in the browser. Repeat for each character. Log characters match by name, ignoring capitalization.
 4. In **ESI & ships**, enable **Refresh every 30 seconds**, or choose **Refresh ships & locations** manually.
 
@@ -22,10 +22,10 @@ Sign-in uses a public native/desktop application with OAuth PKCE. No client secr
 1. Open [EVE developer applications](https://developers.eveonline.com/applications), also linked from the Application tab.
 2. Configure a native/desktop application with `esi-location.read_ship_type.v1` and `esi-location.read_location.v1` scopes. Optionally enable `esi-universe.read_structures.v1` for player-owned structure names.
 3. Register the exact callback URL displayed by Evela. The default is `http://localhost:8080/callback`.
-4. Enter the application's public **Client ID**, set the matching **Callback port**, and choose **Save application configuration**.
+4. Enter the application's public **Client ID** and the full **Callback** URL, then choose **Save application configuration**. Clearing either field restores its default.
 5. Sign in from **Character tokens**.
 
-The default public Client ID is `b680ade5175c4385a1e800b4bedb70bb`. The callback hostname stays `localhost`; the port can be 1–65535. Use **Copy callback URL** to avoid a mismatch. Changing the port preserves saved connections but also requires updating the callback registered with CCP. Changing Client ID requires disconnecting existing tokens first.
+The default public Client ID is `b680ade5175c4385a1e800b4bedb70bb`. The callback uses `http://localhost:<port>/callback`; the port can be 1–65535. The default is `http://localhost:8080/callback`. Changing the callback port preserves saved connections but also requires updating the callback registered with CCP. Changing Client ID requires disconnecting existing tokens first. Saved custom values appear as editable text; saved defaults remain placeholders.
 
 Older ship-only sign-ins still work for ships. Sign in again to grant location access. Legacy client-secret settings are ignored and omitted when settings are next saved; old applications may need conversion to PKCE and a new sign-in.
 

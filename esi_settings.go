@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -12,49 +12,64 @@ import (
 )
 
 func (ui *analyzerUI) initESISettings() {
-	ui.callbackPort = widget.NewEntry()
-	ui.callbackPort.SetText(strconv.Itoa(defaultESICallbackPort))
-	ui.callbackPort.Validator = func(value string) error { _, err := parseCallbackPort(value); return err }
-	ui.callbackURL = widget.NewLabel(esiCallbackURL(defaultESICallbackPort))
-	ui.callbackURL.TextStyle.Monospace = true
-	ui.callbackURL.Wrapping = fyne.TextWrapWord
+	ui.callback = widget.NewEntry()
+	ui.callback.SetPlaceHolder(esiCallbackURL(defaultESICallbackPort))
+	ui.callback.Validator = func(value string) error { _, err := parseESICallback(value); return err }
 	ui.clientID.OnChanged = func(string) {
 		if !ui.settingESI {
 			ui.esiSettingsDirty = true
 		}
 	}
-	ui.callbackPort.OnChanged = func(value string) {
+	ui.callback.OnChanged = func(string) {
 		if !ui.settingESI {
 			ui.esiSettingsDirty = true
 		}
-		port, err := parseCallbackPort(value)
-		if err != nil {
-			ui.callbackURL.SetText("Enter a port from 1 to 65535.")
-		} else {
-			ui.callbackURL.SetText(esiCallbackURL(port))
+	}
+	ui.tokenConnections = container.NewVBox(widget.NewLabel("No saved character tokens yet."))
+}
+
+func parseESICallback(value string) (int, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return defaultESICallbackPort, nil
+	}
+	parsed, err := url.Parse(value)
+	if err == nil {
+		port, portErr := parseCallbackPort(parsed.Port())
+		if portErr == nil && value == esiCallbackURL(port) {
+			return port, nil
 		}
 	}
-	ui.esiDialogStatus = widget.NewLabel("")
-	ui.esiDialogStatus.Wrapping = fyne.TextWrapWord
-	ui.esiDialogStatus.Truncation = fyne.TextTruncateEllipsis
-	ui.tokenConnections = container.NewVBox(widget.NewLabel("No saved character tokens yet."))
+	return 0, fmt.Errorf("callback must be http://localhost:<port>/callback, with a port from 1 to 65535")
+}
+
+func (ui *analyzerUI) loadESIConfiguration(clientID string, port int) {
+	ui.settingESI = true
+	defer func() { ui.settingESI = false }()
+	if clientID == defaultESIClientID {
+		clientID = ""
+	}
+	ui.clientID.SetText(clientID)
+	callback := ""
+	if port != defaultESICallbackPort {
+		callback = esiCallbackURL(port)
+	}
+	ui.callback.SetText(callback)
 }
 
 func (ui *analyzerUI) setESIStatus(message string) {
 	ui.esiStatus.SetText(message)
-	ui.esiDialogStatus.SetText(message)
 }
 
 func (ui *analyzerUI) requestESIConfiguration(kind string) {
-	port, err := parseCallbackPort(ui.callbackPort.Text)
+	port, err := parseESICallback(ui.callback.Text)
 	if err != nil {
 		ui.setESIStatus(err.Error())
 		return
 	}
 	clientID := strings.TrimSpace(ui.clientID.Text)
 	if clientID == "" {
-		ui.setESIStatus("Enter your EVE application's public Client ID.")
-		return
+		clientID = defaultESIClientID
 	}
 	action := esiAction{Kind: kind, ClientID: clientID, CallbackPort: port}
 	if kind == "connect" || kind == "connect-structures" {
@@ -71,24 +86,11 @@ func (ui *analyzerUI) openESISettings() {
 		ui.esiDialog.Show()
 		return
 	}
-	intro := widget.NewLabel("Sign in with EVE Online using PKCE. The default application ID is filled in; you can enter your own native / desktop application's public Client ID.")
-	intro.Wrapping = fyne.TextWrapWord
-	callbackNote := widget.NewLabel("Register this exact callback URL in your EVE developer application. The hostname is localhost; the port defaults to 8080. Changing the port also changes the local sign-in listener.")
-	callbackNote.Wrapping = fyne.TextWrapWord
-	copyCallback := widget.NewButton("Copy callback URL", func() {
-		port, err := parseCallbackPort(ui.callbackPort.Text)
-		if err != nil {
-			ui.setESIStatus(err.Error())
-			return
-		}
-		ui.window.Clipboard().SetContent(esiCallbackURL(port))
-	})
 	portal, _ := url.Parse("https://developers.eveonline.com/applications")
-	applicationForm := widget.NewForm(widget.NewFormItem("Client ID", ui.clientID), widget.NewFormItem("Callback port", ui.callbackPort))
-	application := container.NewVScroll(container.NewVBox(intro,
+	applicationForm := widget.NewForm(widget.NewFormItem("Client ID", ui.clientID), widget.NewFormItem("Callback", ui.callback))
+	application := container.NewVScroll(container.NewVBox(
 		applicationForm,
-		callbackNote, ui.callbackURL, copyCallback,
-		widget.NewLabel("Ship scope: "+shipScope), widget.NewLabel("Location scope: "+locationScope), widget.NewLabel("Optional structure names scope: "+structureScope), widget.NewHyperlink("Open EVE developer applications", portal),
+		widget.NewLabel("Scopes:\n"+shipScope+"\n"+locationScope+"\n"+structureScope), widget.NewHyperlink("Open EVE developer applications", portal),
 		widget.NewButton("Save application configuration", func() { ui.requestESIConfiguration("configure") })))
 	signInNote := widget.NewLabel("Sign in with EVE Online for ship and location access. To also resolve player-owned structure names, first enable " + structureScope + " in your EVE application's registration, then choose Sign in for structure names. If that sign-in reports invalid_scope, use the normal sign-in until the registration is updated. Tokens are received and renewed automatically.")
 	signInNote.Wrapping = fyne.TextWrapWord
@@ -97,8 +99,7 @@ func (ui *analyzerUI) openESISettings() {
 	ui.esiSettingsTabs = container.NewAppTabs(container.NewTabItem("Application", application), container.NewTabItem("Character tokens", tokens))
 	security := widget.NewLabel("Sign-ins are saved encrypted for your Windows user. Saved token values are never displayed here.")
 	security.Wrapping = fyne.TextWrapWord
-	ui.esiDialogStatus.SetText(ui.esiStatus.Text)
-	content := container.NewBorder(nil, container.NewVBox(widget.NewSeparator(), ui.esiStatusRow(ui.esiDialogStatus), security), nil, nil, ui.esiSettingsTabs)
+	content := container.NewBorder(nil, security, nil, nil, ui.esiSettingsTabs)
 	ui.esiDialog = dialog.NewCustom("ESI configuration", "Close", content, ui.window)
 	ui.esiDialog.SetOnClosed(func() { ui.esiDialog = nil })
 	ui.esiDialog.Resize(fyne.NewSize(920, 720))

@@ -28,11 +28,12 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 			item.Action()
 		}
 	}
-	if ui.esiDialog == nil || ui.callbackPort.Text != "8080" || ui.callbackURL.Text != "http://localhost:8080/callback" {
+	ui.loadESIConfiguration(defaultESIClientID, defaultESICallbackPort)
+	if ui.esiDialog == nil || ui.callback.Text != "" || ui.callback.PlaceHolder != "http://localhost:8080/callback" {
 		t.Fatal("menu did not open default ESI settings dialog")
 	}
-	if ui.clientID.Text != defaultESIClientID || ui.esiSettingsDirty {
-		t.Fatal("default application ID was not filled in cleanly")
+	if ui.clientID.Text != "" || ui.clientID.PlaceHolder != defaultESIClientID || ui.esiSettingsDirty {
+		t.Fatal("default application ID was not shown as a placeholder")
 	}
 	ui.requestESIConfiguration("connect")
 	defaultLogin := <-ui.esiLogins
@@ -59,25 +60,26 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 		t.Fatal("opening settings twice created two dialogs")
 	}
 	ui.clientID.SetText("example-client")
-	ui.callbackPort.SetText("9000")
-	if ui.callbackURL.Text != "http://localhost:9000/callback" {
-		t.Fatal("callback preview did not track port")
+	ui.callback.SetText("http://localhost:9000/callback")
+	if err := ui.callback.Validate(); err != nil {
+		t.Fatal("full callback URL was rejected:", err)
 	}
 	ui.requestESIConfiguration("configure")
 	action := <-ui.esiActions
 	if action.ClientID != "example-client" || action.CallbackPort != 9000 || action.Kind != "configure" {
 		t.Fatal("settings were not included in configure action")
 	}
-	ui.callbackPort.SetText("0")
+	ui.callback.SetText("http://localhost:0/callback")
 	ui.requestESIConfiguration("connect")
 	if len(ui.esiActions) != 0 || len(ui.esiLogins) != 0 {
 		t.Fatal("invalid callback port queued a login")
 	}
-	ui.callbackPort.SetText("8080")
+	ui.callback.SetText("")
 	ui.clientID.SetText("")
 	ui.requestESIConfiguration("configure")
-	if len(ui.esiActions) != 0 {
-		t.Fatal("an empty application ID was accepted")
+	action = <-ui.esiActions
+	if action.ClientID != defaultESIClientID || action.CallbackPort != defaultESICallbackPort {
+		t.Fatal("clearing overrides did not restore the defaults")
 	}
 	ui.clientID.SetText("example-client")
 	test.Tap(ui.connect)
@@ -88,9 +90,6 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 		t.Fatal("sign-in button did not use the configured application")
 	}
 	ui.setESIStatus("ESI settings ready")
-	if ui.esiStatus.Text != ui.esiDialogStatus.Text {
-		t.Fatal("dialog status not synchronized")
-	}
 	if path := os.Getenv("EVELA_SETTINGS_CAPTURE"); path != "" {
 		capture := func(path string) {
 			t.Helper()
@@ -103,7 +102,10 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
+		clientID := ui.clientID.Text
+		ui.clientID.SetText("")
 		capture(path)
+		ui.clientID.SetText(clientID)
 		ui.esiSettingsTabs.SelectIndex(1)
 		capture(path + ".tokens.png")
 	}
@@ -116,4 +118,23 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 		t.Fatal("reopening lost application settings")
 	}
 	ui.esiDialog.Hide()
+}
+
+func TestESIFullCallbackValidation(t *testing.T) {
+	for _, tc := range []struct {
+		value string
+		port  int
+	}{
+		{"", 8080}, {"  ", 8080}, {"http://localhost:8080/callback", 8080},
+		{"http://localhost:9000/callback", 9000}, {" http://localhost:65535/callback ", 65535},
+	} {
+		if port, err := parseESICallback(tc.value); err != nil || port != tc.port {
+			t.Errorf("callback %q = %d, %v; want port %d", tc.value, port, err, tc.port)
+		}
+	}
+	for _, value := range []string{"9000", "http://localhost:0/callback", "http://localhost:65536/callback", "http://localhost:bad/callback", "https://localhost:8080/callback", "http://example.com:8080/callback", "http://localhost:8080/other", "http://localhost:8080/callback?extra=true", "http://user@localhost:8080/callback", "http://localhost:8080/callback#fragment"} {
+		if _, err := parseESICallback(value); err == nil {
+			t.Errorf("accepted unsupported callback %q", value)
+		}
+	}
 }
