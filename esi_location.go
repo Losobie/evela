@@ -11,15 +11,18 @@ import (
 )
 
 type locationRecord struct {
-	CharacterID   int64
-	CharacterName string
-	SystemID      int64
-	SystemName    string
-	StationID     int64
-	StructureID   int64
-	CheckedAt     time.Time
-	Error         string
-	NameError     string `json:"-"`
+	CharacterID     int64
+	CharacterName   string
+	SystemID        int64
+	SystemName      string
+	StationID       int64
+	StructureID     int64
+	StationName     string `json:",omitempty"`
+	StructureName   string `json:",omitempty"`
+	CheckedAt       time.Time
+	Error           string
+	NameError       string `json:"-"`
+	DockedNameError string `json:"-"`
 }
 
 func (service *esiService) refreshLocation(ctx context.Context, account *esiAccount) error {
@@ -70,6 +73,16 @@ func (service *esiService) refreshLocation(ctx context.Context, account *esiAcco
 	location.SystemName, err = service.lookupSystemName(ctx, location.SystemID)
 	if err != nil {
 		location.NameError = err.Error()
+	}
+	if location.StationID > 0 {
+		location.StationName, err = service.lookupStationName(ctx, location.StationID)
+	} else if location.StructureID > 0 {
+		location.StructureName, err = service.lookupStructureName(ctx, account, location.StructureID)
+	} else {
+		err = nil
+	}
+	if err != nil {
+		location.DockedNameError = err.Error()
 	}
 	account.Location = location
 	service.rememberLocation(location, continuous)
@@ -135,15 +148,26 @@ func locationLabel(location locationRecord) string {
 		name += " (stale)"
 	}
 	if location.StationID > 0 {
-		name += fmt.Sprintf(" · Station %d", location.StationID)
+		if location.StationName != "" {
+			name += " · " + location.StationName
+		} else {
+			name += fmt.Sprintf(" · Station %d", location.StationID)
+		}
 	} else if location.StructureID > 0 {
-		name += fmt.Sprintf(" · Structure %d", location.StructureID)
+		if location.StructureName != "" {
+			name += " · " + location.StructureName
+		} else {
+			name += fmt.Sprintf(" · Structure %d", location.StructureID)
+		}
 	}
 	if location.Error != "" {
 		name += " · " + location.Error
 	}
 	if location.NameError != "" {
 		name += " · " + location.NameError
+	}
+	if location.DockedNameError != "" {
+		name += " · " + location.DockedNameError
 	}
 	return name
 }

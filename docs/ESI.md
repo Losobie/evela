@@ -20,7 +20,7 @@ Use **Ship history…** and **Location history…** to inspect recorded observat
 Sign-in uses a public native/desktop application with OAuth PKCE. No client secret is needed or stored.
 
 1. Open [EVE developer applications](https://developers.eveonline.com/applications), also linked from the Application tab.
-2. Configure a native/desktop application with both `esi-location.read_ship_type.v1` and `esi-location.read_location.v1` scopes.
+2. Configure a native/desktop application with `esi-location.read_ship_type.v1`, `esi-location.read_location.v1` and `esi-universe.read_structures.v1` scopes.
 3. Register the exact callback URL displayed by Evela. The default is `http://localhost:8080/callback`.
 4. Enter the application's public **Client ID**, set the matching **Callback port**, and choose **Save application configuration**.
 5. Sign in from **Character tokens**.
@@ -28,6 +28,8 @@ Sign-in uses a public native/desktop application with OAuth PKCE. No client secr
 The default public Client ID is `b680ade5175c4385a1e800b4bedb70bb`. The callback hostname stays `localhost`; the port can be 1–65535. Use **Copy callback URL** to avoid a mismatch. Changing the port preserves saved connections but also requires updating the callback registered with CCP. Changing Client ID requires disconnecting existing tokens first.
 
 Older ship-only sign-ins still work for ships. Sign in again to grant location access. Legacy client-secret settings are ignored and omitted when settings are next saved; old applications may need conversion to PKCE and a new sign-in.
+
+The ESI table resolves NPC station names publicly. Player-owned structure names require `esi-universe.read_structures.v1` and a character with docking access. Enable that scope in the application's EVE registration and sign in again for existing characters to grant it. If a name lookup fails or access is unavailable, the table retains the confirmed system and docking ID with an explanation. Successful station names are cached for the session; structure names are cached separately for each character for five minutes, then checked again. Names are included when copying location cells.
 
 ## Connection behavior and troubleshooting
 

@@ -276,6 +276,12 @@ func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 			locationText = "Unknown system · conflicting game logs"
 			if known {
 				locationText = location.SystemName + " · game log"
+				current := record.Location
+				sameSystem := current.SystemID > 0 && current.SystemID == location.SystemID || current.SystemName != "" && strings.EqualFold(current.SystemName, location.SystemName)
+				if sameSystem && current.Error == "" && time.Since(current.CheckedAt) < locationHistoryMaxGap {
+					current.SystemName = location.SystemName
+					locationText = locationLabel(current) + " · game log"
+				}
 			}
 		}
 		ui.esiRows = append(ui.esiRows, [4]string{record.CharacterName, checked, text, locationText})

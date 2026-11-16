@@ -58,6 +58,9 @@ type esiFixture struct {
 	locationStatus, systemStatus                       atomic.Int32
 	locationSystem, locationStation, locationStructure atomic.Int64
 	locationUnauthorized                               atomic.Bool
+	stationRequests, structureRequests                 atomic.Int32
+	stationStatus, structureStatus                     atomic.Int32
+	structureUnauthorized                              atomic.Bool
 	server                                             *httptest.Server
 }
 
@@ -172,6 +175,30 @@ func newESIFixture(t *testing.T) *esiFixture {
 				return
 			}
 			json.NewEncoder(w).Encode(map[string]any{"solar_system_id": f.locationSystem.Load(), "station_id": f.locationStation.Load(), "structure_id": f.locationStructure.Load()})
+		case "/latest/universe/stations/60003760/":
+			f.stationRequests.Add(1)
+			if r.Header.Get("Authorization") != "" {
+				t.Error("private token sent to public station lookup")
+			}
+			if status := f.stationStatus.Load(); status != 0 {
+				w.WriteHeader(int(status))
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"name": "Jita IV - Moon 4 - Caldari Navy Assembly Plant"})
+		case "/latest/universe/structures/100000000001/":
+			f.structureRequests.Add(1)
+			if r.Header.Get("Authorization") != "Bearer "+f.token {
+				t.Error("structure lookup did not use the character's token")
+			}
+			status := f.structureStatus.Load()
+			if f.structureUnauthorized.Swap(false) {
+				status = http.StatusUnauthorized
+			}
+			if status != 0 {
+				w.WriteHeader(int(status))
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"name": "Pilot's Fortizar"})
 		case "/latest/universe/systems/30000142/", "/latest/universe/systems/30002187/":
 			f.systemRequests.Add(1)
 			if r.Header.Get("Authorization") != "" {
@@ -215,7 +242,7 @@ func TestESILoginPKCEAndEncryptedStorage(t *testing.T) {
 		}
 		query := parsed.Query()
 		f.challenge = query.Get("code_challenge")
-		if query.Get("scope") != shipScope+" "+locationScope || query.Get("code_challenge_method") != "S256" || query.Get("client_id") != "test-client" {
+		if query.Get("scope") != shipScope+" "+locationScope+" "+structureScope || query.Get("code_challenge_method") != "S256" || query.Get("client_id") != "test-client" {
 			t.Error("incorrect authorization parameters")
 		}
 		if query.Get("redirect_uri") != esiCallbackURL(f.service.config.CallbackPort) {

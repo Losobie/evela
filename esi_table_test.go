@@ -17,7 +17,7 @@ func TestESITableRangesCopyFullValuesAndRefresh(t *testing.T) {
 	checked := time.Date(2026, 11, 16, 12, 34, 56, 0, time.FixedZone("Pilot local", -5*3600))
 	shipName := strings.Repeat("Long ship name ", 20)
 	records := []shipRecord{
-		{CharacterID: 1, CharacterName: "Pilot A", TypeName: "Loki", ClassName: "Strategic Cruiser", ShipName: shipName, CheckedAt: checked, Error: "Ship lookup failed", ClassError: "Class lookup failed", Location: locationRecord{SystemName: "Jita", CheckedAt: time.Now()}},
+		{CharacterID: 1, CharacterName: "Pilot A", TypeName: "Loki", ClassName: "Strategic Cruiser", ShipName: shipName, CheckedAt: checked, Error: "Ship lookup failed", ClassError: "Class lookup failed", Location: locationRecord{SystemName: "Jita", StationID: 60003760, StationName: "Jita IV - Moon 4 - Caldari Navy Assembly Plant", CheckedAt: time.Now()}},
 		{CharacterID: 2, CharacterName: "Pilot B"},
 	}
 	ui.applyShipRecords(records)
@@ -38,7 +38,7 @@ func TestESITableRangesCopyFullValuesAndRefresh(t *testing.T) {
 			t.Fatalf("ship cell lost details %q", part)
 		}
 	}
-	if ui.esiRows[0][3] != "Jita" || ui.esiRows[1][3] != "Location unavailable" {
+	if ui.esiRows[0][3] != "Jita · Jita IV - Moon 4 - Caldari Navy Assembly Plant" || ui.esiRows[1][3] != "Location unavailable" {
 		t.Fatalf("incorrect locations: %v", ui.esiRows)
 	}
 	first := renderedSelectionCell(t, table, widget.TableCellID{Row: 1, Col: 0})
@@ -75,6 +75,28 @@ func TestESITableRangesCopyFullValuesAndRefresh(t *testing.T) {
 	ui.applyShipRecords(nil)
 	if rows, cols := table.Length(); rows != 1 || cols != 4 {
 		t.Fatalf("empty connections should show only the four headings: %dx%d", rows, cols)
+	}
+}
+
+func TestESITableKeepsDockedNamesWhenLogsConfirmSystem(t *testing.T) {
+	ui, _ := newDamageFilterTestUI(t)
+	now := time.Now()
+	ui.logLocations = logLocationHistory{"current": {CharacterName: "Pilot A", Start: now.Add(-time.Minute).Unix(), End: now.Add(time.Minute).Unix(), Events: []logLocationEvent{{Second: now.Add(-time.Minute).Unix(), To: "Jita"}}}}
+	record := shipRecord{CharacterName: "Pilot A", Location: locationRecord{SystemName: "Jita", StationID: 60003760, StationName: "Assembly Plant", CheckedAt: now}}
+	ui.applyShipRecords([]shipRecord{record})
+	if !strings.Contains(ui.esiRows[0][3], "Assembly Plant") || !strings.Contains(ui.esiRows[0][3], "game log") {
+		t.Fatalf("matching game logs hid a current station name: %s", ui.esiRows[0][3])
+	}
+	record.Location.SystemName = "Amarr"
+	ui.applyShipRecords([]shipRecord{record})
+	if strings.Contains(ui.esiRows[0][3], "Assembly Plant") || !strings.Contains(ui.esiRows[0][3], "Jita") {
+		t.Fatal("conflicting game logs retained a station in another system")
+	}
+	record.Location.SystemName = "Jita"
+	record.Location.CheckedAt = now.Add(-time.Hour)
+	ui.applyShipRecords([]shipRecord{record})
+	if strings.Contains(ui.esiRows[0][3], "Assembly Plant") {
+		t.Fatal("game logs resurrected a stale docking location")
 	}
 }
 

@@ -145,7 +145,7 @@ func (service *esiService) authenticate(ctx context.Context, openBrowser func(st
 	server := &http.Server{Handler: loginCallback(state, result), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 10 * time.Second}
 	go server.Serve(listener)
 	defer server.Close()
-	query := url.Values{"response_type": {"code"}, "client_id": {service.config.ClientID}, "redirect_uri": {callbackURL}, "scope": {shipScope + " " + locationScope}, "state": {state}}
+	query := url.Values{"response_type": {"code"}, "client_id": {service.config.ClientID}, "redirect_uri": {callbackURL}, "scope": {shipScope + " " + locationScope + " " + structureScope}, "state": {state}}
 	query.Set("code_challenge", base64.RawURLEncoding.EncodeToString(challenge[:]))
 	query.Set("code_challenge_method", "S256")
 	if err := ctx.Err(); err != nil {

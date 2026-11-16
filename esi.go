@@ -18,6 +18,7 @@ import (
 
 const shipScope = "esi-location.read_ship_type.v1"
 const locationScope = "esi-location.read_location.v1"
+const structureScope = "esi-universe.read_structures.v1"
 const defaultESIClientID = "b680ade5175c4385a1e800b4bedb70bb"
 const defaultESICallbackPort = 8080
 
@@ -98,6 +99,8 @@ type esiService struct {
 	shipTypes             map[int64]shipTypeInfo
 	groupNames            map[int64]string
 	systemNames           map[int64]string
+	stationNames          map[int64]string
+	structureNames        map[structureNameKey]cachedStructureName
 	backoffUntil          time.Time
 	now                   func() time.Time
 }
@@ -342,8 +345,12 @@ func (service *esiService) refreshShips(ctx context.Context) error {
 		if err := service.refreshLocation(ctx, account); err != nil {
 			account.Location.Error = err.Error()
 			issues = append(issues, account.Ship.CharacterName+": "+err.Error())
-		} else if account.Location.NameError != "" {
-			issues = append(issues, account.Ship.CharacterName+": "+account.Location.NameError)
+		} else {
+			for _, issue := range []string{account.Location.NameError, account.Location.DockedNameError} {
+				if issue != "" {
+					issues = append(issues, account.Ship.CharacterName+": "+issue)
+				}
+			}
 		}
 	}
 	if err := service.refreshShipHistoryMetadata(ctx); err != nil {

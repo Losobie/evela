@@ -88,9 +88,9 @@ func (ui *analyzerUI) openESISettings() {
 	application := container.NewVScroll(container.NewVBox(intro,
 		applicationForm,
 		callbackNote, ui.callbackURL, copyCallback,
-		widget.NewLabel("Ship scope: "+shipScope), widget.NewLabel("Location scope: "+locationScope), widget.NewHyperlink("Open EVE developer applications", portal),
+		widget.NewLabel("Ship scope: "+shipScope), widget.NewLabel("Location scope: "+locationScope), widget.NewLabel("Structure names scope: "+structureScope), widget.NewHyperlink("Open EVE developer applications", portal),
 		widget.NewButton("Save application configuration", func() { ui.requestESIConfiguration("configure") })))
-	signInNote := widget.NewLabel("Sign in with EVE Online for each character to grant ship and location access. Tokens are received and renewed automatically. Existing ship-only sign-ins still work for ships; sign in again to grant location access.")
+	signInNote := widget.NewLabel("Sign in with EVE Online for each character to grant ship, location and structure-name access. Tokens are received and renewed automatically. Existing sign-ins still work; sign in again to grant missing location or structure-name access.")
 	signInNote.Wrapping = fyne.TextWrapWord
 	signInControls := container.NewVBox(signInNote, container.NewHBox(ui.connect, ui.cancelLogin), widget.NewSeparator(), widget.NewLabel("SAVED CHARACTER TOKENS"))
 	tokens := container.NewBorder(signInControls, nil, nil, nil, container.NewVScroll(ui.tokenConnections))
