@@ -22,7 +22,7 @@ func TestShipHistoryViewer(t *testing.T) {
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
 	window.Show()
-	ui.openShipHistory()
+	ui.openShipLocationHistory()
 	if window.Canvas().Overlays().Top() == nil {
 		t.Fatal("empty history dialog did not open")
 	}
@@ -35,7 +35,16 @@ func TestShipHistoryViewer(t *testing.T) {
 		},
 		456: {{CharacterID: 456, CharacterName: "Disconnected Pilot", TypeID: 29990, FirstSeen: start, LastSeen: start, Observations: 1}},
 	}
-	content := shipHistoryContent(ui.shipHistory).(*fyne.Container)
+	tabs := ui.shipLocationHistoryContent()
+	if len(tabs.Items) != 3 {
+		t.Fatal("combined history viewer should have three tabs")
+	}
+	for index, want := range []string{"Game log locations", "ESI locations", "Ship history"} {
+		if tabs.Items[index].Text != want {
+			t.Fatalf("history tab %d = %q, want %q", index, tabs.Items[index].Text, want)
+		}
+	}
+	content := tabs.Items[2].Content.(*fyne.Container)
 	var table *widget.Table
 	for _, object := range content.Objects {
 		if candidate, ok := object.(*widget.Table); ok {
@@ -69,7 +78,7 @@ func TestShipHistoryViewer(t *testing.T) {
 		t.Fatal("refresh mutated an open history snapshot")
 	}
 	ui.shipHistory[123][1].ShipName = "Second ship"
-	ui.openShipHistory()
+	ui.openShipLocationHistory()
 	if path := os.Getenv("EVELA_HISTORY_CAPTURE"); path != "" {
 		file, err := os.Create(path)
 		if err != nil {

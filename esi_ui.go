@@ -53,8 +53,8 @@ func (ui *analyzerUI) initESI() {
 }
 
 func (ui *analyzerUI) esiContent() fyne.CanvasObject {
-	controls := container.NewBorder(nil, nil, nil, container.NewHBox(widget.NewButton("ESI status…", func() { ui.showRefreshDetails("ESI status", ui.esiStatus.Text) }), widget.NewButton("Ship history…", ui.openShipHistory), widget.NewButton("Location history…", ui.openLocationHistory)), container.NewHBox(widget.NewButton("Configure ESI…", ui.openESISettings), ui.shipRefresh, ui.shipAuto))
-	return container.NewPadded(container.NewBorder(controls, nil, nil, nil, newFillingTable(ui.esiConnections, 180, 240, 280)))
+	controls := container.NewBorder(nil, nil, nil, widget.NewButton("Ship & Location History", ui.openShipLocationHistory), container.NewHBox(widget.NewButton("Configure ESI", ui.openESISettings), ui.shipRefresh, ui.shipAuto))
+	return container.NewPadded(container.NewBorder(controls, nil, nil, nil, ui.esiTableContent()))
 }
 
 func (ui *analyzerUI) requestESI(action esiAction) bool {
@@ -276,7 +276,7 @@ func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 				}
 			}
 		}
-		ui.esiRows = append(ui.esiRows, [4]string{record.CharacterName, checked, text, locationText})
+		ui.esiRows = append(ui.esiRows, [5]string{record.CharacterName, checked, text, locationText, characterESIStatus(record)})
 		id := record.CharacterID
 		tokenStatus := "Access token expires " + record.TokenExpiresAt.UTC().Format("2006-01-02 15:04:05")
 		if record.TokenExpiresAt.IsZero() {

@@ -20,8 +20,9 @@ func newFillingTable(table fillingTable, widths ...float32) *fyne.Container {
 }
 
 type fillingTableLayout struct {
-	table  fillingTable
-	widths []float32
+	table         fillingTable
+	widths        []float32
+	maximumShares []float32
 }
 
 func (l *fillingTableLayout) MinSize([]fyne.CanvasObject) fyne.Size {
@@ -38,6 +39,9 @@ func (l *fillingTableLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 		limit := unit
 		if col == 0 {
 			limit *= 2
+		}
+		if col < len(l.maximumShares) {
+			limit = available * l.maximumShares[col]
 		}
 		width := min(preferred, limit)
 		l.table.SetColumnWidth(col, width)

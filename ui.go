@@ -84,7 +84,7 @@ type analyzerUI struct {
 	clientID                          *widget.Entry
 	esiStatus                         *widget.Label
 	esiConnections                    *cellSelectionTable
-	esiRows                           [][4]string
+	esiRows                           [][5]string
 	shipAuto                          *widget.Check
 	shipRefresh, connect, cancelLogin *widget.Button
 	connectStructures                 *widget.Button

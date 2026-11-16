@@ -108,7 +108,7 @@ func TestRefreshPreservesListScrollPositions(t *testing.T) {
 	characters := container.NewVScroll(ui.characters)
 	ships := selectionTableScroll(t, ui.esiConnections)
 	tokens := container.NewVScroll(ui.tokenConnections)
-	window.SetContent(container.NewGridWithColumns(3, characters, newFillingTable(ui.esiConnections, 180, 240, 280), tokens))
+	window.SetContent(container.NewGridWithColumns(3, characters, ui.esiTableContent(), tokens))
 	window.Resize(fyne.NewSize(1200, 500))
 	window.Show()
 

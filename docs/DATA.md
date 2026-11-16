@@ -113,7 +113,7 @@ ESI polls every 30 seconds while enabled. Consecutive successful observations of
 
 Event attribution uses the matching period and allows up to 45 seconds after its last observation, unless a newer observation begins. Earlier or uncovered times, or ambiguous character names, remain unknown. Stored timestamps are not extended. Attribution occurs before averaging, so an event stays assigned to its original ship/system. History survives disconnects and restarts without automatic expiry. Missing hull/class/system names can be resolved later from saved IDs without changing observed times.
 
-**Ship history…** shows character, ship item/hull/class IDs and names, ship name, observed bounds and count. **Location history…** separates Game logs from ESI observations; ESI records include system IDs/names and station/structure IDs where available.
+**Ship & Location History** separates Game log locations, ESI locations and Ship history into tabs. Each tab retains its statistics line. Ship records show ship details, observed bounds and counts; ESI location records include system IDs/names and station/structure IDs where available.
 
 ### Logged locations and wormholes
 

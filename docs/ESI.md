@@ -13,7 +13,7 @@ ESI is optional. Evela can analyze local logs without a connection; sign in to r
 
 Only one browser sign-in runs at a time. **Cancel sign-in** releases the local callback listener so you can retry. Background ship/location refreshes can continue during sign-in.
 
-Use **Ship history…** and **Location history…** to inspect recorded observations. Ship type/class and system filters use history at the event timestamp, not the character's present ship or location. Evela cannot recover ship observations from before tracking began. See [history timing and attribution](DATA.md#ship-and-location-history) for coverage rules.
+Use **Ship & Location History** to inspect recorded observations. Ship type/class and system filters use history at the event timestamp, not the character's present ship or location. Evela cannot recover ship observations from before tracking began. See [history timing and attribution](DATA.md#ship-and-location-history) for coverage rules.
 
 ## Use your own EVE application
 
@@ -29,7 +29,7 @@ The default public Client ID is `b680ade5175c4385a1e800b4bedb70bb`. The callback
 
 Older ship-only sign-ins still work for ships. Sign in again to grant location access. Legacy client-secret settings are ignored and omitted when settings are next saved; old applications may need conversion to PKCE and a new sign-in.
 
-The ESI table shows ship types and resolves NPC station names publicly. Player-owned structure names require `esi-universe.read_structures.v1` and a character with docking access. Enable that scope in the application's EVE registration, then choose **Sign in for structure names** in **Character tokens**. Ordinary **Sign in with EVE Online** requests only ship and location access, so it works without the optional structure permission. An unresolved system, station or structure displays its numeric ID; lookup errors remain available through **ESI status…**. Successful station names are cached for the session; structure names are cached separately for each character for five minutes, then checked again. Copied cells use the same values as the table.
+The ESI table shows ship types and resolves NPC station names publicly. Player-owned structure names require `esi-universe.read_structures.v1` and a character with docking access. Enable that scope in the application's EVE registration, then choose **Sign in for structure names** in **Character tokens**. Ordinary **Sign in with EVE Online** requests only ship and location access, so it works without the optional structure permission. An unresolved system, station or structure displays its numeric ID; individual lookup and query errors appear in the **ESI Status** column. Successful station names are cached for the session; structure names are cached separately for each character for five minutes, then checked again. Copied cells use the same values as the table.
 
 ## Connection behavior and troubleshooting
 

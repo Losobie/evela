@@ -10,11 +10,9 @@ import (
 
 func logLocationHistoryContent(history logLocationHistory) fyne.CanvasObject {
 	periods := history.periods()
-	note := widget.NewLabel("Jump and Conduit Field messages establish the destination through the remaining log session and take precedence over ESI. A spatial-phenomena notification with no jump in the preceding 30 seconds provides an assumed Wormhole location; ESI takes priority over that assumption. Coverage ends 45 seconds after the last timestamped entry; sessions are kept separate. The table shows log evidence before that allowance. Close and reopen to see newer locations.")
-	note.Wrapping = fyne.TextWrapWord
-	top := container.NewVBox(widget.NewLabel(fmt.Sprintf("%d log sessions · %d system periods", len(history), len(periods))), note, widget.NewSeparator())
+	top := container.NewVBox(widget.NewLabel(fmt.Sprintf("%d log sessions · %d system periods", len(history), len(periods))), widget.NewSeparator())
 	if len(periods) == 0 {
-		return container.NewBorder(top, nil, nil, nil, widget.NewLabel("No log locations yet. Load logs containing jump, Conduit Field or spatial-phenomena messages; ESI sign-in is optional."))
+		return container.NewBorder(top, nil, nil, nil, widget.NewLabel("No game log locations yet."))
 	}
 	table := widget.NewTable(func() (int, int) { return len(periods) + 1, 4 }, func() fyne.CanvasObject {
 		label := widget.NewLabel("")

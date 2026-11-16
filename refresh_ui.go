@@ -19,5 +19,5 @@ func (ui *analyzerUI) showRefreshDetails(title, message string) {
 
 func (ui *analyzerUI) esiStatusRow(label *widget.Label) fyne.CanvasObject {
 	return container.NewBorder(nil, nil, nil,
-		widget.NewButton("Details…", func() { ui.showRefreshDetails("ESI status", label.Text) }), label)
+		widget.NewButton("Details", func() { ui.showRefreshDetails("ESI status", label.Text) }), label)
 }

@@ -282,7 +282,7 @@ func TestLogLocationHistoryViewer(t *testing.T) {
 			t.Fatalf("column %d = %q, want %q", column, label.Text, want)
 		}
 	}
-	ui.openLocationHistory()
+	ui.openShipLocationHistory()
 	if ui.window.Canvas().Overlays().Top() == nil {
 		t.Fatal("combined location history did not open")
 	}

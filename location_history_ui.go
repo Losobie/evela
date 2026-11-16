@@ -6,18 +6,8 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
-
-func (ui *analyzerUI) openLocationHistory() {
-	logs := ui.logLocations.clone()
-	logs.merge(ui.snapshot.locationSessions())
-	content := container.NewAppTabs(container.NewTabItem("Game logs", logLocationHistoryContent(logs)), container.NewTabItem("ESI observations", locationHistoryContent(ui.locationHistory)))
-	viewer := dialog.NewCustom("Location history", "Close", content, ui.window)
-	viewer.Resize(fyne.NewSize(1140, 620))
-	viewer.Show()
-}
 
 func locationHistoryContent(history locationHistory) fyne.CanvasObject {
 	periods := history.periods()
@@ -26,11 +16,9 @@ func locationHistoryContent(history locationHistory) fyne.CanvasObject {
 		observations += period.Observations
 	}
 	summary := widget.NewLabel(fmt.Sprintf("%d characters · %d observed periods · %d observations", len(history), len(periods), observations))
-	note := widget.NewLabel("Recorded from successful ESI location queries. Consecutive sightings of the same location are combined; failures, gaps over 90 seconds and restarts begin a new period. The System filter assumes the last observed location for up to 45 seconds after its last sighting, until a newer location is observed. Listed timestamps remain actual observations. Close and reopen to see newer observations.")
-	note.Wrapping = fyne.TextWrapWord
-	top := container.NewVBox(summary, note, widget.NewSeparator())
+	top := container.NewVBox(summary, widget.NewSeparator())
 	if len(periods) == 0 {
-		return container.NewBorder(top, nil, nil, nil, widget.NewLabel("No ESI location history yet. Sign in with location access and refresh to start recording."))
+		return container.NewBorder(top, nil, nil, nil, widget.NewLabel("No ESI location history yet."))
 	}
 	table := widget.NewTable(
 		func() (int, int) { return len(periods) + 1, 7 },

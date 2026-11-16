@@ -71,13 +71,14 @@ func TestSystemFilterAtEventTimeWithAveragingMarkersAndPersistence(t *testing.T)
 
 func TestLocationHistoryViewer(t *testing.T) {
 	ui, start := newDamageFilterTestUI(t)
-	ui.openLocationHistory()
+	ui.openShipLocationHistory()
 	if ui.window.Canvas().Overlays().Top() == nil {
 		t.Fatal("empty location viewer failed to open")
 	}
 	history := locationHistory{1: {{CharacterID: 1, CharacterName: "Pilot A", SystemID: 30000142, FirstSeen: start, LastSeen: start, Observations: 1},
 		{CharacterID: 1, CharacterName: "Pilot A", SystemID: 30002187, SystemName: "Amarr", StationID: 60008494, FirstSeen: start.Add(time.Minute), LastSeen: start.Add(time.Minute), Observations: 1}}}
-	content := locationHistoryContent(history).(*fyne.Container)
+	ui.locationHistory = history
+	content := ui.shipLocationHistoryContent().Items[1].Content.(*fyne.Container)
 	var table *widget.Table
 	for _, object := range content.Objects {
 		if candidate, ok := object.(*widget.Table); ok {

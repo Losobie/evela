@@ -6,15 +6,8 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
-
-func (ui *analyzerUI) openShipHistory() {
-	viewer := dialog.NewCustom("Ship history", "Close", shipHistoryContent(ui.shipHistory), ui.window)
-	viewer.Resize(fyne.NewSize(1140, 620))
-	viewer.Show()
-}
 
 func shipHistoryContent(history shipHistory) fyne.CanvasObject {
 	periods := history.periods()
@@ -23,11 +16,9 @@ func shipHistoryContent(history shipHistory) fyne.CanvasObject {
 		observations += period.Observations
 	}
 	summary := widget.NewLabel(fmt.Sprintf("%d characters · %d observed periods · %d observations", len(history), len(periods), observations))
-	note := widget.NewLabel("Recorded from successful ESI ship queries. Consecutive sightings of the same ship are combined; failures, gaps over 90 seconds and restarts begin a new period. Graphs assume the last observed ship for up to 45 seconds after its last sighting, until a newer ship is observed. Listed timestamps remain actual observations. Close and reopen to see newer observations.")
-	note.Wrapping = fyne.TextWrapWord
-	top := container.NewVBox(summary, note, widget.NewSeparator())
+	top := container.NewVBox(summary, widget.NewSeparator())
 	if len(periods) == 0 {
-		return container.NewBorder(top, nil, nil, nil, widget.NewLabel("No ship history yet. Connect a character and refresh ships to start recording."))
+		return container.NewBorder(top, nil, nil, nil, widget.NewLabel("No ship history yet."))
 	}
 	table := widget.NewTable(
 		func() (int, int) { return len(periods) + 1, 7 },
