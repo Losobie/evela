@@ -21,7 +21,7 @@ type cellSelectionTable struct {
 	anchor, active                widget.TableCellID
 	hasAnchor, dragging, additive bool
 	dragBase                      map[widget.TableCellID]bool
-	locating, updating            bool
+	locating                      bool
 	pressed                       bool
 	located                       *widget.TableCellID
 	createCell                    func() fyne.CanvasObject
@@ -55,16 +55,9 @@ func newCellSelectionTable(length func() (int, int), create func() fyne.CanvasOb
 		}
 		t.press(id, 0)
 	}
-	t.OnHighlighted = func(id widget.TableCellID) {
-		if !t.locating && !t.updating {
-			if id.Row > 0 {
-				t.choose(id, 0)
-			} else {
-				t.clearSelection()
-				t.Table.Refresh()
-			}
-		}
-	}
+	// Fyne's OnHighlighted reports pointer hover as well as keyboard movement.
+	// Selection is handled explicitly by mouse presses, drags and TypedKey;
+	// hover must never replace a selection or move the drag anchor.
 	t.ExtendBaseWidget(t)
 	return t
 }
@@ -119,9 +112,7 @@ func (t *cellSelectionTable) choose(id widget.TableCellID, mods fyne.KeyModifier
 		t.hasAnchor = true
 	}
 	t.active = id
-	t.updating = true
 	t.Table.Highlight(id)
-	t.updating = false
 	if t.selectionChanged != nil {
 		t.selectionChanged(id)
 	}
@@ -174,9 +165,7 @@ func (t *cellSelectionTable) drag(id widget.TableCellID) {
 	if t.selectionChanged != nil {
 		t.selectionChanged(id)
 	}
-	t.updating = true
 	t.Table.Highlight(id)
-	t.updating = false
 	t.Table.Refresh()
 }
 

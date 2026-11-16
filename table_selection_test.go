@@ -69,6 +69,40 @@ func selectionCopy(table *cellSelectionTable) string {
 	return fyne.CurrentApp().Clipboard().Content()
 }
 
+func TestCellMouseMovementPreservesSelection(t *testing.T) {
+	t.Run("hover does not select", func(t *testing.T) {
+		table, window := selectionFixture(t)
+		cell := renderedSelectionCell(t, table, widget.TableCellID{Row: 2, Col: 1})
+		position := fyne.CurrentApp().Driver().AbsolutePositionForObject(cell).Add(fyne.NewPos(10, 10))
+		test.MoveMouse(window.Canvas(), position)
+		if len(table.selected) != 0 || table.hasAnchor {
+			t.Fatal("hover selected a cell without a mouse press")
+		}
+	})
+	t.Run("hover during and after drag preserves range", func(t *testing.T) {
+		table, window := selectionFixture(t)
+		first := renderedSelectionCell(t, table, widget.TableCellID{Row: 1, Col: 1})
+		first.MouseDown(&desktop.MouseEvent{Button: desktop.MouseButtonPrimary})
+		start := fyne.CurrentApp().Driver().AbsolutePositionForObject(first)
+		for _, id := range []widget.TableCellID{{Row: 2, Col: 1}, {Row: 3, Col: 2}} {
+			cell := renderedSelectionCell(t, table, id)
+			position := fyne.CurrentApp().Driver().AbsolutePositionForObject(cell).Add(fyne.NewPos(10, 10))
+			// The desktop driver sends hover before the captured drag event.
+			test.MoveMouse(window.Canvas(), position)
+			first.Dragged(&fyne.DragEvent{PointEvent: fyne.PointEvent{AbsolutePosition: position, Position: position.Subtract(start)}})
+			if table.anchor != (widget.TableCellID{Row: 1, Col: 1}) || len(table.selected) != id.Row*id.Col {
+				t.Fatalf("mouse movement reset the drag range: anchor=%v selected=%v", table.anchor, table.selected)
+			}
+		}
+		first.DragEnd()
+		cell := renderedSelectionCell(t, table, widget.TableCellID{Row: 4, Col: 3})
+		test.MoveMouse(window.Canvas(), fyne.CurrentApp().Driver().AbsolutePositionForObject(cell).Add(fyne.NewPos(10, 10)))
+		if got := selectionCopy(table); got != "R1C1\tR1C2\nR2C1\tR2C2\nR3C1\tR3C2" {
+			t.Fatalf("hover after release changed copied range: %q", got)
+		}
+	})
+}
+
 func TestCellMouseDownIsImmediateAndDelayedTapDoesNotCollapseRange(t *testing.T) {
 	table, window := selectionFixture(t)
 	first := renderedSelectionCell(t, table, widget.TableCellID{Row: 1, Col: 1})
