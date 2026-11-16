@@ -147,13 +147,13 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 	generation := viewer.generation
 	row := viewer.rows[2]
 	before := graphHistoryState(ui)
-	cell := viewer.table.CreateCell().(*engagementCell)
+	cell := viewer.table.createCell().(*engagementCell)
 	viewer.table.UpdateCell(widget.TableCellID{Row: 3, Col: 2}, cell)
-	cell.Tapped(&fyne.PointEvent{})
+	viewer.table.press(widget.TableCellID{Row: 3, Col: 2}, 0)
 	if ui.tabs.SelectedIndex() != 3 || !strings.Contains(viewer.selection.Text, "Shooting Phoenix Navy Issue") {
 		t.Fatal("single-click navigated instead of showing the summary")
 	}
-	cell.DoubleTapped(&fyne.PointEvent{})
+	viewer.table.onActivate(widget.TableCellID{Row: 3, Col: 2})
 	// The engagement lasts 20m58s: 10% rounds outward to 126 seconds per side.
 	if ui.tabs.SelectedIndex() != 0 || !ui.view.Start.Equal(row.Start.Add(-126*time.Second)) || !ui.view.End.Equal(row.End.Add(126*time.Second)) || ui.rangePreset != "Custom" {
 		t.Fatal("double-click did not open the engagement with 10% context in Graphs")
@@ -169,7 +169,9 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 	}
 	// Recycled header cells must never retain a row's double-click callback.
 	viewer.table.UpdateCell(widget.TableCellID{Row: 0, Col: 0}, cell)
-	cell.DoubleTapped(&fyne.PointEvent{})
+	surface := viewer.table.CreateCell().(*selectionTableCell)
+	viewer.table.UpdateCell(widget.TableCellID{Row: 0, Col: 0}, surface)
+	surface.DoubleTapped(&fyne.PointEvent{})
 	if ui.tabs.SelectedIndex() != 3 {
 		t.Fatal("header reused an obsolete engagement callback")
 	}

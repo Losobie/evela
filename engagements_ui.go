@@ -12,7 +12,7 @@ import (
 
 type engagementsViewer struct {
 	content        *fyne.Container
-	table          *engagementKeyboardTable
+	table          *cellSelectionTable
 	status         *widget.Label
 	selection      *widget.Label
 	rows           []engagement
@@ -26,19 +26,6 @@ type engagementsViewer struct {
 	highlightedRow int
 }
 
-type engagementKeyboardTable struct {
-	widget.Table
-	openHighlighted func()
-}
-
-func (table *engagementKeyboardTable) TypedKey(event *fyne.KeyEvent) {
-	if event.Name == fyne.KeyReturn || event.Name == fyne.KeyEnter {
-		table.openHighlighted()
-		return
-	}
-	table.Table.TypedKey(event)
-}
-
 func newEngagementsViewer(onOpen func(engagement)) *engagementsViewer {
 	return &engagementsViewer{content: container.NewStack(widget.NewLabel("Open Engagements to discover activity in loaded logs.")), dirty: true, onOpen: onOpen, dispatch: fyne.Do}
 }
@@ -47,30 +34,18 @@ func (viewer *engagementsViewer) initTable() {
 	viewer.status = widget.NewLabel("")
 	viewer.selection = widget.NewLabel("Double-click an engagement or press Enter on its highlighted row to open Graphs. Existing graph filters still apply.")
 	viewer.selection.Wrapping = fyne.TextWrapWord
-	keyboardTable := &engagementKeyboardTable{openHighlighted: func() {
-		if row := viewer.highlightedRow - 1; row >= 0 && row < len(viewer.rows) {
-			viewer.onOpen(viewer.rows[row])
-		}
-	}}
-	keyboardTable.ExtendBaseWidget(keyboardTable)
-	viewer.table = keyboardTable
+	viewer.table = newCellSelectionTable(nil, nil, nil, func(object fyne.CanvasObject) string { return object.(*engagementCell).label.Text })
 	viewer.table.Length = func() (int, int) { return len(viewer.rows) + 1, 3 }
-	viewer.table.CreateCell = func() fyne.CanvasObject { return newEngagementCell() }
-	viewer.table.UpdateCell = func(id widget.TableCellID, object fyne.CanvasObject) {
+	viewer.table.createCell = func() fyne.CanvasObject { return newEngagementCell() }
+	viewer.table.updateCell = func(id widget.TableCellID, object fyne.CanvasObject) {
 		cell := object.(*engagementCell)
 		cell.label.TextStyle.Bold = id.Row == 0
-		cell.onOpen, cell.onSelect = nil, nil
 		if id.Row == 0 {
 			cell.label.SetText([]string{"Timestamp · EVE time ↓", "Duration", "Summary"}[id.Col])
 			return
 		}
 		row := viewer.rows[id.Row-1]
 		cell.label.SetText([]string{row.Start.Format("2006-01-02 15:04:05"), engagementDuration(row.End.Sub(row.Start)), row.Summary}[id.Col])
-		cell.onOpen = func() { viewer.onOpen(row) }
-		cell.onSelect = func() {
-			viewer.table.Select(id)
-			fyne.CurrentApp().Driver().CanvasForObject(viewer.table).Focus(keyboardTable)
-		}
 	}
 	showSelection := func(id widget.TableCellID) {
 		viewer.highlightedRow = id.Row
@@ -78,11 +53,11 @@ func (viewer *engagementsViewer) initTable() {
 			viewer.selection.SetText(viewer.rows[id.Row-1].Summary + "\nDouble-click or press Enter to open in Graphs · Existing graph filters still apply.")
 		}
 	}
-	viewer.table.OnSelected, viewer.table.OnHighlighted = showSelection, showSelection
+	viewer.table.selectionChanged = showSelection
+	viewer.table.onActivate = func(id widget.TableCellID) { viewer.onOpen(viewer.rows[id.Row-1]) }
 	viewer.table.StickyRowCount = 1
-	table := newFillingTable(&viewer.table.Table, 220, 100)
-	table.Objects[0] = viewer.table
-	note := widget.NewLabel("All loaded logs · 10-minute inactivity gap · Damage, E-War, mining and nonzero repairs · Independent of graph range and filters")
+	table := newFillingTable(viewer.table, 220, 100)
+	note := widget.NewLabel("All loaded logs · 10-minute inactivity gap · Independent of graph range and filters\nDrag/Shift-click selects ranges; Ctrl-click adds/removes cells; Ctrl+C copies.")
 	note.Wrapping = fyne.TextWrapWord
 	viewer.content.Objects = []fyne.CanvasObject{container.NewBorder(container.NewVBox(note, viewer.status), viewer.selection, nil, nil, table)}
 	viewer.content.Refresh()
@@ -181,12 +156,10 @@ func (ui *analyzerUI) openEngagement(row engagement) {
 	ui.tabs.SelectIndex(0)
 }
 
-// Each virtualized cell handles real desktop double-clicks. Its callbacks are
-// rebound on reuse, so scrolling or refreshing cannot open an obsolete row.
+// The shared selection surface owns input; cell contents only render text.
 type engagementCell struct {
 	widget.BaseWidget
-	label            *widget.Label
-	onOpen, onSelect func()
+	label *widget.Label
 }
 
 func newEngagementCell() *engagementCell {
@@ -195,19 +168,6 @@ func newEngagementCell() *engagementCell {
 	cell.ExtendBaseWidget(cell)
 	return cell
 }
-
 func (cell *engagementCell) CreateRenderer() fyne.WidgetRenderer {
 	return widget.NewSimpleRenderer(cell.label)
-}
-
-func (cell *engagementCell) Tapped(*fyne.PointEvent) {
-	if cell.onSelect != nil {
-		cell.onSelect()
-	}
-}
-
-func (cell *engagementCell) DoubleTapped(*fyne.PointEvent) {
-	if cell.onOpen != nil {
-		cell.onOpen()
-	}
 }

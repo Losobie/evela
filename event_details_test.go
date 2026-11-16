@@ -132,7 +132,7 @@ func TestEventDetailsDialogAndContext(t *testing.T) {
 	if text := viewer.eventDetails(viewer.rows[2]); !strings.Contains(text, "Activity: Structure invulnerability") || !strings.Contains(text, "Target type: Orbital Skyhook") {
 		t.Fatalf("contextual structure fields missing: %s", text)
 	}
-	viewer.table.OnSelected(widget.TableCellID{Row: 1, Col: 2})
+	viewer.table.onActivate(widget.TableCellID{Row: 1, Col: 2})
 	if ui.window.Canvas().Overlays().Top() == nil {
 		t.Fatal("event details dialog did not open")
 	}

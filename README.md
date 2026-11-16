@@ -19,7 +19,7 @@ By default, Evela loads files dated within the last **30 days**. To view an olde
 | --- | --- |
 | **Graphs** | Explore outgoing and incoming damage, logistics, incoming E-War and mining over time. |
 | **Totals** | Compare damage, average DPS and hit counts for the selected range and filters. Click column headings to sort. |
-| **Events** | Search timestamped log messages and select a row to see its full message, ship, system and extracted fields. |
+| **Events** | Search timestamped log messages; double-click a cell or press Enter for the full message, ship, system and extracted fields. |
 | **Engagements** | Browse automatically detected periods of activity with system and activity summaries. |
 | **ESI & ships** | Connect characters to record ship and location history, and inspect that history. |
 
@@ -69,9 +69,27 @@ Available choices depend on the graph: characters, character groups, ship type/c
 
 Create named fleets or squads through **Settings → Character groups**. Groups can then be used as filters or combined into graph series. Filters, grouping and display preferences are saved between launches.
 
+### Select and copy table cells
+
+Totals, Events and Engagements select cells immediately on mouse-down. Drag to
+select a rectangular range, Ctrl-click to add/remove individual cells, or
+Shift-click to extend a rectangle from the last clicked cell. Ctrl+Shift-click
+adds a range; Ctrl-drag adds a rectangle to the selection. A plain click replaces
+the selection. Cells have no extra buttons.
+
+Press **Ctrl+C** to copy full cell values, including truncated text. Copied rows
+are in display order with tabs between columns and newlines between selected
+rows. Unselected columns inside the selection's column span become empty fields;
+entirely unselected rows and column headings are omitted. Sorting, filtering or
+data refresh clears selection to avoid copying different records. Escape clears
+selection, and arrow keys move the active cell.
+
+Selection does not open row details. Double-click or Enter opens an event's
+full details or opens the selected engagement in Graphs.
+
 ### Inspect events
 
-**Events** follows the selected time range and the global **Characters** and **Character Group** filters. Other graph filters do not restrict it. Use **Message search** for text matching or enable **Regex** for regular expressions. Click **Timestamp** to reverse the order, and select an event to inspect or copy its full details.
+**Events** follows the selected time range and the global **Characters** and **Character Group** filters. Other graph filters do not restrict it. Use **Message search** for text matching or enable **Regex** for regular expressions. Click **Timestamp** to reverse the order, and double-click an event cell or press Enter to inspect its full details.
 
 ## Optional ship and location tracking
 

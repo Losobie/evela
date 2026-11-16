@@ -111,12 +111,12 @@ func TestEventsTableFitsViewportAndRetainsFullMessages(t *testing.T) {
 			t.Fatal("vertical scrolling was disabled")
 		}
 	}
-	label := viewer.table.CreateCell().(*widget.Label)
+	label := viewer.table.createCell().(*widget.Label)
 	viewer.table.UpdateCell(widget.TableCellID{Row: 1, Col: 2}, label)
 	if label.Truncation != fyne.TextTruncateEllipsis || label.Text != message || !strings.Contains(viewer.eventDetails(viewer.rows[0]), message) {
 		t.Fatal("visual truncation discarded the full event message")
 	}
-	viewer.table.OnSelected(widget.TableCellID{Row: 1, Col: 2})
+	viewer.table.onActivate(widget.TableCellID{Row: 1, Col: 2})
 	if window.Canvas().Overlays().Top() == nil {
 		t.Fatal("truncated event no longer opens the details dialog")
 	}
@@ -144,7 +144,7 @@ func TestEventsTabRangeSortingAndMessageSearch(t *testing.T) {
 	if viewer.descending || viewer.rows[0].Second != start.Unix() {
 		t.Fatal("Timestamp did not switch back to oldest-first")
 	}
-	label := viewer.table.CreateCell().(*widget.Label)
+	label := viewer.table.createCell().(*widget.Label)
 	viewer.table.UpdateCell(widget.TableCellID{Row: 1, Col: 0}, label)
 	if label.Text != "2026-10-19 02:00:00" {
 		t.Fatalf("incorrect EVE time: %s", label.Text)
@@ -236,9 +236,9 @@ func TestEventsRefreshPreferencesAndPreview(t *testing.T) {
 	ui.tabs.SelectIndex(2)
 	ui.window.Resize(fyne.NewSize(1440, 960))
 	captureWindowPreview(t, ui.window, os.Getenv("EVELA_EVENTS_CAPTURE"))
-	viewer.table.OnSelected(widget.TableCellID{Row: 1, Col: 2})
+	viewer.table.onActivate(widget.TableCellID{Row: 1, Col: 2})
 	if ui.window.Canvas().Overlays().Top() == nil {
-		t.Fatal("selecting a message did not expose the full text")
+		t.Fatal("double-click action did not expose the full text")
 	}
 	window := fyne.CurrentApp().NewWindow("Saved regex setting")
 	defer window.Close()
@@ -402,7 +402,7 @@ func TestEventDuplicateExportsRetainDistinctMessages(t *testing.T) {
 	characters := map[string]bool{}
 	for row, event := range viewer.rows {
 		characters[event.Character] = true
-		label := viewer.table.CreateCell().(*widget.Label)
+		label := viewer.table.createCell().(*widget.Label)
 		viewer.table.UpdateCell(widget.TableCellID{Row: row + 1, Col: 1}, label)
 		if label.Text != event.Character {
 			t.Fatal("character column did not retain the owning log during sorting/search")

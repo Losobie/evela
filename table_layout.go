@@ -4,18 +4,23 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
-	"fyne.io/fyne/v2/widget"
 )
 
 // Keep the first two columns at their preferred widths, shrinking them on
 // narrow windows, and give the last column the remaining viewport width.
 // Cell labels truncate instead of creating a horizontal scrollbar.
-func newFillingTable(table *widget.Table, first, second float32) *fyne.Container {
+type fillingTable interface {
+	fyne.CanvasObject
+	SetColumnWidth(int, float32)
+	Theme() fyne.Theme
+}
+
+func newFillingTable(table fillingTable, first, second float32) *fyne.Container {
 	return container.New(&fillingTableLayout{table: table, first: first, second: second}, table)
 }
 
 type fillingTableLayout struct {
-	table         *widget.Table
+	table         fillingTable
 	first, second float32
 }
 

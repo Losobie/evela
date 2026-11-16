@@ -62,7 +62,7 @@ type analyzerUI struct {
 	graphStack                        *fyne.Container
 	graphCards                        map[string]*widget.Card
 	graphsEmpty                       fyne.CanvasObject
-	totals                            *widget.Table
+	totals                            *cellSelectionTable
 	events                            *eventsViewer
 	engagements                       *engagementsViewer
 	loadRequests                      chan []string
@@ -157,7 +157,7 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui.initScopedFilters()
 	linkChartHovers(ui.outgoing, ui.outgoingLogistics, ui.incoming, ui.incomingLogistics, ui.ewar, ui.mining)
 	ui.initEventGraphGrouping()
-	ui.totals = widget.NewTable(
+	ui.totals = newCellSelectionTable(
 		func() (int, int) { return len(ui.tableSeries) + 1, ui.totalsColumnCount() },
 		func() fyne.CanvasObject { return newTotalsCell() },
 		func(id widget.TableCellID, object fyne.CanvasObject) {
@@ -224,10 +224,10 @@ func newAnalyzerUI(window fyne.Window) *analyzerUI {
 			}
 			label.SetText([]string{series.Name, ship, fmt.Sprintf("%.0f", series.TotalOutgoing), fmt.Sprintf("%.0f", series.TotalIncoming), fmt.Sprintf("%.2f", series.TotalOutgoing/duration), fmt.Sprintf("%.2f", series.TotalIncoming/duration), fmt.Sprintf("%d / %d", series.OutgoingHits, series.IncomingHits)}[id.Col])
 			cell.Refresh()
-		})
+		}, func(object fyne.CanvasObject) string { return object.(*totalsCell).label.Text })
 	ui.totals.StickyRowCount = 1
 	ui.totals.StickyColumnCount = 1
-	ui.totals.OnSelected = func(id widget.TableCellID) {
+	ui.totals.selectionChanged = func(id widget.TableCellID) {
 		if id.Row == 0 {
 			ui.sortTotalsByColumn(id.Col)
 			// Allow repeated clicks on the same heading to reverse the order.
@@ -273,7 +273,7 @@ func (ui *analyzerUI) content() fyne.CanvasObject {
 	ui.graphsEmpty = newGraphsEmptyState()
 	ui.applyGraphVisibility()
 	graphContent := container.NewBorder(filterBar, nil, nil, nil, ui.graphsScroll)
-	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.\nMined totals include critical bonuses; mining crit columns show the bonus portion.")
+	totalsNote := widget.NewLabel("Current filters and time range · average DPS includes idle time\nClick a heading to sort; click again to reverse. Hits sort by outgoing, then incoming.\nDrag/Shift-click selects ranges; Ctrl-click adds/removes cells; Ctrl+C copies.\nMined totals include critical bonuses; mining crit columns show the bonus portion.")
 	totalsNote.Wrapping = fyne.TextWrapWord
 	totals := container.NewBorder(totalsNote, nil, nil, nil, ui.totals)
 	tabs := container.NewAppTabs(container.NewTabItem("Graphs", graphContent), container.NewTabItem("Totals", totals), container.NewTabItem("Events", ui.events.content), container.NewTabItem("Engagements", ui.engagements.content), container.NewTabItem("ESI & ships", ui.esiContent()))

@@ -28,7 +28,7 @@ type eventsViewer struct {
 	search      *widget.Entry
 	regex       *widget.Check
 	status      *widget.Label
-	table       *widget.Table
+	table       *cellSelectionTable
 	snapshot    *logSnapshot
 	start, end  time.Time
 	rangeEvents []eventRow
@@ -61,7 +61,7 @@ func newEventsViewer(window fyne.Window) *eventsViewer {
 		viewer.applySearch()
 		viewer.table.ScrollToTop()
 	}
-	viewer.table = widget.NewTable(
+	viewer.table = newCellSelectionTable(
 		func() (int, int) { return len(viewer.rows) + 1, 3 },
 		func() fyne.CanvasObject {
 			label := widget.NewLabel("")
@@ -91,10 +91,9 @@ func newEventsViewer(window fyne.Window) *eventsViewer {
 			case 2:
 				label.SetText(event.Message)
 			}
-		})
+		}, func(object fyne.CanvasObject) string { return object.(*widget.Label).Text })
 	viewer.table.StickyRowCount = 1
-	viewer.table.OnSelected = func(id widget.TableCellID) {
-		viewer.table.UnselectAll()
+	viewer.table.selectionChanged = func(id widget.TableCellID) {
 		if id.Row == 0 {
 			if id.Col == 0 {
 				viewer.descending = !viewer.descending
@@ -103,19 +102,22 @@ func newEventsViewer(window fyne.Window) *eventsViewer {
 			}
 			return
 		}
-		event := viewer.rows[id.Row-1]
-		text := widget.NewLabel(viewer.eventDetails(event))
-		text.Wrapping, text.Selectable = fyne.TextWrapWord, true
-		details := dialog.NewCustom("Log event", "Close", container.NewVScroll(text), viewer.window)
-		details.Resize(fyne.NewSize(900, 520))
-		details.Show()
 	}
+	viewer.table.onActivate = func(id widget.TableCellID) { viewer.showDetails(viewer.rows[id.Row-1]) }
 	search := container.NewBorder(nil, nil, widget.NewLabel("Message search"), viewer.regex, viewer.search)
-	note := widget.NewLabel("Characters and Character Group filters · EVE time · Click Timestamp to reverse order; select a row to read its message and extracted fields.")
+	note := widget.NewLabel("EVE time · Click Timestamp to sort · Drag/Shift-click: range · Ctrl-click: add/remove · Ctrl+C: copy · Double-click/Enter: details")
 	note.Truncation = fyne.TextTruncateEllipsis
 	viewer.content = container.NewBorder(container.NewVBox(search, viewer.status), note, nil, nil, newFillingTable(viewer.table, 200, 190))
 	viewer.applySearch()
 	return viewer
+}
+
+func (viewer *eventsViewer) showDetails(event eventRow) {
+	text := widget.NewLabel(viewer.eventDetails(event))
+	text.Wrapping, text.Selectable = fyne.TextWrapWord, true
+	details := dialog.NewCustom("Log event", "Close", container.NewVScroll(text), viewer.window)
+	details.Resize(fyne.NewSize(900, 520))
+	details.Show()
 }
 
 func (viewer *eventsViewer) setRange(snapshot *logSnapshot, start, end time.Time, characters map[string]bool) {
