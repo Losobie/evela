@@ -155,6 +155,9 @@ func locationLabel(location locationRecord) string {
 			docked = strconv.FormatInt(location.StructureID, 10)
 		}
 	}
+	if docked != "" && location.SystemName != "" && strings.Contains(strings.ToLower(docked), strings.ToLower(location.SystemName)) {
+		return docked
+	}
 	if name == "" {
 		name = docked
 	} else if docked != "" {

@@ -36,7 +36,7 @@ func TestESITableRangesCopyFullValuesAndRefresh(t *testing.T) {
 	if ui.esiRows[0][2] != "Loki" || ui.esiRows[1][2] != "Ship unavailable" {
 		t.Fatalf("ship cells should contain only the ship type: %v", ui.esiRows)
 	}
-	if ui.esiRows[0][3] != "Jita · Jita IV - Moon 4 - Caldari Navy Assembly Plant" || ui.esiRows[1][3] != "Location unavailable" {
+	if ui.esiRows[0][3] != "Jita IV - Moon 4 - Caldari Navy Assembly Plant" || ui.esiRows[1][3] != "Location unavailable" {
 		t.Fatalf("incorrect locations: %v", ui.esiRows)
 	}
 	first := renderedSelectionCell(t, table, widget.TableCellID{Row: 1, Col: 0})
