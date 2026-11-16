@@ -57,9 +57,7 @@ func (viewer *engagementsViewer) initTable() {
 	viewer.table.onActivate = func(id widget.TableCellID) { viewer.onOpen(viewer.rows[id.Row-1]) }
 	viewer.table.StickyRowCount = 1
 	table := newFillingTable(viewer.table, 220, 100)
-	note := widget.NewLabel("All loaded logs · 10-minute inactivity gap · Independent of graph range and filters\nDrag/Shift-click selects ranges; Ctrl-click adds/removes cells; Ctrl+C copies.")
-	note.Wrapping = fyne.TextWrapWord
-	viewer.content.Objects = []fyne.CanvasObject{container.NewBorder(container.NewVBox(note, viewer.status), viewer.selection, nil, nil, table)}
+	viewer.content.Objects = []fyne.CanvasObject{container.NewBorder(viewer.status, viewer.selection, nil, nil, table)}
 	viewer.content.Refresh()
 }
 
