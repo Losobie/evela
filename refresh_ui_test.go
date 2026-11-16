@@ -69,7 +69,7 @@ func TestRefreshStatusKeepsLayoutStable(t *testing.T) {
 
 	ui.tabs.SelectIndex(4)
 	ui.setESIStatus("Ships updated")
-	objects := []fyne.CanvasObject{ui.esiConnections, ui.shipRefresh, ui.esiStatus}
+	objects := []fyne.CanvasObject{ui.esiConnections, ui.shipRefresh}
 	before := measure(objects...)
 	ui.shipRefresh.Disable()
 	ui.setESIStatus("Querying current ships from ESI…")
@@ -106,15 +106,16 @@ func TestRefreshPreservesListScrollPositions(t *testing.T) {
 	ui.updateRange()
 	applyTestShipRecords(ui, records)
 	characters := container.NewVScroll(ui.characters)
-	ships := container.NewVScroll(ui.esiConnections)
+	ships := selectionTableScroll(t, ui.esiConnections)
 	tokens := container.NewVScroll(ui.tokenConnections)
-	window.SetContent(container.NewGridWithColumns(3, characters, ships, tokens))
+	window.SetContent(container.NewGridWithColumns(3, characters, newFillingTable(ui.esiConnections, 180, 240, 280), tokens))
 	window.Resize(fyne.NewSize(1200, 500))
 	window.Show()
 
 	for _, grouping := range []string{"Characters", "Ship history"} {
 		ui.groupSelect.SetSelected(grouping)
-		for _, scroll := range []*container.Scroll{characters, ships, tokens} {
+		ui.esiConnections.ScrollToOffset(fyne.NewPos(0, 350))
+		for _, scroll := range []*container.Scroll{characters, tokens} {
 			scroll.ScrollToOffset(fyne.NewPos(0, 350))
 			if scroll.Offset.Y != 350 {
 				t.Fatal("fixture did not provide enough scrollable content")

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
@@ -67,6 +68,17 @@ func renderedSelectionCell(t *testing.T, table *cellSelectionTable, id widget.Ta
 func selectionCopy(table *cellSelectionTable) string {
 	table.TypedShortcut(&fyne.ShortcutCopy{})
 	return fyne.CurrentApp().Clipboard().Content()
+}
+
+func selectionTableScroll(t *testing.T, table *cellSelectionTable) *container.Scroll {
+	t.Helper()
+	for _, object := range test.WidgetRenderer(table).Objects() {
+		if scroll, ok := object.(*container.Scroll); ok {
+			return scroll
+		}
+	}
+	t.Fatal("table scroll viewport missing")
+	return nil
 }
 
 func TestCellMouseMovementPreservesSelection(t *testing.T) {

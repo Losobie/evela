@@ -20,7 +20,7 @@ to build the application: the root `go.mod` resolves the parser locally.
 | Filters/grouping | `scoped_filters.go`, `scoped_filter_snapshot.go`, `graph_filter_catalog.go`, `event_graph_grouping.go` | Available choices, active predicates and series grouping |
 | Table selection | `table_selection.go`, `table_layout.go` | Immediate mouse-down selection, rectangular/additive cell ranges, clipboard export and shared table layout |
 | Events/engagements | `events.go`, `event_details.go`, `engagements.go`, `engagement_summary.go`, `engagements_ui.go` | Searchable records and activity discovery |
-| ESI/history | `esi*.go`, `ship_history.go`, `location_history.go`, `log_location.go` | Optional SSO, observations and time-based attribution |
+| ESI/history | `esi*.go`, `ship_history.go`, `location_history.go`, `log_location.go` | Optional SSO, observations and time-based attribution; `esi_table.go` renders selectable current-character cells |
 | Appearance | `appearance.go`, `color_vision.go` | Theme and graph accessibility colors |
 | Runtime diagnostics | `error_log.go`, `diagnostics.go` | Session errors and copyable reports of loading, filters, selections and graph pipelines |
 | Maintenance | `tools/`, `internal/sde/`, `licenses/` | Catalog generation, shared SDE reading and distribution notices |

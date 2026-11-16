@@ -277,7 +277,7 @@ func (err *httpStatusError) Error() string { return fmt.Sprintf("ESI returned HT
 
 func (service *esiService) requestJSON(ctx context.Context, method, endpoint, bearer string, form url.Values, result any) error {
 	if strings.HasPrefix(endpoint, service.baseURL+"/") && time.Now().Before(service.backoffUntil) {
-		return fmt.Errorf("ESI rate limit: retry after %s", service.backoffUntil.Format("15:04:05"))
+		return fmt.Errorf("ESI rate limit: retry after %s", service.backoffUntil.UTC().Format("15:04:05"))
 	}
 	var body io.Reader
 	if form != nil {

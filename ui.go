@@ -83,7 +83,8 @@ type analyzerUI struct {
 	totalsSortDescending              bool
 	clientID                          *widget.Entry
 	esiStatus                         *widget.Label
-	esiConnections                    *fyne.Container
+	esiConnections                    *cellSelectionTable
+	esiRows                           [][4]string
 	shipAuto                          *widget.Check
 	shipRefresh, connect, cancelLogin *widget.Button
 	esiActions                        chan esiAction

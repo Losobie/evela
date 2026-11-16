@@ -71,7 +71,7 @@ Create named fleets or squads through **Settings → Character groups**. Groups 
 
 ### Select and copy table cells
 
-Totals, Events and Engagements select cells immediately on mouse-down. Drag to
+Totals, Events, Engagements and ESI & ships select cells immediately on mouse-down. Drag to
 select a rectangular range, Ctrl-click to add/remove individual cells, or
 Shift-click to extend a rectangle from the last clicked cell. Ctrl+Shift-click
 adds a range; Ctrl-drag adds a rectangle to the selection. A plain click replaces

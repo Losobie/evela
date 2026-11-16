@@ -32,7 +32,7 @@ func (ui *analyzerUI) initESI() {
 	ui.esiStatus = widget.NewLabel("Set up EVE SSO to look up current ships.")
 	ui.esiStatus.Wrapping = fyne.TextWrapWord
 	ui.esiStatus.Truncation = fyne.TextTruncateEllipsis
-	ui.esiConnections = container.NewVBox()
+	ui.initESITable()
 	ui.shipAuto = widget.NewCheck("Refresh every 30 seconds", nil)
 	ui.shipAuto.SetChecked(true)
 	ui.shipRefresh = widget.NewButton("Refresh ships & locations", func() { ui.requestESI(esiAction{Kind: "refresh"}) })
@@ -52,11 +52,8 @@ func (ui *analyzerUI) initESI() {
 }
 
 func (ui *analyzerUI) esiContent() fyne.CanvasObject {
-	intro := widget.NewLabel("Connect characters through Settings → ESI configuration. Sign in with EVE Online for each character. Matching log characters are linked automatically by name.")
-	intro.Wrapping = fyne.TextWrapWord
-	controls := container.NewBorder(nil, nil, nil, container.NewHBox(widget.NewButton("Ship history…", ui.openShipHistory), widget.NewButton("Location history…", ui.openLocationHistory)), container.NewHBox(widget.NewButton("Configure ESI…", ui.openESISettings), ui.shipRefresh, ui.shipAuto))
-	settings := container.NewVBox(intro, controls, ui.esiStatusRow(ui.esiStatus), widget.NewSeparator(), widget.NewLabel("CONNECTED CHARACTERS / CURRENT SHIPS & LOCATIONS"))
-	return container.NewPadded(container.NewBorder(settings, nil, nil, nil, container.NewVScroll(ui.esiConnections)))
+	controls := container.NewBorder(nil, nil, nil, container.NewHBox(widget.NewButton("ESI status…", func() { ui.showRefreshDetails("ESI status", ui.esiStatus.Text) }), widget.NewButton("Ship history…", ui.openShipHistory), widget.NewButton("Location history…", ui.openLocationHistory)), container.NewHBox(widget.NewButton("Configure ESI…", ui.openESISettings), ui.shipRefresh, ui.shipAuto))
+	return container.NewPadded(container.NewBorder(controls, nil, nil, nil, newFillingTable(ui.esiConnections, 180, 240, 280)))
 }
 
 func (ui *analyzerUI) requestESI(action esiAction) bool {
@@ -166,7 +163,7 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 		if interrupted {
 			return
 		}
-		message := "Ships and locations updated " + time.Now().Format("15:04:05") + " · " + strconv.Itoa(len(service.config.Accounts)) + " connected characters."
+		message := "Ships and locations updated " + time.Now().UTC().Format("15:04:05") + " · " + strconv.Itoa(len(service.config.Accounts)) + " connected characters."
 		if err != nil {
 			reportRuntimeError("Refresh ESI ships and locations", err)
 			message = err.Error()
@@ -253,10 +250,10 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 	ui.ships = map[string]shipRecord{}
 	locations := ui.resolvedLocations()
-	var connections, tokens []fyne.CanvasObject
+	ui.esiRows = nil
+	var tokens []fyne.CanvasObject
 	for _, record := range records {
 		ui.ships[characterKey(record.CharacterName)] = record
-		name := widget.NewLabelWithStyle(record.CharacterName, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 		text := shipLabel(record.CharacterName, ui.ships)
 		if record.ClassName != "" {
 			text += " · " + record.ClassName
@@ -264,8 +261,9 @@ func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 		if record.ShipName != "" {
 			text += " · " + record.ShipName
 		}
+		checked := "Not checked"
 		if !record.CheckedAt.IsZero() {
-			text += " · checked " + record.CheckedAt.Local().Format("15:04:05")
+			checked = record.CheckedAt.UTC().Format("2006-01-02 15:04:05")
 		}
 		if record.Error != "" {
 			text += " · " + record.Error
@@ -280,13 +278,9 @@ func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 				locationText = location.SystemName + " · game log"
 			}
 		}
-		text += "\n" + locationText
-		details := widget.NewLabel(text)
-		details.Wrapping = fyne.TextWrapWord
+		ui.esiRows = append(ui.esiRows, [4]string{record.CharacterName, checked, text, locationText})
 		id := record.CharacterID
-		remove := widget.NewButton("Disconnect", func() { ui.requestESI(esiAction{Kind: "disconnect", CharacterID: id}) })
-		connections = append(connections, container.NewBorder(nil, nil, nil, remove, container.NewVBox(name, details)))
-		tokenStatus := "Access token expires " + record.TokenExpiresAt.Local().Format("2006-01-02 15:04:05")
+		tokenStatus := "Access token expires " + record.TokenExpiresAt.UTC().Format("2006-01-02 15:04:05")
 		if record.TokenExpiresAt.IsZero() {
 			tokenStatus = "Access token expiry unavailable"
 		}
@@ -301,10 +295,8 @@ func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 		tokens = append(tokens, container.NewBorder(nil, nil, nil, removeTokens, container.NewVBox(widget.NewLabelWithStyle(record.CharacterName, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), tokenLabel)))
 	}
 	if len(records) == 0 {
-		connections = append(connections, widget.NewLabel("No connected characters yet."))
 		tokens = append(tokens, widget.NewLabel("No saved character tokens yet."))
 	}
-	ui.esiConnections.Objects = connections
 	ui.esiConnections.Refresh()
 	ui.tokenConnections.Objects = tokens
 	ui.tokenConnections.Refresh()
