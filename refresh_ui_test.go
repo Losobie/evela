@@ -69,18 +69,18 @@ func TestRefreshStatusKeepsLayoutStable(t *testing.T) {
 
 	ui.tabs.SelectIndex(4)
 	ui.setESIStatus("Ships updated")
-	objects := []fyne.CanvasObject{ui.esiConnections, ui.shipRefresh}
+	objects := []fyne.CanvasObject{ui.esiConnections, ui.connect}
 	before := measure(objects...)
-	ui.shipRefresh.Disable()
+	ui.connect.Disable()
 	ui.setESIStatus("Querying current ships from ESI…")
 	assertSame(before, objects...)
-	ui.shipRefresh.Enable()
+	ui.connect.Enable()
 	ui.setESIStatus(longError)
 	assertSame(before, objects...)
 
 	ui.openESISettings()
 	ui.setESIStatus("Ready")
-	objects = []fyne.CanvasObject{ui.esiSettingsTabs, ui.clientID, ui.callback}
+	objects = []fyne.CanvasObject{ui.esiApplication, ui.clientID, ui.callback}
 	before = measure(objects...)
 	ui.setESIStatus(longError)
 	assertSame(before, objects...)
@@ -107,15 +107,15 @@ func TestRefreshPreservesListScrollPositions(t *testing.T) {
 	applyTestShipRecords(ui, records)
 	characters := container.NewVScroll(ui.characters)
 	ships := selectionTableScroll(t, ui.esiConnections)
-	tokens := container.NewVScroll(ui.tokenConnections)
-	window.SetContent(container.NewGridWithColumns(3, characters, ui.esiTableContent(), tokens))
+
+	window.SetContent(container.NewGridWithColumns(2, characters, ui.esiTableContent()))
 	window.Resize(fyne.NewSize(1200, 500))
 	window.Show()
 
 	for _, grouping := range []string{"Characters", "Ship history"} {
 		ui.groupSelect.SetSelected(grouping)
 		ui.esiConnections.ScrollToOffset(fyne.NewPos(0, 350))
-		for _, scroll := range []*container.Scroll{characters, tokens} {
+		for _, scroll := range []*container.Scroll{characters} {
 			scroll.ScrollToOffset(fyne.NewPos(0, 350))
 			if scroll.Offset.Y != 350 {
 				t.Fatal("fixture did not provide enough scrollable content")
@@ -124,7 +124,7 @@ func TestRefreshPreservesListScrollPositions(t *testing.T) {
 		ui.updateRange()                  // Log refresh.
 		applyTestShipRecords(ui, records) // ESI refresh.
 		window.Canvas().Capture()
-		for _, scroll := range []*container.Scroll{characters, ships, tokens} {
+		for _, scroll := range []*container.Scroll{characters, ships} {
 			if scroll.Offset.Y != 350 {
 				t.Fatalf("%s refresh reset scroll position to %v", grouping, scroll.Offset)
 			}

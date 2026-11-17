@@ -57,6 +57,7 @@ func TestESILoginsOpenDuringBlockedRefreshAndPreserveAccounts(t *testing.T) {
 	defer window.Close()
 	ui := newAnalyzerUI(window)
 	f := newESIFixture(t)
+	f.token = signedTestToken(t, f.key, func(claims map[string]any) { claims["scp"] = []string{shipScope, locationScope, structureScope} })
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -104,7 +105,7 @@ func TestESILoginsOpenDuringBlockedRefreshAndPreserveAccounts(t *testing.T) {
 		deadline := time.Now().Add(5 * time.Second)
 		for {
 			ready := false
-			fyne.DoAndWait(func() { ready = !ui.connect.Disabled() && !ui.connectStructures.Disabled() })
+			fyne.DoAndWait(func() { ready = !ui.connect.Disabled() && !ui.loginSubmit.Disabled() })
 			if ready {
 				break
 			}
@@ -114,12 +115,10 @@ func TestESILoginsOpenDuringBlockedRefreshAndPreserveAccounts(t *testing.T) {
 			time.Sleep(time.Millisecond)
 		}
 		fyne.DoAndWait(func() {
-			if attempt == 0 {
-				test.Tap(ui.connect)
-			} else {
-				test.Tap(ui.connectStructures)
-			}
-			if !ui.connect.Disabled() || !ui.connectStructures.Disabled() {
+			test.Tap(ui.connect)
+			ui.loginScopeChecks[2].SetChecked(attempt == 1)
+			test.Tap(ui.loginSubmit)
+			if !ui.connect.Disabled() || !ui.loginSubmit.Disabled() {
 				t.Error("a pending login left another sign-in button enabled")
 			}
 		})
@@ -208,6 +207,7 @@ func TestESIIndependentLoginCancellationAndPortRelease(t *testing.T) {
 	listener.Close()
 	// The next login can reuse that port; app shutdown cancels it as well.
 	fyne.DoAndWait(func() { test.Tap(ui.connect) })
+	fyne.DoAndWait(func() { test.Tap(ui.loginSubmit) })
 	select {
 	case <-opened:
 	case <-time.After(3 * time.Second):

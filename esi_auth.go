@@ -103,7 +103,7 @@ func loginCallback(state string, result chan<- loginResult) http.Handler {
 }
 
 func (service *esiService) authorize(ctx context.Context, openBrowser func(string) error) (*esiAccount, error) {
-	account, err := service.authenticate(ctx, openBrowser, false)
+	account, err := service.authenticate(ctx, openBrowser, []string{shipScope, locationScope})
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (service *esiService) authorize(ctx context.Context, openBrowser func(strin
 
 // Authentication has private configuration and never writes accounts or history.
 // The ESI worker adopts the validated result and remains the only storage writer.
-func (service *esiService) authenticate(ctx context.Context, openBrowser func(string) error, structureNames bool) (*esiAccount, error) {
+func (service *esiService) authenticate(ctx context.Context, openBrowser func(string) error, requestedScopes []string) (*esiAccount, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -141,15 +141,16 @@ func (service *esiService) authenticate(ctx context.Context, openBrowser func(st
 	if err != nil {
 		return nil, fmt.Errorf("start EVE login callback on localhost port %d: %w", port, err)
 	}
+	// Close the listener even if cancellation beats Serve's registration of it.
+	defer listener.Close()
 	result := make(chan loginResult, 1)
 	server := &http.Server{Handler: loginCallback(state, result), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 10 * time.Second}
 	go server.Serve(listener)
 	defer server.Close()
-	scopes := shipScope + " " + locationScope
-	if structureNames {
-		scopes += " " + structureScope
+	query := url.Values{"response_type": {"code"}, "client_id": {service.config.ClientID}, "redirect_uri": {callbackURL}, "state": {state}}
+	if len(requestedScopes) > 0 {
+		query.Set("scope", strings.Join(requestedScopes, " "))
 	}
-	query := url.Values{"response_type": {"code"}, "client_id": {service.config.ClientID}, "redirect_uri": {callbackURL}, "scope": {scopes}, "state": {state}}
 	query.Set("code_challenge", base64.RawURLEncoding.EncodeToString(challenge[:]))
 	query.Set("code_challenge_method", "S256")
 	if err := ctx.Err(); err != nil {
@@ -172,6 +173,18 @@ func (service *esiService) authenticate(ctx context.Context, openBrowser func(st
 	token, identity, err := service.exchange(ctx, form)
 	if err != nil {
 		return nil, err
+	}
+	for _, requested := range requestedScopes {
+		granted := false
+		for _, scope := range identity.Scopes {
+			if scope == requested {
+				granted = true
+				break
+			}
+		}
+		if !granted {
+			return nil, fmt.Errorf("EVE did not grant requested scope %s; enable it in the application registration and sign in again", requested)
+		}
 	}
 	account := &esiAccount{Ship: shipRecord{CharacterID: identity.ID, CharacterName: identity.Name}, Token: token}
 	return account, nil
@@ -403,11 +416,6 @@ func (service *esiService) validateToken(ctx context.Context, token string) (sso
 	}
 	if !has(claims.Aud, service.config.ClientID) {
 		return fail("token was issued for a different application; check the configured Client ID")
-	}
-	// Required scopes are a subset of the granted scopes. Additional grants,
-	// their ordering and duplicates must not affect authentication.
-	if !has(claims.Scp, shipScope) {
-		return fail("missing required scope " + shipScope + "; enable it in the EVE application and authorize the character again")
 	}
 	if !strings.HasPrefix(claims.Sub, "CHARACTER:EVE:") {
 		return fail("invalid character identity")

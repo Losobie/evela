@@ -93,9 +93,9 @@ full details or opens the selected engagement in Graphs.
 
 ## Optional ship and location tracking
 
-Log analysis works without signing in. To record your ships and locations, open **Settings → ESI configuration → Character tokens** and choose **Sign in with EVE Online** for each character.
+Log analysis works without signing in. In **ESI & ships**, choose **Sign in with EVE Online**, select the scopes you want to grant, then choose **Sign in**. Repeat for each character. Ship, location and structure-name access are independent options.
 
-In **ESI & ships**, use **Refresh ships & locations**, enable automatic refresh, or open **Ship & Location History**. Ship filters and grouping use the ship recorded at each event's time. Tracking cannot recover ships used before it began; missing history appears as unknown. Logged jumps can identify systems without ESI.
+In **ESI & ships**, use **Configure ESI** to change application settings, enable **Refresh every 30 seconds** on the right, or open **Ship & Location History**. Right-click a character cell to disconnect its saved sign-in. Ship filters and grouping use the ship recorded at each event's time. Tracking cannot recover ships used before it began; missing history appears as unknown. Logged jumps can identify systems without ESI.
 
 See [ESI setup and connection help](docs/ESI.md) for custom applications, permissions and sign-in troubleshooting.
 

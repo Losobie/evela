@@ -227,6 +227,7 @@ func newESIFixture(t *testing.T) *esiFixture {
 
 func TestESILoginPKCEAndEncryptedStorage(t *testing.T) {
 	f := newESIFixture(t)
+	f.token = signedTestToken(t, f.key, func(claims map[string]any) { claims["scp"] = []string{shipScope, locationScope} })
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -467,7 +468,7 @@ func TestESITokenValidation(t *testing.T) {
 		"expired":  func(c map[string]any) { c["exp"] = time.Now().Add(-time.Minute).Unix() },
 		"issuer":   func(c map[string]any) { c["iss"] = "https://evil.example" },
 		"audience": func(c map[string]any) { c["aud"] = []string{"other-client", "EVE Online"} },
-		"scope":    func(c map[string]any) { c["scp"] = []string{"other-scope"} },
+		"scope":    func(c map[string]any) { c["scp"] = 123 },
 		"identity": func(c map[string]any) { c["sub"] = "CHARACTER:EVE:0" },
 		"future":   func(c map[string]any) { c["nbf"] = time.Now().Add(time.Hour).Unix() },
 	} {
@@ -512,9 +513,9 @@ func TestESIAdditionalGrantedScopes(t *testing.T) {
 		{"minimum only", []string{shipScope}, true},
 		{"additional unknown scope", []string{shipScope, "future.optional.scope.v99"}, true},
 		{"duplicate scope", []string{shipScope, "esi-location.read_online.v1", shipScope}, true},
-		{"optional scopes only", []string{"esi-location.read_location.v1", "esi-location.read_online.v1"}, false},
-		{"similar name is insufficient", []string{"esi-location.read_location.v1", shipScope + ".extra", "esi-location.read_online.v1"}, false},
-		{"no granted scopes", []string{}, false},
+		{"location scopes only", []string{"esi-location.read_location.v1", "esi-location.read_online.v1"}, true},
+		{"unrelated permissions", []string{"esi-location.read_location.v1", shipScope + ".extra", "esi-location.read_online.v1"}, true},
+		{"no granted scopes", []string{}, true},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			f.token = signedTestToken(t, f.key, func(claims map[string]any) { claims["scp"] = testCase.scopes })
@@ -545,8 +546,8 @@ func TestESIScopeFormatsAndValidationDiagnostics(t *testing.T) {
 		{"single scope string", func(c map[string]any) { c["scp"] = shipScope }, ""},
 		{"one scope array", func(c map[string]any) { c["scp"] = []string{shipScope} }, ""},
 		{"multiple scopes", func(c map[string]any) { c["scp"] = []string{"esi-location.read_location.v1", shipScope} }, ""},
-		{"missing scope", func(c map[string]any) { delete(c, "scp") }, "missing required scope"},
-		{"wrong scope", func(c map[string]any) { c["scp"] = shipScope + ".extra" }, "missing required scope"},
+		{"missing scope", func(c map[string]any) { delete(c, "scp") }, ""},
+		{"unrelated scope", func(c map[string]any) { c["scp"] = shipScope + ".extra" }, ""},
 		{"numeric scope", func(c map[string]any) { c["scp"] = 123 }, "unsupported JWT claim format"},
 		{"mixed scope array", func(c map[string]any) { c["scp"] = []any{shipScope, 123} }, "unsupported JWT claim format"},
 		{"null scope array item", func(c map[string]any) { c["scp"] = []any{shipScope, nil} }, "unsupported JWT claim format"},

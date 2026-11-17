@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -72,7 +73,7 @@ type esiToken struct {
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token"`
 	ExpiresAt    time.Time `json:"expires_at"`
-	Scopes       []string  `json:"scopes,omitempty"`
+	Scopes       []string  `json:"scopes"`
 }
 type esiAccount struct {
 	Ship     shipRecord
@@ -335,7 +336,9 @@ func (service *esiService) refreshShips(ctx context.Context) error {
 			account.Ship.Error = err.Error()
 			issues = append(issues, account.Ship.CharacterName+": "+err.Error())
 		} else {
-			account.Ship.Error = ""
+			if account.Token.Scopes == nil || slices.Contains(account.Token.Scopes, shipScope) {
+				account.Ship.Error = ""
+			}
 			if account.Ship.ClassError != "" {
 				issues = append(issues, account.Ship.CharacterName+": "+account.Ship.ClassError)
 			}
@@ -379,6 +382,11 @@ func (service *esiService) refreshShip(ctx context.Context, account *esiAccount)
 		if err := service.renew(ctx, account); err != nil {
 			return err
 		}
+	}
+	if account.Token.Scopes != nil && !slices.Contains(account.Token.Scopes, shipScope) {
+		account.Ship.Error = "Ship tracking disabled: select " + shipScope + " and sign in again"
+		account.Ship.ClassError = ""
+		return nil
 	}
 	var response struct {
 		TypeID int64  `json:"ship_type_id"`

@@ -25,9 +25,10 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 	}
 	for _, item := range menu.Items[0].Items {
 		if item.Label == "ESI configuration" {
-			item.Action()
+			t.Fatal("ESI configuration remains in Settings")
 		}
 	}
+	ui.openESISettings()
 	ui.loadESIConfiguration(defaultESIClientID, defaultESICallbackPort)
 	if ui.esiDialog == nil || ui.callback.Text != "" || ui.callback.PlaceHolder != "http://localhost:8080/callback (default)" {
 		t.Fatal("menu did not open default ESI settings dialog")
@@ -42,7 +43,7 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 	if defaultAction.ClientID != defaultESIClientID || defaultAction.CallbackPort != defaultESICallbackPort || defaultAction.Kind != "connect" {
 		t.Fatal("default sign-in did not use the built-in application")
 	}
-	if !ui.connect.Disabled() || !ui.connectStructures.Disabled() || !ui.cancelLogin.Visible() {
+	if !ui.connect.Disabled() || !ui.loginSubmit.Disabled() || !ui.cancelLogin.Visible() {
 		t.Fatal("pending sign-in did not immediately expose cancellation and prevent duplicates")
 	}
 	ui.requestESIConfiguration("connect")
@@ -52,7 +53,7 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 	defaultLogin.cancel()
 	ui.cancelESILogin = nil
 	ui.connect.Enable()
-	ui.connectStructures.Enable()
+	ui.loginSubmit.Enable()
 	ui.cancelLogin.Hide()
 	first := ui.esiDialog
 	ui.openESISettings()
@@ -83,6 +84,7 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 	}
 	ui.clientID.SetText("example-client")
 	test.Tap(ui.connect)
+	test.Tap(ui.loginSubmit)
 	login := <-ui.esiLogins
 	defer login.cancel()
 	action = login.action
@@ -104,10 +106,19 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 		}
 		clientID := ui.clientID.Text
 		ui.clientID.SetText("")
+		if ui.esiLoginDialog != nil {
+			ui.esiLoginDialog.Hide()
+		}
+		ui.cancelESILogin = nil
+		ui.setESILoginPending(false)
+		ui.esiDialog.Show()
 		capture(path)
 		ui.clientID.SetText(clientID)
-		ui.esiSettingsTabs.SelectIndex(1)
-		capture(path + ".tokens.png")
+		ui.esiDialog.Hide()
+		ui.openESILogin()
+		capture(path + ".login.png")
+		ui.esiLoginDialog.Hide()
+		ui.openESISettings()
 	}
 	ui.esiDialog.Hide()
 	if ui.esiDialog != nil {

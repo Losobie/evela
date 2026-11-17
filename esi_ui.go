@@ -19,6 +19,7 @@ type esiAction struct {
 	Kind, ClientID string
 	CharacterID    int64
 	CallbackPort   int
+	Scopes         []string
 }
 
 func (ui *analyzerUI) initESI() {
@@ -35,15 +36,15 @@ func (ui *analyzerUI) initESI() {
 	ui.initESITable()
 	ui.shipAuto = widget.NewCheck("Refresh every 30 seconds", nil)
 	ui.shipAuto.SetChecked(true)
-	ui.shipRefresh = widget.NewButton("Refresh ships & locations", func() { ui.requestESI(esiAction{Kind: "refresh"}) })
-	ui.connect = widget.NewButton("Sign in with EVE Online", func() { ui.requestESIConfiguration("connect") })
-	ui.connectStructures = widget.NewButton("Sign in for structure names", func() { ui.requestESIConfiguration("connect-structures") })
+	ui.connect = widget.NewButton("Sign in with EVE Online", ui.openESILogin)
+	ui.loginSubmit = widget.NewButton("Sign in", func() { ui.requestESIConfiguration("connect") })
 	ui.cancelLogin = widget.NewButton("Cancel sign-in", func() {
 		if ui.cancelESILogin != nil {
 			ui.cancelESILogin()
 		}
 	})
 	ui.cancelLogin.Hide()
+	ui.initESILoginScopes()
 	ui.groupSelect = widget.NewSelect(ui.characterGroupingOptions(), func(string) {
 		ui.saveGraphFormatPreferences()
 		ui.rebuildCharacters()
@@ -53,7 +54,7 @@ func (ui *analyzerUI) initESI() {
 }
 
 func (ui *analyzerUI) esiContent() fyne.CanvasObject {
-	controls := container.NewBorder(nil, nil, nil, widget.NewButton("Ship & Location History", ui.openShipLocationHistory), container.NewHBox(widget.NewButton("Configure ESI", ui.openESISettings), ui.shipRefresh, ui.shipAuto))
+	controls := container.NewBorder(nil, nil, nil, container.NewHBox(ui.shipAuto, widget.NewButton("Ship & Location History", ui.openShipLocationHistory)), container.NewHBox(widget.NewButton("Configure ESI", ui.openESISettings), ui.connect))
 	return container.NewPadded(container.NewBorder(controls, nil, nil, nil, ui.esiTableContent()))
 }
 
@@ -145,7 +146,6 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 		refreshCtx, finish := context.WithTimeout(ctx, 25*time.Second)
 		fyne.DoAndWait(func() {
 			ui.cancelESIRefresh = finish
-			ui.shipRefresh.Disable()
 			ui.setESIStatus("Querying current ships and locations from ESI…")
 		})
 		if len(loginResults) > 0 {
@@ -154,7 +154,7 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 		err := service.refreshShips(refreshCtx)
 		interrupted := refreshCtx.Err() == context.Canceled
 		finish()
-		fyne.DoAndWait(func() { ui.cancelESIRefresh = nil; ui.shipRefresh.Enable() })
+		fyne.DoAndWait(func() { ui.cancelESIRefresh = nil })
 		if ctx.Err() != nil {
 			return
 		}
@@ -250,7 +250,6 @@ func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 	ui.ships = map[string]shipRecord{}
 	locations := ui.resolvedLocations()
 	ui.esiRows = nil
-	var tokens []fyne.CanvasObject
 	for _, record := range records {
 		ui.ships[characterKey(record.CharacterName)] = record
 		text := record.TypeName
@@ -275,27 +274,8 @@ func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 			}
 		}
 		ui.esiRows = append(ui.esiRows, [5]string{record.CharacterName, checked, text, locationText, characterESIStatus(record)})
-		id := record.CharacterID
-		tokenStatus := "Access token expires " + record.TokenExpiresAt.UTC().Format("2006-01-02 15:04:05")
-		if record.TokenExpiresAt.IsZero() {
-			tokenStatus = "Access token expiry unavailable"
-		}
-		if record.CanRefresh {
-			tokenStatus += " · refresh token saved"
-		} else {
-			tokenStatus += " · no refresh token"
-		}
-		tokenLabel := widget.NewLabel(tokenStatus)
-		tokenLabel.Wrapping = fyne.TextWrapWord
-		removeTokens := widget.NewButton("Disconnect", func() { ui.requestESI(esiAction{Kind: "disconnect", CharacterID: id}) })
-		tokens = append(tokens, container.NewBorder(nil, nil, nil, removeTokens, container.NewVBox(widget.NewLabelWithStyle(record.CharacterName, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), tokenLabel)))
-	}
-	if len(records) == 0 {
-		tokens = append(tokens, widget.NewLabel("No saved character tokens yet."))
 	}
 	ui.esiConnections.Refresh()
-	ui.tokenConnections.Objects = tokens
-	ui.tokenConnections.Refresh()
 	ui.rebuildView()
 }
 

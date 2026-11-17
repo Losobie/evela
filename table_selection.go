@@ -28,6 +28,7 @@ type cellSelectionTable struct {
 	updateCell                    func(widget.TableCellID, fyne.CanvasObject)
 	cellText                      func(fyne.CanvasObject) string
 	onActivate                    func(widget.TableCellID)
+	onSecondary                   func(widget.TableCellID, fyne.Position)
 	selectionChanged              func(widget.TableCellID)
 }
 
@@ -352,6 +353,13 @@ func (cell *selectionTableCell) Tapped(*fyne.PointEvent) {
 func (cell *selectionTableCell) DoubleTapped(*fyne.PointEvent) {
 	if !cell.modified && !cell.dragged && cell.table.valid(cell.id) && cell.table.onActivate != nil {
 		cell.table.onActivate(cell.id)
+	}
+}
+
+func (cell *selectionTableCell) TappedSecondary(event *fyne.PointEvent) {
+	if cell.table.valid(cell.id) && cell.table.onSecondary != nil {
+		position := fyne.CurrentApp().Driver().AbsolutePositionForObject(cell).Add(event.Position)
+		cell.table.onSecondary(cell.id, position)
 	}
 }
 func (cell *selectionTableCell) Dragged(event *fyne.DragEvent) {

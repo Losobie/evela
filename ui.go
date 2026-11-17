@@ -86,17 +86,17 @@ type analyzerUI struct {
 	esiConnections                    *cellSelectionTable
 	esiRows                           [][5]string
 	shipAuto                          *widget.Check
-	shipRefresh, connect, cancelLogin *widget.Button
-	connectStructures                 *widget.Button
+	connect, loginSubmit, cancelLogin *widget.Button
+	loginScopeChecks                  []*widget.Check
+	esiLoginDialog                    *dialog.CustomDialog
+	esiApplication                    fyne.CanvasObject
 	esiActions                        chan esiAction
 	esiLogins                         chan esiLoginRequest
 	cancelESILogin                    context.CancelFunc
 	cancelESIRefresh                  context.CancelFunc
 	tabs                              *container.AppTabs
 	callback                          *widget.Entry
-	tokenConnections                  *fyne.Container
 	esiDialog                         *dialog.CustomDialog
-	esiSettingsTabs                   *container.AppTabs
 	esiSettingsDirty, settingESI      bool
 	graphUndo, graphRedo              []graphRangeChange
 	logDirectory                      string

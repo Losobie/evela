@@ -36,7 +36,7 @@ func (service *esiService) refreshLocation(ctx context.Context, account *esiAcco
 		}
 	}
 	if !slices.Contains(account.Token.Scopes, locationScope) {
-		account.Location.Error = "Location unavailable: enable " + locationScope + " in your EVE application and sign in again."
+		account.Location.Error = "Location tracking disabled: select " + locationScope + " and sign in again"
 		return nil // Existing ship-only connections remain usable.
 	}
 	now := time.Now()
@@ -44,6 +44,10 @@ func (service *esiService) refreshLocation(ctx context.Context, account *esiAcco
 		if err := service.renew(ctx, account); err != nil {
 			return fmt.Errorf("Location: %w", err)
 		}
+	}
+	if !slices.Contains(account.Token.Scopes, locationScope) {
+		account.Location.Error = "Location tracking disabled: select " + locationScope + " and sign in again"
+		return nil
 	}
 	var response struct {
 		SystemID    int64 `json:"solar_system_id"`

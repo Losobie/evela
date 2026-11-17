@@ -24,6 +24,13 @@ func (ui *analyzerUI) initESITable() {
 	}, func(object fyne.CanvasObject) string { return object.(*widget.Label).Text })
 	ui.esiConnections.StickyRowCount = 1
 	ui.esiConnections.StickyColumnCount = 1
+	ui.esiConnections.onSecondary = func(id widget.TableCellID, position fyne.Position) {
+		record := ui.ships[characterKey(ui.esiRows[id.Row-1][0])]
+		menu := fyne.NewMenu("", fyne.NewMenuItem("Disconnect", func() {
+			ui.requestESI(esiAction{Kind: "disconnect", CharacterID: record.CharacterID})
+		}))
+		widget.ShowPopUpMenuAtPosition(menu, ui.window.Canvas(), position)
+	}
 }
 
 func (ui *analyzerUI) esiTableContent() *fyne.Container {

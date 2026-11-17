@@ -97,7 +97,7 @@ func TestDockedNameFailuresRetainLocationAndRetry(t *testing.T) {
 			if label != want {
 				t.Fatalf("name failure should show only the numeric ID: %s", label)
 			}
-			if scenario == "missing structure scope" && (f.structureRequests.Load() != 0 || !strings.Contains(location.DockedNameError, "Sign in for structure names")) {
+			if scenario == "missing structure scope" && (f.structureRequests.Load() != 0 || !strings.Contains(location.DockedNameError, structureScope)) {
 				t.Fatal("missing scope was not explained without a private request")
 			}
 			account.Token.Scopes = append(account.Token.Scopes, structureScope)

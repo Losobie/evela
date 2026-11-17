@@ -154,3 +154,25 @@ func TestCharacterESIStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestESICharacterContextMenuDisconnects(t *testing.T) {
+	ui, _ := newDamageFilterTestUI(t)
+	ui.applyShipRecords([]shipRecord{{CharacterID: 123, CharacterName: "Pilot A"}})
+	ui.tabs.SelectIndex(4)
+	cell := renderedSelectionCell(t, ui.esiConnections, widget.TableCellID{Row: 1})
+	cell.TappedSecondary(&fyne.PointEvent{Position: fyne.NewPos(10, 10)})
+	menu, ok := ui.window.Canvas().Focused().(*widget.PopUpMenu)
+	if !ok {
+		t.Fatal("character context menu did not open")
+	}
+	menu.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	menu.TypedKey(&fyne.KeyEvent{Name: fyne.KeyReturn})
+	select {
+	case action := <-ui.esiActions:
+		if action.Kind != "disconnect" || action.CharacterID != 123 {
+			t.Fatalf("wrong disconnect action: %+v", action)
+		}
+	default:
+		t.Fatal("context menu did not disconnect the character")
+	}
+}

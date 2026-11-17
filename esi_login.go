@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/widget"
 )
 
 type esiLoginRequest struct {
@@ -22,6 +24,57 @@ type esiLoginResult struct {
 	taken   chan struct{}
 }
 
+func (ui *analyzerUI) initESILoginScopes() {
+	for index, scope := range []string{shipScope, locationScope, structureScope} {
+		check := widget.NewCheck(scope, nil)
+		check.SetChecked(index < 2)
+		ui.loginScopeChecks = append(ui.loginScopeChecks, check)
+	}
+}
+
+func (ui *analyzerUI) openESILogin() {
+	if ui.esiLoginDialog != nil {
+		ui.esiLoginDialog.Show()
+		return
+	}
+	content := container.NewVBox(widget.NewLabel("Scopes:"))
+	for _, check := range ui.loginScopeChecks {
+		content.Add(check)
+	}
+	content.Add(container.NewHBox(ui.loginSubmit, ui.cancelLogin))
+	ui.esiLoginDialog = dialog.NewCustom("Sign in with EVE Online", "Close", content, ui.window)
+	ui.esiLoginDialog.SetOnClosed(func() {
+		if ui.cancelESILogin != nil {
+			ui.cancelESILogin()
+		}
+		ui.esiLoginDialog = nil
+	})
+	ui.esiLoginDialog.Resize(fyne.NewSize(580, 270))
+	ui.esiLoginDialog.Show()
+}
+
+func (ui *analyzerUI) setESILoginPending(pending bool) {
+	for _, button := range []*widget.Button{ui.connect, ui.loginSubmit} {
+		if pending {
+			button.Disable()
+		} else {
+			button.Enable()
+		}
+	}
+	for _, check := range ui.loginScopeChecks {
+		if pending {
+			check.Disable()
+		} else {
+			check.Enable()
+		}
+	}
+	if pending {
+		ui.cancelLogin.Show()
+	} else {
+		ui.cancelLogin.Hide()
+	}
+}
+
 func (ui *analyzerUI) requestESILogin(action esiAction) {
 	if ui.cancelESILogin != nil {
 		return
@@ -30,9 +83,7 @@ func (ui *analyzerUI) requestESILogin(action esiAction) {
 	select {
 	case ui.esiLogins <- esiLoginRequest{action: action, ctx: ctx, cancel: cancel}:
 		ui.cancelESILogin = cancel
-		ui.connect.Disable()
-		ui.connectStructures.Disable()
-		ui.cancelLogin.Show()
+		ui.setESILoginPending(true)
 		ui.setESIStatus("Opening EVE sign-in…")
 	default:
 		cancel()
@@ -48,7 +99,7 @@ func (ui *analyzerUI) openESIBrowser(address string) error {
 	fyne.DoAndWait(func() {
 		err = fyne.CurrentApp().OpenURL(parsed)
 		if err == nil {
-			ui.setESIStatus("Complete EVE sign-in in your browser. Select a character and grant ship and location access.")
+			ui.setESIStatus("Complete EVE sign-in in your browser and grant the selected scopes.")
 		}
 	})
 	return err
@@ -66,7 +117,7 @@ func (ui *analyzerUI) watchESILogins(ctx context.Context, source *esiService, re
 		case request := <-ui.esiLogins:
 			stop := context.AfterFunc(ctx, request.cancel)
 			auth.config.ClientID, auth.config.CallbackPort = request.action.ClientID, request.action.CallbackPort
-			account, err := auth.authenticate(request.ctx, openBrowser, request.action.Kind == "connect-structures")
+			account, err := auth.authenticate(request.ctx, openBrowser, request.action.Scopes)
 			request.cancel()
 			stop()
 			if ctx.Err() != nil {
@@ -86,9 +137,7 @@ func (ui *analyzerUI) watchESILogins(ctx context.Context, source *esiService, re
 			}
 			fyne.DoAndWait(func() {
 				ui.cancelESILogin = nil
-				ui.connect.Enable()
-				ui.connectStructures.Enable()
-				ui.cancelLogin.Hide()
+				ui.setESILoginPending(false)
 				if err != nil {
 					ui.setESIStatus("EVE sign-in: " + err.Error())
 					reportRuntimeError("EVE sign-in", err)
@@ -96,6 +145,9 @@ func (ui *analyzerUI) watchESILogins(ctx context.Context, source *esiService, re
 						dialog.ShowError(err, ui.window)
 					}
 				} else {
+					if ui.esiLoginDialog != nil {
+						ui.esiLoginDialog.Hide()
+					}
 					select {
 					case <-result.taken:
 						// Already adopted; leave its new refresh running.

@@ -25,7 +25,6 @@ func (ui *analyzerUI) initESISettings() {
 			ui.esiSettingsDirty = true
 		}
 	}
-	ui.tokenConnections = container.NewVBox(widget.NewLabel("No saved character tokens yet."))
 }
 
 func parseESICallback(value string) (int, error) {
@@ -72,7 +71,12 @@ func (ui *analyzerUI) requestESIConfiguration(kind string) {
 		clientID = defaultESIClientID
 	}
 	action := esiAction{Kind: kind, ClientID: clientID, CallbackPort: port}
-	if kind == "connect" || kind == "connect-structures" {
+	if kind == "connect" {
+		for _, check := range ui.loginScopeChecks {
+			if check.Checked {
+				action.Scopes = append(action.Scopes, check.Text)
+			}
+		}
 		ui.requestESILogin(action)
 		return
 	}
@@ -92,16 +96,9 @@ func (ui *analyzerUI) openESISettings() {
 		applicationForm,
 		widget.NewLabel("Scopes:\n"+shipScope+"\n"+locationScope+"\n"+structureScope), widget.NewHyperlink("Open EVE developer applications", portal),
 		widget.NewButton("Save application configuration", func() { ui.requestESIConfiguration("configure") })))
-	signInNote := widget.NewLabel("Sign in with EVE Online for ship and location access. To also resolve player-owned structure names, first enable " + structureScope + " in your EVE application's registration, then choose Sign in for structure names. If that sign-in reports invalid_scope, use the normal sign-in until the registration is updated. Tokens are received and renewed automatically.")
-	signInNote.Wrapping = fyne.TextWrapWord
-	signInControls := container.NewVBox(signInNote, container.NewHBox(ui.connect, ui.connectStructures, ui.cancelLogin), widget.NewSeparator(), widget.NewLabel("SAVED CHARACTER TOKENS"))
-	tokens := container.NewBorder(signInControls, nil, nil, nil, container.NewVScroll(ui.tokenConnections))
-	ui.esiSettingsTabs = container.NewAppTabs(container.NewTabItem("Application", application), container.NewTabItem("Character tokens", tokens))
-	security := widget.NewLabel("Sign-ins are saved encrypted for your Windows user. Saved token values are never displayed here.")
-	security.Wrapping = fyne.TextWrapWord
-	content := container.NewBorder(nil, security, nil, nil, ui.esiSettingsTabs)
-	ui.esiDialog = dialog.NewCustom("ESI configuration", "Close", content, ui.window)
+	ui.esiApplication = application
+	ui.esiDialog = dialog.NewCustom("ESI configuration", "Close", application, ui.window)
 	ui.esiDialog.SetOnClosed(func() { ui.esiDialog = nil })
-	ui.esiDialog.Resize(fyne.NewSize(920, 720))
+	ui.esiDialog.Resize(fyne.NewSize(780, 420))
 	ui.esiDialog.Show()
 }
