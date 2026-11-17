@@ -25,9 +25,9 @@ type esiLoginResult struct {
 }
 
 func (ui *analyzerUI) initESILoginScopes() {
-	for index, scope := range []string{shipScope, locationScope, structureScope} {
+	for _, scope := range []string{shipScope, locationScope, structureScope} {
 		check := widget.NewCheck(scope, nil)
-		check.SetChecked(index < 2)
+		check.SetChecked(true)
 		ui.loginScopeChecks = append(ui.loginScopeChecks, check)
 	}
 }

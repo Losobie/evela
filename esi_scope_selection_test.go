@@ -74,10 +74,11 @@ func TestESIScopeDialogSelectionAndCloseCancels(t *testing.T) {
 	t.Cleanup(window.Close)
 	ui := newAnalyzerUI(window)
 	ui.openESILogin()
-	if len(ui.loginScopeChecks) != 3 || !ui.loginScopeChecks[0].Checked || !ui.loginScopeChecks[1].Checked || ui.loginScopeChecks[2].Checked {
+	if len(ui.loginScopeChecks) != 3 || !ui.loginScopeChecks[0].Checked || !ui.loginScopeChecks[1].Checked || !ui.loginScopeChecks[2].Checked {
 		t.Fatal("unexpected initial scope choices")
 	}
 	ui.loginScopeChecks[0].SetChecked(false)
+	ui.loginScopeChecks[2].SetChecked(false)
 	test.Tap(ui.loginSubmit)
 	request := <-ui.esiLogins
 	defer request.cancel()

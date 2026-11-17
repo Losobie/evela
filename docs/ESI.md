@@ -8,7 +8,7 @@ ESI is optional. Evela can analyze local logs without a connection; sign in to r
 
 1. Open **ESI & ships**. **Configure ESI** opens the application form directly, with default Client ID and callback values as grey placeholders. Leave the fields blank to use those defaults, or type your own values.
 2. Choose **Sign in with EVE Online** to open the scope-selection dialog.
-3. Select ship access, location access and/or structure-name access, then choose **Sign in**. Ship and location are selected initially; structure names are initially unchecked. All three scopes are optional, including signing in without data scopes. Only the checked scopes are requested, and the EVE application registration must allow them.
+3. Select ship access, location access and/or structure-name access, then choose **Sign in**. All three scopes are selected initially and can be unchecked, including signing in without data scopes. Only the checked scopes are requested, and the EVE application registration must allow them.
 4. Authorize a character in the browser. Repeat for each character. Log characters match by name, ignoring capitalization. Enable **Refresh every 30 seconds** on the right to poll the granted data access automatically. A successful sign-in also refreshes once immediately.
 
 Only one browser sign-in runs at a time. **Cancel sign-in** releases the local callback listener so you can retry. Background ship/location refreshes can continue during sign-in.
