@@ -37,7 +37,7 @@ func (ui *analyzerUI) initESI() {
 	ui.shipAuto = widget.NewCheck("Refresh every 30 seconds", nil)
 	ui.shipAuto.SetChecked(true)
 	ui.connect = widget.NewButton("Sign in with EVE Online", ui.openESILogin)
-	ui.loginSubmit = widget.NewButton("Sign in", func() { ui.requestESIConfiguration("connect") })
+	ui.loginSubmit = widget.NewButton("Add character", func() { ui.requestESIConfiguration("connect") })
 	ui.cancelLogin = widget.NewButton("Cancel sign-in", func() {
 		if ui.cancelESILogin != nil {
 			ui.cancelESILogin()
@@ -195,8 +195,12 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 			if err := service.acceptLogin(result.action.ClientID, result.action.CallbackPort, result.account); err != nil {
 				reportRuntimeError("Save EVE sign-in", err)
 				publish("EVE sign-in: " + err.Error())
+				fyne.DoAndWait(func() {
+					ui.showESILoginStatus("Could not add " + result.account.Ship.CharacterName + ": " + err.Error())
+				})
 			} else {
 				publish("Connected " + result.account.Ship.CharacterName + ".")
+				fyne.DoAndWait(func() { ui.showESILoginStatus("Added character: " + result.account.Ship.CharacterName) })
 				refresh()
 			}
 		case locations := <-ui.logLocationUpdates:

@@ -117,6 +117,8 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 		ui.esiDialog.Hide()
 		ui.openESILogin()
 		capture(path + ".login.png")
+		ui.showESILoginStatus("Added character: Test Pilot")
+		capture(path + ".success.png")
 		ui.esiLoginDialog.Hide()
 		ui.openESISettings()
 	}

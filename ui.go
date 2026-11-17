@@ -88,6 +88,7 @@ type analyzerUI struct {
 	shipAuto                          *widget.Check
 	connect, loginSubmit, cancelLogin *widget.Button
 	loginScopeChecks                  []*widget.Check
+	loginStatus                       *widget.Label
 	esiLoginDialog                    *dialog.CustomDialog
 	esiApplication                    fyne.CanvasObject
 	esiActions                        chan esiAction

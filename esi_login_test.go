@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/test"
 )
 
@@ -100,6 +101,7 @@ func TestESILoginsOpenDuringBlockedRefreshAndPreserveAccounts(t *testing.T) {
 		}
 	}
 	waitRefresh()
+	var signInDialog *dialog.CustomDialog
 	for attempt := 0; attempt < 2; attempt++ {
 		// Wait for UI completion of the previous sign-in, as a user would.
 		deadline := time.Now().Add(5 * time.Second)
@@ -115,7 +117,15 @@ func TestESILoginsOpenDuringBlockedRefreshAndPreserveAccounts(t *testing.T) {
 			time.Sleep(time.Millisecond)
 		}
 		fyne.DoAndWait(func() {
-			test.Tap(ui.connect)
+			if attempt == 0 {
+				test.Tap(ui.connect)
+				signInDialog = ui.esiLoginDialog
+			} else if ui.esiLoginDialog != signInDialog {
+				t.Error("adding another character recreated the sign-in dialog")
+			}
+			if ui.loginSubmit.Text != "Add character" {
+				t.Error("incorrect sign-in button label")
+			}
 			ui.loginScopeChecks[2].SetChecked(attempt == 1)
 			test.Tap(ui.loginSubmit)
 			if !ui.connect.Disabled() || !ui.loginSubmit.Disabled() {
@@ -151,6 +161,9 @@ func TestESILoginsOpenDuringBlockedRefreshAndPreserveAccounts(t *testing.T) {
 		}
 		waitRefresh()
 		fyne.DoAndWait(func() {
+			if ui.esiLoginDialog != signInDialog || !ui.loginStatus.Visible() || ui.loginStatus.Text != "Added character: Test Pilot" {
+				t.Errorf("successful sign-in closed the dialog or omitted the character: %q", ui.loginStatus.Text)
+			}
 			if len(ui.ships) != 2 || ui.ships[characterKey("Existing Pilot")].CharacterID != 456 || ui.ships[characterKey("Test Pilot")].CharacterID != 123 {
 				t.Error("adopting a login lost a connected character")
 			}

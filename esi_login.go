@@ -25,6 +25,8 @@ type esiLoginResult struct {
 }
 
 func (ui *analyzerUI) initESILoginScopes() {
+	ui.loginStatus = widget.NewLabel("")
+	ui.loginStatus.Truncation = fyne.TextTruncateEllipsis
 	for _, scope := range []string{shipScope, locationScope, structureScope} {
 		check := widget.NewCheck(scope, nil)
 		check.SetChecked(true)
@@ -41,6 +43,7 @@ func (ui *analyzerUI) openESILogin() {
 	for _, check := range ui.loginScopeChecks {
 		content.Add(check)
 	}
+	content.Add(ui.loginStatus)
 	content.Add(container.NewHBox(ui.loginSubmit, ui.cancelLogin))
 	ui.esiLoginDialog = dialog.NewCustom("Sign in with EVE Online", "Close", content, ui.window)
 	ui.esiLoginDialog.SetOnClosed(func() {
@@ -49,8 +52,12 @@ func (ui *analyzerUI) openESILogin() {
 		}
 		ui.esiLoginDialog = nil
 	})
-	ui.esiLoginDialog.Resize(fyne.NewSize(580, 270))
+	ui.esiLoginDialog.Resize(fyne.NewSize(580, 310))
 	ui.esiLoginDialog.Show()
+}
+
+func (ui *analyzerUI) showESILoginStatus(message string) {
+	ui.loginStatus.SetText(message)
 }
 
 func (ui *analyzerUI) setESILoginPending(pending bool) {
@@ -83,6 +90,7 @@ func (ui *analyzerUI) requestESILogin(action esiAction) {
 	select {
 	case ui.esiLogins <- esiLoginRequest{action: action, ctx: ctx, cancel: cancel}:
 		ui.cancelESILogin = cancel
+		ui.loginStatus.SetText("")
 		ui.setESILoginPending(true)
 		ui.setESIStatus("Opening EVE sign-in…")
 	default:
@@ -145,9 +153,6 @@ func (ui *analyzerUI) watchESILogins(ctx context.Context, source *esiService, re
 						dialog.ShowError(err, ui.window)
 					}
 				} else {
-					if ui.esiLoginDialog != nil {
-						ui.esiLoginDialog.Hide()
-					}
 					select {
 					case <-result.taken:
 						// Already adopted; leave its new refresh running.
