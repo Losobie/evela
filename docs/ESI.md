@@ -13,6 +13,8 @@ ESI is optional. Evela can analyze local logs without a connection; sign in to r
 
 Only one browser sign-in runs at a time. **Cancel sign-in** releases the local callback listener so you can retry. Background ship/location refreshes can continue during sign-in.
 
+The table's **Scopes** column, immediately before **ESI Status**, lists granted access as **Ship**, **Location**, and **Structures**, or **All** when all three are granted. **None** means no supported data scopes are granted; **Unknown** means legacy permissions have not yet been identified. Missing scopes alone leave **ESI Status** as **OK**; actual authentication, network and lookup failures remain visible.
+
 Use **Ship & Location History** to inspect recorded observations. Ship type/class and system filters use history at the event timestamp, not the character's present ship or location. Evela cannot recover ship observations from before tracking began. See [history timing and attribution](DATA.md#ship-and-location-history) for coverage rules.
 
 ## Use your own EVE application

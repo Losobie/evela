@@ -273,7 +273,7 @@ func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
 				}
 			}
 		}
-		ui.esiRows = append(ui.esiRows, [5]string{record.CharacterName, checked, text, locationText, characterESIStatus(record)})
+		ui.esiRows = append(ui.esiRows, [6]string{record.CharacterName, checked, text, locationText, characterESIScopes(record.Scopes), characterESIStatus(record)})
 	}
 	ui.esiConnections.Refresh()
 	ui.rebuildView()

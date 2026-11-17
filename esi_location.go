@@ -36,7 +36,8 @@ func (service *esiService) refreshLocation(ctx context.Context, account *esiAcco
 		}
 	}
 	if !slices.Contains(account.Token.Scopes, locationScope) {
-		account.Location.Error = "Location tracking disabled: select " + locationScope + " and sign in again"
+		account.Location.Error = locationScopeMissing
+		account.Location.NameError, account.Location.DockedNameError = "", ""
 		return nil // Existing ship-only connections remain usable.
 	}
 	now := time.Now()
@@ -46,7 +47,8 @@ func (service *esiService) refreshLocation(ctx context.Context, account *esiAcco
 		}
 	}
 	if !slices.Contains(account.Token.Scopes, locationScope) {
-		account.Location.Error = "Location tracking disabled: select " + locationScope + " and sign in again"
+		account.Location.Error = locationScopeMissing
+		account.Location.NameError, account.Location.DockedNameError = "", ""
 		return nil
 	}
 	var response struct {

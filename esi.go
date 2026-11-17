@@ -20,6 +20,9 @@ import (
 const shipScope = "esi-location.read_ship_type.v1"
 const locationScope = "esi-location.read_location.v1"
 const structureScope = "esi-universe.read_structures.v1"
+const shipScopeMissing = "Ship tracking disabled: select " + shipScope + " and sign in again"
+const locationScopeMissing = "Location tracking disabled: select " + locationScope + " and sign in again"
+const structureScopeMissing = "Structure name unavailable: select " + structureScope + " when signing in"
 const defaultESIClientID = "b680ade5175c4385a1e800b4bedb70bb"
 const defaultESICallbackPort = 8080
 
@@ -47,6 +50,7 @@ type shipRecord struct {
 	TokenExpiresAt     time.Time      `json:"-"`
 	CanRefresh         bool           `json:"-"`
 	Location           locationRecord `json:"-"`
+	Scopes             []string       `json:"-"`
 }
 
 func characterKey(name string) string { return strings.ToLower(strings.TrimSpace(name)) }
@@ -194,6 +198,7 @@ func (service *esiService) records() []shipRecord {
 	for _, account := range service.config.Accounts {
 		record := account.Ship
 		record.Location = account.Location
+		record.Scopes = slices.Clone(account.Token.Scopes)
 		record.TokenExpiresAt, record.CanRefresh = account.Token.ExpiresAt, account.Token.RefreshToken != ""
 		records = append(records, record)
 	}
@@ -350,7 +355,7 @@ func (service *esiService) refreshShips(ctx context.Context) error {
 			issues = append(issues, account.Ship.CharacterName+": "+err.Error())
 		} else {
 			for _, issue := range []string{account.Location.NameError, account.Location.DockedNameError} {
-				if issue != "" {
+				if issue != "" && issue != structureScopeMissing {
 					issues = append(issues, account.Ship.CharacterName+": "+issue)
 				}
 			}
@@ -384,7 +389,7 @@ func (service *esiService) refreshShip(ctx context.Context, account *esiAccount)
 		}
 	}
 	if account.Token.Scopes != nil && !slices.Contains(account.Token.Scopes, shipScope) {
-		account.Ship.Error = "Ship tracking disabled: select " + shipScope + " and sign in again"
+		account.Ship.Error = shipScopeMissing
 		account.Ship.ClassError = ""
 		return nil
 	}

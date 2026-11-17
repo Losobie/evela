@@ -111,4 +111,8 @@ func TestESINoScopesSurviveRestartWithoutPrivateQueries(t *testing.T) {
 	if f.shipRequests.Load() != 0 || f.locationRequests.Load() != 0 {
 		t.Fatal("unchecked scopes still caused private ESI queries")
 	}
+	record := f.service.records()[0]
+	if characterESIScopes(record.Scopes) != "None" || characterESIStatus(record) != "OK" {
+		t.Fatalf("missing scopes should not be an error: %+v", record)
+	}
 }
