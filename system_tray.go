@@ -17,17 +17,30 @@ const (
 	closeActionQuit       = "quit"
 )
 
-func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow func()) bool {
+func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow func()) (minimize, stopListening func()) {
 	tray, ok := application.(desktop.App)
 	if !ok {
-		return false
+		return nil, nil
 	}
 
-	exit := fyne.NewMenuItem("Exit", application.Quit)
+	var stopRestore func()
+	stopListening = func() {
+		if stopRestore != nil {
+			stopRestore()
+			stopRestore = nil
+		}
+	}
+	quit := func() {
+		stopListening()
+		application.Quit()
+	}
+	exit := fyne.NewMenuItem("Exit", quit)
 	exit.IsQuit = true
 	show := func() {
+		stopListening()
 		ui.window.Show()
 		initializeWindow()
+		ui.window.RequestFocus()
 		ui.resumeForegroundWork()
 	}
 	tray.SetSystemTrayMenu(fyne.NewMenu("Evela",
@@ -39,9 +52,16 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 	systray.SetOnTapped(func() { fyne.Do(show) })
 
 	window := ui.window
-	minimize := func() {
+	minimize = func() {
 		ui.pauseForegroundWork()
 		window.Hide()
+		stopRestore = listenForTrayRestore(func() {
+			fyne.Do(func() {
+				if stopRestore != nil {
+					show()
+				}
+			})
+		})
 	}
 	prefs := application.Preferences()
 	var closePrompt *dialog.CustomDialog
@@ -54,7 +74,7 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 			minimize()
 			return
 		case closeActionQuit:
-			application.Quit()
+			quit()
 			return
 		}
 
@@ -76,12 +96,12 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 		prompt.SetButtons([]fyne.CanvasObject{
 			widget.NewButton("Cancel", prompt.Hide),
 			widget.NewButton("Minimize to tray", choose(closeActionMinimize, minimize)),
-			widget.NewButton("Close application", choose(closeActionQuit, application.Quit)),
+			widget.NewButton("Close application", choose(closeActionQuit, quit)),
 		})
 		closePrompt = prompt
 		prompt.Show()
 	})
-	return true
+	return minimize, stopListening
 }
 
 // The UI thread owns the foreground context and cancels it when the window

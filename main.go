@@ -9,6 +9,9 @@ import (
 )
 
 func main() {
+	if restoreTrayInstance() {
+		return
+	}
 	captureRuntimeErrors()
 	stopProfiling, err := startPerformanceProfiler(os.Getenv("EVELA_PROFILE_ADDR"))
 	if err != nil {
@@ -38,10 +41,13 @@ func main() {
 		ui.restoreWindowGeometry()
 		ui.initGraphMouseNavigation()
 	}
-	trayAvailable := ui.setupSystemTray(application, initializeWindow)
-	startInTray := trayAvailable && slices.Contains(os.Args[1:], startInTrayArg)
+	minimizeToTray, stopTrayRestore := ui.setupSystemTray(application, initializeWindow)
+	if stopTrayRestore != nil {
+		defer stopTrayRestore()
+	}
+	startInTray := minimizeToTray != nil && slices.Contains(os.Args[1:], startInTrayArg)
 	if startInTray {
-		ui.pauseForegroundWork()
+		minimizeToTray()
 	} else {
 		window.Show()
 	}
