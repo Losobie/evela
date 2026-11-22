@@ -44,7 +44,7 @@ go test -run TestLocalLogs -v
 
 The [release workflow](../.github/workflows/release.yml) runs on pushes to `main`, builds Windows x64, and publishes only after tests pass. Releases use numeric SemVer tags `v0.1.N`, where `N` is `git rev-list --count <commit>`. For example, commit 81 becomes `v0.1.81`. The workflow fetches full history so the number is stable across reruns and increases along `main`, including when several releases happen on the same day. Keep published history intact; changing the numbering scheme or rewriting history requires a separate version migration.
 
-Each release attaches `evela.exe`, `evela.zip`, `LICENSE` and `THIRD_PARTY_NOTICES.txt`. The ZIP contains only the executable; notices are also embedded and available through **About → Licenses**.
+Each release attaches `evela.exe`, `evela.zip`, `LICENSE` and `THIRD_PARTY_NOTICES.txt`. The ZIP contains only the executable. Embedded notices are available through **Help → Licenses**.
 
 New pushes cancel older runs. A run checks that its commit is still the tip of `main` before publishing, and rerunning that commit updates its existing release. The workflow uses GitHub's built-in token, with no additional secrets. Go module/build caches and the MSYS2 action cache reduce repeat setup work. Cold Fyne/CGO builds can take several minutes; separate download, compile and test steps provide progress and time limits.
 
