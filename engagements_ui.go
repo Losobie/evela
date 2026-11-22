@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -150,11 +151,34 @@ func (ui *analyzerUI) openEngagement(row engagement) {
 	if !row.End.After(row.Start) {
 		return
 	}
+	start, end := engagementGraphRange(row, ui.snapshot)
+	ui.applyGraphRange(start, end)
+	ui.tabs.SelectIndex(0)
+}
+
+func engagementGraphRange(row engagement, snapshot *logSnapshot) (time.Time, time.Time) {
 	// Graph bounds use whole seconds. Round padding outward so both sides get
 	// context, even for engagements lasting only a few seconds.
 	padding := (row.End.Sub(row.Start)/10 + time.Second - 1).Truncate(time.Second)
-	ui.applyGraphRange(row.Start.Add(-padding), row.End.Add(padding))
-	ui.tabs.SelectIndex(0)
+	start, end := row.Start.Add(-padding), row.End.Add(padding)
+	const nearby = 30 * time.Second
+	if padding >= nearby+time.Second {
+		return start, end
+	}
+	// Notifications and travel can explain the activity without defining the
+	// engagement. Look near its original edges so context cannot chain outward.
+	first, last := row.Start.Add(-nearby).Unix(), row.End.Add(nearby).Unix()
+	startSecond, endSecond := start.Unix(), end.Unix()
+	for _, log := range snapshot.Logs {
+		seconds := log.EntrySeconds
+		left, _ := slices.BinarySearch(seconds, first)
+		right, _ := slices.BinarySearch(seconds, last)
+		if left < right {
+			startSecond = min(startSecond, seconds[left]-1)
+			endSecond = max(endSecond, seconds[right-1]+2) // End is exclusive.
+		}
+	}
+	return time.Unix(startSecond, 0).UTC(), time.Unix(endSecond, 0).UTC()
 }
 
 // The shared selection surface owns input; cell contents only render text.

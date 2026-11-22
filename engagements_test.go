@@ -207,6 +207,41 @@ func TestOpenEngagementPaddingRoundsOutward(t *testing.T) {
 	}
 }
 
+func TestOpenShortEngagementIncludesNearbyRecords(t *testing.T) {
+	ui, _ := newGraphHistoryTestUI(t)
+	parse := func(log string) *parsedLog {
+		t.Helper()
+		parsed, err := parseLog(strings.NewReader(log))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return parsed
+	}
+	ui.snapshot = &logSnapshot{Logs: []*parsedLog{
+		parse(`Listener: Gunner
+[ 2026.11.22 04:00:16 ] (notify) Systems are recalibrating.
+[ 2026.11.22 04:00:22 ] (combat) 965 to Amarr Control Tower Small[CORP](Amarr Control Tower Small) - Railgun - Hits
+[ 2026.11.22 04:00:39 ] (combat) 841 to Amarr Control Tower Small[CORP](Amarr Control Tower Small) - Railgun - Hits
+[ 2026.11.22 04:00:45 ] (notify) Loading a charge.`),
+		parse(`Listener: Fleetmate
+[ 2026.11.22 03:59:47 ] (None) Jumping from Emrayur to Lossa
+[ 2026.11.22 03:59:59 ] (notify) Following Gunner in warp
+[ 2026.11.22 04:00:51 ] (notify) Following Gunner in warp
+[ 2026.11.22 04:01:26 ] (None) Jumping from Onazel to Asesamy`),
+	}}
+	ui.snapshot.Characters = []string{"Fleetmate", "Gunner"}
+	rows, err := buildEngagements(context.Background(), ui.snapshot, locationResolver{}, nil)
+	if err != nil || len(rows) != 1 || rows[0].End.Sub(rows[0].Start) != 18*time.Second {
+		t.Fatalf("nearby records changed the engagement duration: %v, %v", rows, err)
+	}
+	ui.openEngagement(rows[0])
+	wantStart := time.Date(2026, 11, 22, 3, 59, 58, 0, time.UTC)
+	wantEnd := time.Date(2026, 11, 22, 4, 0, 53, 0, time.UTC)
+	if !ui.view.Start.Equal(wantStart) || !ui.view.End.Equal(wantEnd) {
+		t.Fatalf("range = %s to %s, want %s to %s", ui.view.Start, ui.view.End, wantStart, wantEnd)
+	}
+}
+
 func TestEngagementBuildCancellationRejectsStaleResults(t *testing.T) {
 	application := test.NewTempApp(t)
 	window := application.NewWindow("Engagement cancellation")

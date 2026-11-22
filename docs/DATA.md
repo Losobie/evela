@@ -105,7 +105,7 @@ Combat and mining outrank support activity. Between them, distinct active second
 
 Summaries show up to three systems, two target/attacker groups and two own-ship groups. A group with a single hull or NPC name uses that name; mixed groups use the class/type. Own ships are resolved at activity timestamps; unknown ship details are omitted.
 
-Double-clicking opens Graphs with the actual start/end, including the final activity second, plus 10% of the duration on each side. Padding rounds up to whole seconds, with at least one second per side. Existing graph filters apply, and range undo restores the previous view.
+Double-clicking opens Graphs with the actual start/end, including the final activity second, plus 10% of the duration on each side. Padding rounds up to whole seconds, with at least one second per side. Records within 30 seconds of the activity boundaries can widen the opening range, with one extra second beyond those records. The displayed engagement duration is based on qualifying activity. Existing graph filters apply, and range undo restores the previous view.
 
 ## Ship and location history
 
