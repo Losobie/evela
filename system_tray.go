@@ -23,8 +23,8 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 		return false
 	}
 
-	quit := fyne.NewMenuItem("Quit", application.Quit)
-	quit.IsQuit = true
+	exit := fyne.NewMenuItem("Exit", application.Quit)
+	exit.IsQuit = true
 	show := func() {
 		ui.window.Show()
 		initializeWindow()
@@ -33,7 +33,7 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 	tray.SetSystemTrayMenu(fyne.NewMenu("Evela",
 		fyne.NewMenuItem("Show Evela", show),
 		fyne.NewMenuItemSeparator(),
-		quit,
+		exit,
 	))
 	// Route both tray actions through the same restore path.
 	systray.SetOnTapped(func() { fyne.Do(show) })
