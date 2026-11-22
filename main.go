@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"slices"
 
 	"fyne.io/fyne/v2"
 )
@@ -22,20 +23,36 @@ func main() {
 	ui := newAnalyzerUI(window)
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
-	window.SetOnClosed(func() {
+	window.SetOnClosed(ui.saveWindowGeometry)
+	defer func() {
 		ui.cancelForeground()
-		ui.saveWindowGeometry()
 		ui.engagements.cancelBuild()
 		close(ui.stop)
-	})
-	ui.setupSystemTray(application)
+	}()
+	windowInitialized := false
+	initializeWindow := func() {
+		if windowInitialized {
+			return
+		}
+		windowInitialized = true
+		ui.restoreWindowGeometry()
+		ui.initGraphMouseNavigation()
+	}
+	trayAvailable := ui.setupSystemTray(application, initializeWindow)
+	startInTray := trayAvailable && slices.Contains(os.Args[1:], startInTrayArg)
+	if startInTray {
+		ui.pauseForegroundWork()
+	} else {
+		window.Show()
+	}
 	go ui.watch()
 	go ui.watchESI()
 	ui.requestLoad()
 	application.Lifecycle().SetOnStarted(func() {
-		ui.restoreWindowGeometry()
-		ui.initGraphMouseNavigation()
+		if !startInTray {
+			initializeWindow()
+		}
 		go ui.watchReleases()
 	})
-	window.ShowAndRun()
+	application.Run()
 }

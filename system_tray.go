@@ -17,16 +17,17 @@ const (
 	closeActionQuit       = "quit"
 )
 
-func (ui *analyzerUI) setupSystemTray(application fyne.App) {
+func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow func()) bool {
 	tray, ok := application.(desktop.App)
 	if !ok {
-		return
+		return false
 	}
 
 	quit := fyne.NewMenuItem("Quit", application.Quit)
 	quit.IsQuit = true
 	show := func() {
 		ui.window.Show()
+		initializeWindow()
 		ui.resumeForegroundWork()
 	}
 	tray.SetSystemTrayMenu(fyne.NewMenu("Evela",
@@ -80,6 +81,7 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App) {
 		closePrompt = prompt
 		prompt.Show()
 	})
+	return true
 }
 
 // The UI thread owns the foreground context and cancels it when the window
