@@ -5,7 +5,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
 	"fyne.io/systray"
@@ -64,9 +63,10 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 		})
 	}
 	prefs := application.Preferences()
-	var closePrompt *dialog.CustomDialog
+	var closePrompt fyne.Window
 	window.SetCloseIntercept(func() {
 		if closePrompt != nil {
+			closePrompt.RequestFocus()
 			return
 		}
 		switch prefs.String(closeActionPreference) {
@@ -79,27 +79,31 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 		}
 
 		remember := widget.NewCheck("Remember my choice", nil)
-		prompt := dialog.NewCustomWithoutButtons("Close Evela", container.NewVBox(
-			widget.NewLabel("Minimize Evela to the system tray or close the application?"),
-			remember,
-		), window)
+		prompt := application.NewWindow("Close Evela")
 		prompt.SetOnClosed(func() { closePrompt = nil })
 		choose := func(action string, run func()) func() {
 			return func() {
 				if remember.Checked {
 					prefs.SetString(closeActionPreference, action)
 				}
-				prompt.Hide()
+				prompt.Close()
 				run()
 			}
 		}
-		prompt.SetButtons([]fyne.CanvasObject{
-			widget.NewButton("Cancel", prompt.Hide),
-			widget.NewButton("Minimize to tray", choose(closeActionMinimize, minimize)),
-			widget.NewButton("Close application", choose(closeActionQuit, quit)),
-		})
+		prompt.SetContent(container.NewPadded(container.NewVBox(
+			widget.NewLabel("Minimize Evela to the system tray or close the application?"),
+			remember,
+			container.NewGridWithColumns(3,
+				widget.NewButton("Cancel", prompt.Close),
+				widget.NewButton("Minimize to tray", choose(closeActionMinimize, minimize)),
+				widget.NewButton("Close application", choose(closeActionQuit, quit)),
+			),
+		)))
+		prompt.SetFixedSize(true)
+		prompt.CenterOnScreen()
 		closePrompt = prompt
 		prompt.Show()
+		prompt.RequestFocus()
 	})
 	return minimize, stopListening
 }
