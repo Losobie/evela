@@ -72,10 +72,14 @@ func (ui *analyzerUI) appearanceMenu() *fyne.Menu {
 func (ui *analyzerUI) settingsMenu() *fyne.Menu {
 	appearance := fyne.NewMenuItem("Theme", nil)
 	appearance.ChildMenu = ui.appearanceMenu()
+	exit := fyne.NewMenuItem("Exit", nil)
+	exit.IsQuit = true // Let Fyne use the existing window close handler.
 	return fyne.NewMenu("Settings", appearance,
 		fyne.NewMenuItem("Log loading", ui.openLogLoadingSettings),
 		fyne.NewMenuItem("Character groups", ui.openCharacterGroupSettings),
 		fyne.NewMenuItem("Startup & Tray", ui.openStartupTraySettings),
+		fyne.NewMenuItemSeparator(),
+		exit,
 	)
 }
 
