@@ -208,7 +208,7 @@ func TestOpenEngagementPaddingRoundsOutward(t *testing.T) {
 	}
 }
 
-func TestOpenShortEngagementIncludesNearbyRecords(t *testing.T) {
+func TestOpenShortEngagementShowsRollingDPSTail(t *testing.T) {
 	ui, _ := newGraphHistoryTestUI(t)
 	parse := func(log string) *parsedLog {
 		t.Helper()
@@ -236,13 +236,13 @@ func TestOpenShortEngagementIncludesNearbyRecords(t *testing.T) {
 	if err != nil || len(rows) != 1 || rows[0].End.Sub(rows[0].Start) != 18*time.Second {
 		t.Fatalf("nearby records changed the engagement duration: %v, %v", rows, err)
 	}
-	wantStart := time.Date(2026, 11, 22, 3, 59, 58, 0, time.UTC)
+	wantStart := time.Date(2026, 11, 22, 4, 0, 20, 0, time.UTC)
 	for _, tc := range []struct {
 		average time.Duration
 		end     time.Time
 	}{
-		{0, time.Date(2026, 11, 22, 4, 0, 53, 0, time.UTC)},
-		{10 * time.Second, time.Date(2026, 11, 22, 4, 0, 53, 0, time.UTC)},
+		{0, time.Date(2026, 11, 22, 4, 0, 42, 0, time.UTC)},
+		{10 * time.Second, time.Date(2026, 11, 22, 4, 0, 50, 0, time.UTC)},
 		{30 * time.Second, time.Date(2026, 11, 22, 4, 1, 10, 0, time.UTC)},
 	} {
 		ui.graphAverageWindow = tc.average

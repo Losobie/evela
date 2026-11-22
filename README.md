@@ -34,7 +34,7 @@ Engagements are separated by at least **ten minutes without activity**. Summarie
 
 Zero-value repairs and capacitor transfers do not create or extend engagements. Damage and sustained mining take priority in summaries.
 
-Select a row to read its full summary. **Double-click a row**, or highlight it with the arrow keys and press **Enter**, to open Graphs with 10% extra time before and after the engagement. The range can extend farther to include records within 30 seconds of the engagement's edges. Existing graph filters still apply. The engagement list covers all loaded logs independently of the graph range and filters, and loads only when you open the tab.
+Select a row to read its full summary. **Double-click a row**, or highlight it with the arrow keys and press **Enter**, to open Graphs with 10% extra time before and after the engagement. When DPS averaging is enabled, the end extends as needed to show the average return to zero. Existing graph filters still apply. The engagement list covers all loaded logs independently of the graph range and filters, and loads only when you open the tab.
 
 ### Explore graphs
 
