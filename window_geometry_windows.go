@@ -21,6 +21,8 @@ var (
 	clientToScreen     = windowUser32.NewProc("ClientToScreen")
 	getWindowRect      = windowUser32.NewProc("GetWindowRect")
 	setWindowPos       = windowUser32.NewProc("SetWindowPos")
+	getWindowLong      = windowUser32.NewProc("GetWindowLongW")
+	setWindowLong      = windowUser32.NewProc("SetWindowLongW")
 )
 
 type windowPoint struct{ X, Y int32 }
@@ -112,8 +114,13 @@ func showCenteredOnClient(prompt, parent fyne.Window) {
 	prompt.CenterOnScreen()
 	prompt.Show()
 
-	parentHandle, promptHandle := nativeWindowHandle(parent), nativeWindowHandle(prompt)
-	if parentHandle == 0 || promptHandle == 0 {
+	promptHandle := nativeWindowHandle(prompt)
+	if promptHandle == 0 {
+		return
+	}
+	removeDialogMinMaxButtons(promptHandle)
+	parentHandle := nativeWindowHandle(parent)
+	if parentHandle == 0 {
 		return
 	}
 	var client windowRect
@@ -143,5 +150,30 @@ func showCenteredOnClient(prompt, parent fyne.Window) {
 		if ok == 0 {
 			return
 		}
+	}
+}
+
+func removeDialogMinMaxButtons(hwnd uintptr) {
+	const (
+		styleIndex  = ^uintptr(15) // GWL_STYLE (-16)
+		minimizeBox = 0x00020000   // WS_MINIMIZEBOX
+		maximizeBox = 0x00010000   // WS_MAXIMIZEBOX
+		updateFrame = 0x0037       // SWP_FRAMECHANGED | SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE
+	)
+	style, _, err := getWindowLong.Call(hwnd, styleIndex)
+	if style == 0 {
+		fyne.LogError("Read dialog window style", err)
+		return
+	}
+	newStyle := style &^ (minimizeBox | maximizeBox)
+	if newStyle == style {
+		return
+	}
+	if ok, _, err := setWindowLong.Call(hwnd, styleIndex, newStyle); ok == 0 {
+		fyne.LogError("Remove dialog minimize and maximize buttons", err)
+		return
+	}
+	if ok, _, err := setWindowPos.Call(hwnd, 0, 0, 0, 0, 0, updateFrame); ok == 0 {
+		fyne.LogError("Refresh dialog window frame", err)
 	}
 }
