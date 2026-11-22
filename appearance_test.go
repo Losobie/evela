@@ -75,8 +75,8 @@ func TestAppearanceMenuUpdatesChartsAndPersists(t *testing.T) {
 		if savedAppearance(application) != choice {
 			t.Fatalf("theme choice %s was not saved", choice)
 		}
-		if menus := ui.window.MainMenu().Items; len(menus) != 2 || menus[0].Label != "Settings" || menus[1].Label != "About" {
-			t.Fatal("switching themes must preserve Settings and About menus")
+		if menus := ui.window.MainMenu().Items; len(menus) != 2 || menus[0].Label != "Settings" || menus[1].Label != "Help" {
+			t.Fatal("switching themes must preserve Settings and Help menus")
 		}
 		for _, item := range ui.window.MainMenu().Items[0].Items[0].ChildMenu.Items[:3] {
 			if item.Checked != (item.Label == choice) {

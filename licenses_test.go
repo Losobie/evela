@@ -41,7 +41,7 @@ func TestEmbeddedLicensesCoverPinnedDependenciesAndAssets(t *testing.T) {
 	}
 }
 
-func TestLicensesAreAccessibleFromAbout(t *testing.T) {
+func TestLicensesAreAccessibleFromHelp(t *testing.T) {
 	ui, _ := newEventsTestUI(t)
 	found := false
 	for _, item := range ui.window.MainMenu().Items[1].Items {
