@@ -152,6 +152,11 @@ func (ui *analyzerUI) openEngagement(row engagement) {
 		return
 	}
 	start, end := engagementGraphRange(row, ui.snapshot)
+	// The last activity is at End - 1s. Its average contribution expires one
+	// window later, and the exclusive range end must include that first zero.
+	if tailEnd := row.End.Add(ui.graphAverageWindow); tailEnd.After(end) {
+		end = tailEnd
+	}
 	ui.applyGraphRange(start, end)
 	ui.tabs.SelectIndex(0)
 }

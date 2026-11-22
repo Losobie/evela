@@ -198,6 +198,7 @@ func TestEngagementsLazyLoadingNavigationAndRefresh(t *testing.T) {
 
 func TestOpenEngagementPaddingRoundsOutward(t *testing.T) {
 	ui, start := newGraphHistoryTestUI(t)
+	ui.graphAverageWindow = 0
 	for _, tc := range []struct{ seconds, padding int }{{600, 60}, {77, 8}, {1, 1}} {
 		row := engagement{Start: start, End: start.Add(time.Duration(tc.seconds) * time.Second)}
 		ui.openEngagement(row)
@@ -230,15 +231,32 @@ func TestOpenShortEngagementIncludesNearbyRecords(t *testing.T) {
 [ 2026.11.22 04:01:26 ] (None) Jumping from Onazel to Asesamy`),
 	}}
 	ui.snapshot.Characters = []string{"Fleetmate", "Gunner"}
+	ui.selected["Gunner"] = true
 	rows, err := buildEngagements(context.Background(), ui.snapshot, locationResolver{}, nil)
 	if err != nil || len(rows) != 1 || rows[0].End.Sub(rows[0].Start) != 18*time.Second {
 		t.Fatalf("nearby records changed the engagement duration: %v, %v", rows, err)
 	}
-	ui.openEngagement(rows[0])
 	wantStart := time.Date(2026, 11, 22, 3, 59, 58, 0, time.UTC)
-	wantEnd := time.Date(2026, 11, 22, 4, 0, 53, 0, time.UTC)
-	if !ui.view.Start.Equal(wantStart) || !ui.view.End.Equal(wantEnd) {
-		t.Fatalf("range = %s to %s, want %s to %s", ui.view.Start, ui.view.End, wantStart, wantEnd)
+	for _, tc := range []struct {
+		average time.Duration
+		end     time.Time
+	}{
+		{0, time.Date(2026, 11, 22, 4, 0, 53, 0, time.UTC)},
+		{10 * time.Second, time.Date(2026, 11, 22, 4, 0, 53, 0, time.UTC)},
+		{30 * time.Second, time.Date(2026, 11, 22, 4, 1, 10, 0, time.UTC)},
+	} {
+		ui.graphAverageWindow = tc.average
+		ui.openEngagement(rows[0])
+		if !ui.view.Start.Equal(wantStart) || !ui.view.End.Equal(tc.end) {
+			t.Fatalf("%v average: range = %s to %s, want %s to %s", tc.average, ui.view.Start, ui.view.End, wantStart, tc.end)
+		}
+	}
+	if len(ui.outgoing.data.Series) != 1 {
+		t.Fatal("expected a DPS series for the gunner")
+	}
+	values := ui.outgoing.data.Series[0].Values
+	if len(values) < 2 || values[len(values)-2] <= 0 || values[len(values)-1] != 0 {
+		t.Fatal("the rolling DPS line did not fall back to zero at the end of the range")
 	}
 }
 
