@@ -19,3 +19,8 @@ func (ui *analyzerUI) saveWindowGeometry() {
 	prefs.SetFloat("window.width", float64(size.Width))
 	prefs.SetFloat("window.height", float64(size.Height))
 }
+
+func showCenteredOnClient(prompt, _ fyne.Window) {
+	prompt.CenterOnScreen()
+	prompt.Show()
+}

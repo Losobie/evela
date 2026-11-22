@@ -17,6 +17,10 @@ var (
 	windowUser32       = windows.NewLazySystemDLL("user32.dll")
 	getWindowPlacement = windowUser32.NewProc("GetWindowPlacement")
 	setWindowPlacement = windowUser32.NewProc("SetWindowPlacement")
+	getClientRect      = windowUser32.NewProc("GetClientRect")
+	clientToScreen     = windowUser32.NewProc("ClientToScreen")
+	getWindowRect      = windowUser32.NewProc("GetWindowRect")
+	setWindowPos       = windowUser32.NewProc("SetWindowPos")
 )
 
 type windowPoint struct{ X, Y int32 }
@@ -87,11 +91,57 @@ func (ui *analyzerUI) saveWindowGeometry() {
 }
 
 func (ui *analyzerUI) withNativeWindowHandle(action func(uintptr)) {
-	if window, ok := ui.window.(driver.NativeWindow); ok {
+	if hwnd := nativeWindowHandle(ui.window); hwnd != 0 {
+		action(hwnd)
+	}
+}
+
+func nativeWindowHandle(window fyne.Window) (hwnd uintptr) {
+	if window, ok := window.(driver.NativeWindow); ok {
 		window.RunNative(func(context any) {
-			if context, ok := context.(driver.WindowsWindowContext); ok && context.HWND != 0 {
-				action(context.HWND)
+			if context, ok := context.(driver.WindowsWindowContext); ok {
+				hwnd = context.HWND
 			}
 		})
+	}
+	return hwnd
+}
+
+func showCenteredOnClient(prompt, parent fyne.Window) {
+	// Fyne creates the native window and sets its frame size on Show.
+	prompt.CenterOnScreen()
+	prompt.Show()
+
+	parentHandle, promptHandle := nativeWindowHandle(parent), nativeWindowHandle(prompt)
+	if parentHandle == 0 || promptHandle == 0 {
+		return
+	}
+	var client windowRect
+	ok, _, _ := getClientRect.Call(parentHandle, uintptr(unsafe.Pointer(&client)))
+	if ok == 0 {
+		return
+	}
+	center := windowPoint{X: client.Right / 2, Y: client.Bottom / 2}
+	ok, _, _ = clientToScreen.Call(parentHandle, uintptr(unsafe.Pointer(&center)))
+	if ok == 0 {
+		return
+	}
+	const moveOnly = 0x0001 | 0x0004 | 0x0010 // SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
+	// A move between monitors can resize the frame when its DPI changes.
+	for range 2 {
+		var frame windowRect
+		ok, _, _ = getWindowRect.Call(promptHandle, uintptr(unsafe.Pointer(&frame)))
+		if ok == 0 {
+			return
+		}
+		x := center.X - (frame.Right-frame.Left)/2
+		y := center.Y - (frame.Bottom-frame.Top)/2
+		if frame.Left == x && frame.Top == y {
+			return
+		}
+		ok, _, _ = setWindowPos.Call(promptHandle, 0, uintptr(x), uintptr(y), 0, 0, moveOnly)
+		if ok == 0 {
+			return
+		}
 	}
 }

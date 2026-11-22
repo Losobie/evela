@@ -100,9 +100,8 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 			),
 		)))
 		prompt.SetFixedSize(true)
-		prompt.CenterOnScreen()
 		closePrompt = prompt
-		prompt.Show()
+		showCenteredOnClient(prompt, window)
 		prompt.RequestFocus()
 	})
 	return minimize, stopListening
