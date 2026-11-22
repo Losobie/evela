@@ -4,10 +4,17 @@ import (
 	"context"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
 	"fyne.io/systray"
+)
+
+const (
+	closeActionPreference = "window.closeAction"
+	closeActionMinimize   = "minimize"
+	closeActionQuit       = "quit"
 )
 
 func (ui *analyzerUI) setupSystemTray(application fyne.App) {
@@ -31,26 +38,44 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App) {
 	systray.SetOnTapped(func() { fyne.Do(show) })
 
 	window := ui.window
+	minimize := func() {
+		ui.pauseForegroundWork()
+		window.Hide()
+	}
+	prefs := application.Preferences()
 	var closePrompt *dialog.CustomDialog
 	window.SetCloseIntercept(func() {
 		if closePrompt != nil {
 			return
 		}
+		switch prefs.String(closeActionPreference) {
+		case closeActionMinimize:
+			minimize()
+			return
+		case closeActionQuit:
+			application.Quit()
+			return
+		}
 
-		prompt := dialog.NewCustomWithoutButtons("Close Evela",
-			widget.NewLabel("Minimize Evela to the system tray or close the application?"), window)
+		remember := widget.NewCheck("Remember my choice", nil)
+		prompt := dialog.NewCustomWithoutButtons("Close Evela", container.NewVBox(
+			widget.NewLabel("Minimize Evela to the system tray or close the application?"),
+			remember,
+		), window)
 		prompt.SetOnClosed(func() { closePrompt = nil })
+		choose := func(action string, run func()) func() {
+			return func() {
+				if remember.Checked {
+					prefs.SetString(closeActionPreference, action)
+				}
+				prompt.Hide()
+				run()
+			}
+		}
 		prompt.SetButtons([]fyne.CanvasObject{
 			widget.NewButton("Cancel", prompt.Hide),
-			widget.NewButton("Minimize to tray", func() {
-				prompt.Hide()
-				ui.pauseForegroundWork()
-				window.Hide()
-			}),
-			widget.NewButton("Close application", func() {
-				prompt.Hide()
-				application.Quit()
-			}),
+			widget.NewButton("Minimize to tray", choose(closeActionMinimize, minimize)),
+			widget.NewButton("Close application", choose(closeActionQuit, application.Quit)),
 		})
 		closePrompt = prompt
 		prompt.Show()
