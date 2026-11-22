@@ -51,8 +51,8 @@ func TestLicensesAreAccessibleFromHelp(t *testing.T) {
 			break
 		}
 	}
-	if !found || ui.window.Canvas().Overlays().Top() == nil {
+	if !found || lastPopupWindow(ui.window) == nil {
 		t.Fatal("standalone executable has no accessible license viewer")
 	}
-	captureWindowPreview(t, ui.window, os.Getenv("EVELA_LICENSES_CAPTURE"))
+	captureWindowPreview(t, lastPopupWindow(ui.window), os.Getenv("EVELA_LICENSES_CAPTURE"))
 }

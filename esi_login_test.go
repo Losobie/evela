@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/test"
 )
 
@@ -101,7 +100,7 @@ func TestESILoginsOpenDuringBlockedRefreshAndPreserveAccounts(t *testing.T) {
 		}
 	}
 	waitRefresh()
-	var signInDialog *dialog.CustomDialog
+	var signInDialog *popupWindow
 	for attempt := 0; attempt < 2; attempt++ {
 		// Wait for UI completion of the previous sign-in, as a user would.
 		deadline := time.Now().Add(5 * time.Second)

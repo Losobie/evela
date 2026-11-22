@@ -85,7 +85,7 @@ func TestESIScopeDialogSelectionAndCloseCancels(t *testing.T) {
 	if len(request.action.Scopes) != 1 || request.action.Scopes[0] != locationScope {
 		t.Fatalf("wrong scope choices: %v", request.action.Scopes)
 	}
-	ui.esiLoginDialog.Hide()
+	ui.esiLoginDialog.Close()
 	if request.ctx.Err() != context.Canceled {
 		t.Fatal("closing the dialog left authentication pending")
 	}

@@ -3,7 +3,6 @@ package main
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 )
 
 func (ui *analyzerUI) shipLocationHistoryContent() *container.AppTabs {
@@ -17,7 +16,7 @@ func (ui *analyzerUI) shipLocationHistoryContent() *container.AppTabs {
 }
 
 func (ui *analyzerUI) openShipLocationHistory() {
-	viewer := dialog.NewCustom("Ship & Location History", "Close", ui.shipLocationHistoryContent(), ui.window)
+	viewer := newPopupWindow("Ship & Location History", ui.shipLocationHistoryContent(), ui.window)
 	viewer.Resize(fyne.NewSize(1140, 620))
 	viewer.Show()
 }

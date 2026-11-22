@@ -84,7 +84,7 @@ func TestRefreshStatusKeepsLayoutStable(t *testing.T) {
 	before = measure(objects...)
 	ui.setESIStatus(longError)
 	assertSame(before, objects...)
-	ui.esiDialog.Hide()
+	ui.esiDialog.Close()
 }
 
 func TestRefreshPreservesListScrollPositions(t *testing.T) {

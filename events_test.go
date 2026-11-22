@@ -117,7 +117,7 @@ func TestEventsTableFitsViewportAndRetainsFullMessages(t *testing.T) {
 		t.Fatal("visual truncation discarded the full event message")
 	}
 	viewer.table.onActivate(widget.TableCellID{Row: 1, Col: 2})
-	if window.Canvas().Overlays().Top() == nil {
+	if lastPopupWindow(window) == nil {
 		t.Fatal("truncated event no longer opens the details dialog")
 	}
 }
@@ -237,7 +237,7 @@ func TestEventsRefreshPreferencesAndPreview(t *testing.T) {
 	ui.window.Resize(fyne.NewSize(1440, 960))
 	captureWindowPreview(t, ui.window, os.Getenv("EVELA_EVENTS_CAPTURE"))
 	viewer.table.onActivate(widget.TableCellID{Row: 1, Col: 2})
-	if ui.window.Canvas().Overlays().Top() == nil {
+	if lastPopupWindow(ui.window) == nil {
 		t.Fatal("double-click action did not expose the full text")
 	}
 	window := fyne.CurrentApp().NewWindow("Saved regex setting")

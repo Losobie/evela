@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
 )
 
 func (ui *analyzerUI) requestLoad() {
@@ -23,7 +22,9 @@ func (ui *analyzerUI) requestLogLoad(force bool) {
 	folders, err := parseLogFolders(ui.path.Text)
 	if err != nil {
 		reportRuntimeError("Read log folder settings", err)
-		dialog.ShowError(err, ui.window)
+		if ui.foregroundReady == nil {
+			showPopupError(err, ui.window)
+		}
 		return
 	}
 	if force {

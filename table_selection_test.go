@@ -213,7 +213,7 @@ func TestEventsSelectionDoesNotActivateAndCopiesFullMessages(t *testing.T) {
 	table := ui.events.table
 	cell := renderedSelectionCell(t, table, widget.TableCellID{Row: 1, Col: 2})
 	cell.MouseDown(&desktop.MouseEvent{Button: desktop.MouseButtonPrimary})
-	if ui.window.Canvas().Overlays().Top() != nil || selectionCopy(table) != ui.events.rows[0].Message {
+	if lastPopupWindow(ui.window) != nil || selectionCopy(table) != ui.events.rows[0].Message {
 		t.Fatal("MouseDown opened details or copied an incorrect message")
 	}
 	second := renderedSelectionCell(t, table, widget.TableCellID{Row: 2, Col: 2})
@@ -223,16 +223,16 @@ func TestEventsSelectionDoesNotActivateAndCopiesFullMessages(t *testing.T) {
 	}
 	captureWindowPreview(t, ui.window, os.Getenv("EVELA_MULTISELECT_CAPTURE"))
 	second.DoubleTapped(&fyne.PointEvent{})
-	if ui.window.Canvas().Overlays().Top() != nil {
+	if lastPopupWindow(ui.window) != nil {
 		t.Fatal("Shift-double-click activated instead of selecting")
 	}
 	second.MouseDown(&desktop.MouseEvent{Button: desktop.MouseButtonPrimary})
 	second.MouseUp(&desktop.MouseEvent{Button: desktop.MouseButtonPrimary})
 	second.DoubleTapped(&fyne.PointEvent{})
-	if ui.window.Canvas().Overlays().Top() == nil {
+	if lastPopupWindow(ui.window) == nil {
 		t.Fatal("double-click did not open event details")
 	}
-	ui.window.Canvas().Overlays().Remove(ui.window.Canvas().Overlays().Top())
+	lastPopupWindow(ui.window).Close()
 	ui.events.search.SetText("hello")
 	if len(table.selected) != 0 {
 		t.Fatal("filtering retained a stale event selection")

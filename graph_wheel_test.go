@@ -218,7 +218,7 @@ func TestGraphWheelIgnoresMarginsDraggingAndOverlays(t *testing.T) {
 	chart.cancelRangeDrag()
 	ui.openESISettings()
 	scrollGraph(chart, .5, 25)
-	ui.esiDialog.Hide()
+	ui.esiDialog.Close()
 	test.Tap(ui.graphFormatButton)
 	scrollGraph(chart, .5, 25)
 	if graphHistoryState(ui) != before || len(ui.graphUndo) != 0 {

@@ -8,7 +8,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -65,16 +64,9 @@ func (ui *analyzerUI) openLogLoadingSettings() {
 	folder.SetMinRowsVisible(4)
 	folder.SetText(ui.path.Text)
 	browse := widget.NewButtonWithIcon("Add folder…", theme.FolderOpenIcon(), func() {
-		dialog.NewFolderOpen(func(selected fyne.ListableURI, err error) {
-			if err != nil {
-				dialog.ShowError(err, ui.window)
-				reportRuntimeError("Browse log folders", err)
-				return
-			}
-			if selected != nil {
-				folder.SetText(strings.TrimSpace(folder.Text) + "\n" + selected.Path())
-			}
-		}, ui.window).Show()
+		openFolderPicker(ui.logLoadingDialog, func(path string) {
+			folder.SetText(strings.TrimSpace(folder.Text) + "\n" + path)
+		})
 	})
 	days := widget.NewEntry()
 	days.SetText(strconv.Itoa(ui.logLookbackDays))
@@ -103,7 +95,7 @@ func (ui *analyzerUI) openLogLoadingSettings() {
 		ui.path.SetText(strings.Join(folders, "\n"))
 		saveLogFolders(folders)
 		fyne.CurrentApp().Preferences().SetInt(logLookbackPreference, limit)
-		ui.logLoadingDialog.Hide()
+		ui.logLoadingDialog.Close()
 		ui.requestLoad()
 	}
 	save := widget.NewButton("Save and refresh", apply)
@@ -142,13 +134,13 @@ func (ui *analyzerUI) openLogLoadingSettings() {
 	reprocessNote := widget.NewLabel("Clear cached parsed results and reprocess the currently saved folders using the saved loading limit. Source logs are unchanged; unsaved edits above are not applied.")
 	reprocessNote.Wrapping = fyne.TextWrapWord
 	reprocess := widget.NewButton("Force reprocess logs", func() {
-		ui.logLoadingDialog.Hide()
+		ui.logLoadingDialog.Close()
 		ui.requestReprocessLogs()
 	})
 	form := container.NewVBox(pathRow, folder, folderNote, widget.NewSeparator(), note, widget.NewForm(widget.NewFormItem("Look back (days)", days)), all, preview)
 	actions := container.NewVBox(widget.NewSeparator(), reprocessNote, container.NewGridWithColumns(2, save, reprocess))
 	content := container.NewBorder(nil, actions, nil, nil, container.NewVScroll(form))
-	ui.logLoadingDialog = dialog.NewCustom("Log loading", "Cancel", content, ui.window)
+	ui.logLoadingDialog = newPopupWindow("Log loading", content, ui.window)
 	ui.logLoadingDialog.SetOnClosed(func() { ui.logLoadingDialog = nil })
 	ui.logLoadingDialog.Resize(fyne.NewSize(860, 640))
 	ui.logLoadingDialog.Show()

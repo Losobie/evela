@@ -6,7 +6,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -172,7 +171,7 @@ func (characterTransferLayout) Layout(objects []fyne.CanvasObject, size fyne.Siz
 
 type characterGroupEditor struct {
 	ui                            *analyzerUI
-	dialog                        *dialog.CustomDialog
+	dialog                        *popupWindow
 	choice                        *widget.Select
 	name                          *widget.Entry
 	status, leftTitle, rightTitle *widget.Label
@@ -249,7 +248,7 @@ func (ui *analyzerUI) openCharacterGroupSettings() {
 	saveNote := widget.NewLabel("Save before switching groups. Closing discards unsaved edits. Characters may belong to more than one group.")
 	saveNote.Wrapping = fyne.TextWrapWord
 	bottom := container.NewVBox(editor.status, container.NewGridWithColumns(2, editor.saveButton, editor.deleteButton), saveNote)
-	editor.dialog = dialog.NewCustom("Character groups", "Close", container.NewBorder(top, bottom, nil, nil, panels), ui.window)
+	editor.dialog = newPopupWindow("Character groups", container.NewBorder(top, bottom, nil, nil, panels), ui.window)
 	editor.dialog.SetOnClosed(func() { ui.characterGroupEditor = nil })
 	editor.dialog.Resize(fyne.NewSize(900, 680))
 	editor.loadDraft("")

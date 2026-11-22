@@ -89,7 +89,7 @@ func errorLogDialogControls(window fyne.Window) (*widget.Label, *container.Scrol
 			}
 		}
 	}
-	visit(window.Canvas().Overlays().Top())
+	visit(window.Content())
 	return text, scroll, buttons
 }
 
@@ -103,15 +103,15 @@ func TestErrorLogDialogSelectionRefreshAndCopy(t *testing.T) {
 	var store runtimeErrorLog
 	viewer := newErrorLogDialog(window, &store, nil)
 	viewer.Show()
-	defer viewer.Hide()
-	text, scroll, buttons := errorLogDialogControls(window)
+	defer viewer.Close()
+	text, scroll, buttons := errorLogDialogControls(viewer)
 	if text == nil || scroll == nil || text.Text != "No errors recorded during this session." {
 		t.Fatal("error log must provide selectable, scrollable text and an empty state")
 	}
 	message := strings.Repeat("Log loading: source file unavailable\n", 80)
 	_, _ = store.Write([]byte(message))
 	test.Tap(buttons["Refresh"])
-	window.Canvas().Capture()
+	viewer.Canvas().Capture()
 	if text.Text != message {
 		t.Fatal("refresh did not display new diagnostics")
 	}
@@ -144,7 +144,7 @@ func TestHelpErrorLogMenu(t *testing.T) {
 		if ui.errorLogDialog != first {
 			t.Fatal("menu opened duplicate dialogs")
 		}
-		text, _, buttons := errorLogDialogControls(window)
+		text, _, buttons := errorLogDialogControls(first)
 		if text == nil || strings.Contains(text.Text, "Graph pipeline") || buttons["Copy diagnostic report"] == nil {
 			t.Fatal("Error log must keep diagnostics separate from session errors")
 		}
@@ -156,7 +156,7 @@ func TestHelpErrorLogMenu(t *testing.T) {
 		if !strings.Contains(window.Clipboard().Content(), "Graph pipeline") {
 			t.Fatal("diagnostic report button did not copy the report")
 		}
-		first.Hide()
+		first.Close()
 		if ui.errorLogDialog != nil {
 			t.Fatal("closed dialog was retained")
 		}

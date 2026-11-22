@@ -26,7 +26,10 @@ func main() {
 	ui := newAnalyzerUI(window)
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
-	window.SetOnClosed(ui.saveWindowGeometry)
+	window.SetOnClosed(func() {
+		closePopupWindows(window)
+		ui.saveWindowGeometry()
+	})
 	defer func() {
 		ui.cancelForeground()
 		ui.engagements.cancelBuild()

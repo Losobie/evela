@@ -205,7 +205,7 @@ func TestGraphRangeShortcutsRespectTextAndDialogs(t *testing.T) {
 	ui.openESISettings()
 	sendGraphShortcut(ui, &fyne.ShortcutUndo{})
 	assertGraphHistoryState(t, ui, zoom, 90)
-	ui.esiDialog.Hide()
+	ui.esiDialog.Close()
 	sendGraphShortcut(ui, &fyne.ShortcutUndo{})
 	assertGraphHistoryState(t, ui, initial, 1180)
 	sendGraphShortcut(ui, &fyne.ShortcutRedo{})

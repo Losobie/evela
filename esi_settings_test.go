@@ -93,36 +93,36 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 	}
 	ui.setESIStatus("ESI settings ready")
 	if path := os.Getenv("EVELA_SETTINGS_CAPTURE"); path != "" {
-		capture := func(path string) {
+		capture := func(path string, popup fyne.Window) {
 			t.Helper()
 			file, err := os.Create(path)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer file.Close()
-			if err := png.Encode(file, window.Canvas().Capture()); err != nil {
+			if err := png.Encode(file, popup.Canvas().Capture()); err != nil {
 				t.Fatal(err)
 			}
 		}
 		clientID := ui.clientID.Text
 		ui.clientID.SetText("")
 		if ui.esiLoginDialog != nil {
-			ui.esiLoginDialog.Hide()
+			ui.esiLoginDialog.Close()
 		}
 		ui.cancelESILogin = nil
 		ui.setESILoginPending(false)
 		ui.esiDialog.Show()
-		capture(path)
+		capture(path, ui.esiDialog)
 		ui.clientID.SetText(clientID)
-		ui.esiDialog.Hide()
+		ui.esiDialog.Close()
 		ui.openESILogin()
-		capture(path + ".login.png")
+		capture(path+".login.png", ui.esiLoginDialog)
 		ui.showESILoginStatus("Added character: Test Pilot")
-		capture(path + ".success.png")
-		ui.esiLoginDialog.Hide()
+		capture(path+".success.png", ui.esiLoginDialog)
+		ui.esiLoginDialog.Close()
 		ui.openESISettings()
 	}
-	ui.esiDialog.Hide()
+	ui.esiDialog.Close()
 	if ui.esiDialog != nil {
 		t.Fatal("closing the dialog did not release it")
 	}
@@ -130,7 +130,7 @@ func TestESIMenuDialogAndConfigurationActions(t *testing.T) {
 	if ui.clientID.Text != "example-client" {
 		t.Fatal("reopening lost application settings")
 	}
-	ui.esiDialog.Hide()
+	ui.esiDialog.Close()
 }
 
 func TestESIFullCallbackValidation(t *testing.T) {

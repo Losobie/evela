@@ -6,7 +6,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -57,7 +56,7 @@ func (ui *analyzerUI) openLicenses() {
 		ui.window.Clipboard().SetContent(projectLicense + "\n\n" + thirdPartyNotices)
 	})
 	content := container.NewBorder(container.NewVBox(note, choose), copyAll, nil, nil, scroll)
-	viewer := dialog.NewCustom("Licenses", "Close", content, ui.window)
+	viewer := newPopupWindow("Licenses", content, ui.window)
 	viewer.Resize(fyne.NewSize(1000, 700))
 	viewer.Show()
 }

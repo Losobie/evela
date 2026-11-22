@@ -122,7 +122,7 @@ func TestGraphMouseBackForwardSharesShortcutHistory(t *testing.T) {
 	ui.openESISettings()
 	send(wmGraphXButtonUp, 1<<16, 0)
 	assertGraphHistoryState(t, ui, second, 30)
-	ui.esiDialog.Hide()
+	ui.esiDialog.Close()
 	ui.graphFormatButton.OnTapped()
 	send(wmGraphXButtonUp, 1<<16, 0)
 	assertGraphHistoryState(t, ui, second, 30)

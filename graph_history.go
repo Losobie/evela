@@ -97,7 +97,7 @@ func (ui *analyzerUI) graphRangeShortcutsAvailable() bool {
 	// Text entries keep their own undo/redo. Dialogs and popup menus should
 	// not change the graphs behind them when these keys are pressed.
 	_, editing := ui.window.Canvas().Focused().(*widget.Entry)
-	return !editing && ui.window.Canvas().Overlays().Top() == nil
+	return !editing && lastPopupWindow(ui.window) == nil && ui.window.Canvas().Overlays().Top() == nil
 }
 
 func (ui *analyzerUI) clearGraphRangeHistory() { ui.graphUndo, ui.graphRedo = nil, nil }
@@ -124,7 +124,7 @@ func (ui *analyzerUI) applyGraphRange(start, end time.Time) {
 }
 
 func (ui *analyzerUI) applyGraphWheelRange(start, end time.Time) {
-	if ui.window.Canvas().Overlays().Top() != nil {
+	if lastPopupWindow(ui.window) != nil || ui.window.Canvas().Overlays().Top() != nil {
 		return
 	}
 	ui.applyGraphRangeAction(start, end, true, time.Now())

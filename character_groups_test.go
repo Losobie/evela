@@ -199,7 +199,7 @@ func TestCharacterGroupEditorTransfersAndSessionEligibility(t *testing.T) {
 	}
 	findRow := func(list *widget.List, name string) *characterGroupRow {
 		t.Helper()
-		window.Canvas().Capture()
+		editor.dialog.Canvas().Capture()
 		var found *characterGroupRow
 		seen := map[fyne.CanvasObject]bool{}
 		var walk func(fyne.CanvasObject)
@@ -231,7 +231,7 @@ func TestCharacterGroupEditorTransfersAndSessionEligibility(t *testing.T) {
 	// Native single-click routing must select the row for the arrow controls.
 	row := findRow(editor.rightList, "Old Pilot")
 	position := application.Driver().AbsolutePositionForObject(row).Add(fyne.NewPos(8, 8))
-	test.TapCanvas(window.Canvas(), position)
+	test.TapCanvas(editor.dialog.Canvas(), position)
 	if editor.removeButton.Disabled() {
 		t.Fatal("clicking a character did not enable the removal arrow")
 	}
@@ -272,7 +272,7 @@ func TestCharacterGroupEditorTransfersAndSessionEligibility(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = png.Encode(file, window.Canvas().Capture())
+		err = png.Encode(file, editor.dialog.Canvas().Capture())
 		file.Close()
 		if err != nil {
 			t.Fatal(err)
@@ -280,7 +280,7 @@ func TestCharacterGroupEditorTransfersAndSessionEligibility(t *testing.T) {
 	}
 	editor.loadDraft(existing.ID)
 	editor.remove("Old Pilot")
-	editor.dialog.Hide() // Unsaved draft edits must not modify saved membership.
+	editor.dialog.Close() // Unsaved draft edits must not modify saved membership.
 	ui.openCharacterGroupSettings()
 	editor = ui.characterGroupEditor
 	editor.loadDraft(existing.ID)

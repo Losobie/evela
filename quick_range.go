@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -54,10 +53,10 @@ func (ui *analyzerUI) openDayDialog() {
 		date = time.Now().UTC()
 	}
 	ui.dayCalendar = widget.NewCalendar(date.UTC(), func(selected time.Time) {
-		ui.dayDialog.Hide()
+		ui.dayDialog.Close()
 		ui.selectDay(selected)
 	})
-	ui.dayDialog = dialog.NewCustom(selectDayOption, "Cancel", ui.dayCalendar, ui.window)
+	ui.dayDialog = newPopupWindow(selectDayOption, ui.dayCalendar, ui.window)
 	ui.dayDialog.SetOnClosed(func() { ui.dayDialog = nil })
 	ui.dayDialog.Show()
 }

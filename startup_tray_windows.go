@@ -7,7 +7,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
@@ -39,7 +38,7 @@ func windowsStartupControls(window fyne.Window) fyne.CanvasObject {
 			startAtSignIn.SetChecked(enabled)
 			startMinimized.SetChecked(minimized)
 			reportRuntimeError("Save Windows startup settings", err)
-			dialog.ShowError(err, window)
+			showPopupError(err, window)
 			return
 		}
 		enabled, minimized = startAtSignIn.Checked, startMinimized.Checked

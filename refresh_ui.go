@@ -3,7 +3,6 @@ package main
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -12,7 +11,7 @@ func (ui *analyzerUI) showRefreshDetails(title, message string) {
 	label := widget.NewLabel(message)
 	label.Wrapping = fyne.TextWrapWord
 	label.Selectable = true
-	details := dialog.NewCustom(title, "Close", container.NewVScroll(label), ui.window)
+	details := newPopupWindow(title, container.NewVScroll(label), ui.window)
 	details.Resize(fyne.NewSize(720, 320))
 	details.Show()
 }

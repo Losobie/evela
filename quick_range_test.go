@@ -59,7 +59,7 @@ func TestQuickSelectCalendarAndRangeLabel(t *testing.T) {
 		t.Fatal("selected day was not restored")
 	}
 	ui.openDayDialog()
-	ui.dayDialog.Hide()
+	ui.dayDialog.Close()
 	if !ui.view.Start.Equal(day) {
 		t.Fatal("canceling calendar changed the range")
 	}

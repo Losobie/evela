@@ -11,7 +11,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -227,7 +226,11 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 				if err := service.configure(action.ClientID, action.CallbackPort); err != nil {
 					reportRuntimeError("Save ESI configuration", err)
 					publish(err.Error())
-					fyne.Do(func() { dialog.ShowError(err, ui.window) })
+					fyne.Do(func() {
+						if ui.foregroundReady == nil && ui.esiDialog != nil {
+							showPopupError(err, ui.esiDialog)
+						}
+					})
 					continue
 				}
 				publish("ESI configuration saved. Register " + esiCallbackURL(service.config.CallbackPort) + " in your EVE application.")

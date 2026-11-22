@@ -92,8 +92,8 @@ func TestErrorLogDiagnosticsRefreshAndCopy(t *testing.T) {
 	captures := 0
 	viewer := newErrorLogDialog(window, &store, func() string { captures++; return ui.diagnosticsReport() })
 	viewer.Show()
-	defer viewer.Hide()
-	text, _, buttons := errorLogDialogControls(window)
+	defer viewer.Close()
+	text, _, buttons := errorLogDialogControls(viewer)
 	if !text.Selectable || text.Text != "No errors recorded during this session." || captures != 0 {
 		t.Fatal("opening Error log must display only errors and not generate diagnostics")
 	}

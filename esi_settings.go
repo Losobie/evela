@@ -7,7 +7,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -97,7 +96,7 @@ func (ui *analyzerUI) openESISettings() {
 		widget.NewLabel("Scopes:\n"+shipScope+"\n"+locationScope+"\n"+structureScope), widget.NewHyperlink("Open EVE developer applications", portal),
 		widget.NewButton("Save application configuration", func() { ui.requestESIConfiguration("configure") })))
 	ui.esiApplication = application
-	ui.esiDialog = dialog.NewCustom("ESI configuration", "Close", application, ui.window)
+	ui.esiDialog = newPopupWindow("ESI configuration", application, ui.window)
 	ui.esiDialog.SetOnClosed(func() { ui.esiDialog = nil })
 	ui.esiDialog.Resize(fyne.NewSize(780, 420))
 	ui.esiDialog.Show()

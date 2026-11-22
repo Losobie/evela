@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -24,7 +23,8 @@ type analyzerUI struct {
 	scopedFilterButtons map[string]map[string]*widget.Button
 
 	window                            fyne.Window
-	errorLogDialog                    *dialog.CustomDialog
+	requestWindowClose                func()
+	errorLogDialog                    *popupWindow
 	snapshot                          *logSnapshot
 	view                              damageView
 	analysis                          *logSnapshot
@@ -34,7 +34,7 @@ type analyzerUI struct {
 	rangePreset                       string
 	rangeLabel                        *widget.Label
 	quickSelect                       *widget.Button
-	dayDialog                         *dialog.CustomDialog
+	dayDialog                         *popupWindow
 	dayCalendar                       *widget.Calendar
 	status, summary, directoryInfo    *widget.Label
 	miningTotals                      miningAmounts
@@ -93,7 +93,7 @@ type analyzerUI struct {
 	connect, loginSubmit, cancelLogin *widget.Button
 	loginScopeChecks                  []*widget.Check
 	loginStatus                       *widget.Label
-	esiLoginDialog                    *dialog.CustomDialog
+	esiLoginDialog                    *popupWindow
 	esiApplication                    fyne.CanvasObject
 	esiActions                        chan esiAction
 	esiLogins                         chan esiLoginRequest
@@ -101,12 +101,12 @@ type analyzerUI struct {
 	cancelESIRefresh                  context.CancelFunc
 	tabs                              *container.AppTabs
 	callback                          *widget.Entry
-	esiDialog                         *dialog.CustomDialog
+	esiDialog                         *popupWindow
 	esiSettingsDirty, settingESI      bool
 	graphUndo, graphRedo              []graphRangeChange
 	logDirectory                      string
 	logLookbackDays                   int
-	logLoadingDialog                  *dialog.CustomDialog
+	logLoadingDialog                  *popupWindow
 	graphAverageWindow                time.Duration
 	graphInvulnerabilityMarkers       bool
 	graphFormatButton                 *widget.Button

@@ -72,7 +72,7 @@ func TestSystemFilterAtEventTimeWithAveragingMarkersAndPersistence(t *testing.T)
 func TestLocationHistoryViewer(t *testing.T) {
 	ui, start := newDamageFilterTestUI(t)
 	ui.openShipLocationHistory()
-	if ui.window.Canvas().Overlays().Top() == nil {
+	if lastPopupWindow(ui.window) == nil {
 		t.Fatal("empty location viewer failed to open")
 	}
 	history := locationHistory{1: {{CharacterID: 1, CharacterName: "Pilot A", SystemID: 30000142, FirstSeen: start, LastSeen: start, Observations: 1},

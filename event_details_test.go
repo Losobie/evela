@@ -133,8 +133,8 @@ func TestEventDetailsDialogAndContext(t *testing.T) {
 		t.Fatalf("contextual structure fields missing: %s", text)
 	}
 	viewer.table.onActivate(widget.TableCellID{Row: 1, Col: 2})
-	if ui.window.Canvas().Overlays().Top() == nil {
+	if lastPopupWindow(ui.window) == nil {
 		t.Fatal("event details dialog did not open")
 	}
-	captureWindowPreview(t, ui.window, os.Getenv("EVELA_EVENT_DETAILS_CAPTURE"))
+	captureWindowPreview(t, lastPopupWindow(ui.window), os.Getenv("EVELA_EVENT_DETAILS_CAPTURE"))
 }

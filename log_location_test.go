@@ -283,8 +283,8 @@ func TestLogLocationHistoryViewer(t *testing.T) {
 		}
 	}
 	ui.openShipLocationHistory()
-	if ui.window.Canvas().Overlays().Top() == nil {
+	if lastPopupWindow(ui.window) == nil {
 		t.Fatal("combined location history did not open")
 	}
-	captureWindowPreview(t, ui.window, os.Getenv("EVELA_LOG_LOCATION_CAPTURE"))
+	captureWindowPreview(t, lastPopupWindow(ui.window), os.Getenv("EVELA_LOG_LOCATION_CAPTURE"))
 }

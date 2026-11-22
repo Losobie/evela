@@ -128,18 +128,8 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 				}
 			}
 		}
-		overlay, ok := window.Canvas().Overlays().Top().(fyne.Widget)
-		if !ok {
-			t.Fatalf("Settings did not open the log loading dialog: %T", window.Canvas().Overlays().Top())
-		}
-		var popup *widget.PopUp
-		for _, object := range test.WidgetRenderer(overlay).Objects() {
-			if candidate, ok := object.(*widget.PopUp); ok {
-				popup = candidate
-			}
-		}
-		if popup == nil {
-			t.Fatal("settings overlay has no dialog popup")
+		if ui.logLoadingDialog == nil {
+			t.Fatal("Settings did not open the log loading window")
 		}
 		var days *widget.Entry
 		var all *widget.Check
@@ -147,7 +137,7 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 		folder = nil
 		browseFound := false
 		reprocessFound := false
-		walkFilterObjects(popup.Content, func(object fyne.CanvasObject) {
+		walkFilterObjects(ui.logLoadingDialog.Content(), func(object fyne.CanvasObject) {
 			switch value := object.(type) {
 			case *widget.Form:
 				days = value.Items[0].Widget.(*widget.Entry)
@@ -190,7 +180,7 @@ func TestLogLoadingSettingsSaveCancelValidateAndPersist(t *testing.T) {
 	}
 	days.SetText("7")
 	folder.SetText(t.TempDir())
-	ui.logLoadingDialog.Hide() // Cancel must discard folder and limit changes.
+	ui.logLoadingDialog.Close() // Cancel must discard folder and limit changes.
 	if ui.logLookbackDays != 30 || savedLogLookbackDays() != 30 || len(ui.loadRequests) != 0 || ui.path.Text != originalFolder {
 		t.Fatal("cancelling changed settings or triggered loading")
 	}
@@ -282,20 +272,9 @@ func TestMultipleLogFolderSettingsPersistCancelAndReplaceQueuedRefresh(t *testin
 	ui.path.SetText(local)
 	ui.requestLoad() // A pending old selection must be replaced on save.
 	ui.openLogLoadingSettings()
-	content := func() fyne.CanvasObject {
-		t.Helper()
-		overlay := window.Canvas().Overlays().Top().(fyne.Widget)
-		for _, object := range test.WidgetRenderer(overlay).Objects() {
-			if popup, ok := object.(*widget.PopUp); ok {
-				return popup.Content
-			}
-		}
-		t.Fatal("missing log loading popup")
-		return nil
-	}
 	var folder *widget.Entry
 	var save *widget.Button
-	walkFilterObjects(content(), func(object fyne.CanvasObject) {
+	walkFilterObjects(ui.logLoadingDialog.Content(), func(object fyne.CanvasObject) {
 		switch value := object.(type) {
 		case *widget.Entry:
 			if value.MultiLine {
@@ -320,12 +299,12 @@ func TestMultipleLogFolderSettingsPersistCancelAndReplaceQueuedRefresh(t *testin
 		t.Fatalf("queued old folders instead of latest settings: %+v", got)
 	}
 	ui.openLogLoadingSettings()
-	walkFilterObjects(content(), func(object fyne.CanvasObject) {
+	walkFilterObjects(ui.logLoadingDialog.Content(), func(object fyne.CanvasObject) {
 		if entry, ok := object.(*widget.Entry); ok && entry.MultiLine {
 			entry.SetText(local)
 		}
 	})
-	ui.logLoadingDialog.Hide()
+	ui.logLoadingDialog.Close()
 	if !slices.Equal(savedLogFolders(), want) || len(ui.loadRequests) != 0 {
 		t.Fatal("cancel modified saved folders or requested a reload")
 	}

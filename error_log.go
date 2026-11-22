@@ -8,7 +8,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -43,7 +42,7 @@ func reportRuntimeError(context string, err error) {
 	}
 }
 
-func newErrorLogDialog(window fyne.Window, store *runtimeErrorLog, diagnostics func() string) *dialog.CustomDialog {
+func newErrorLogDialog(window fyne.Window, store *runtimeErrorLog, diagnostics func() string) *popupWindow {
 	text := widget.NewLabel("")
 	text.Wrapping, text.Selectable = fyne.TextWrapWord, true
 	refresh := func() {
@@ -65,7 +64,7 @@ func newErrorLogDialog(window fyne.Window, store *runtimeErrorLog, diagnostics f
 		}))
 	}
 	content := container.NewBorder(nil, controls, nil, nil, container.NewVScroll(text))
-	viewer := dialog.NewCustom("Error log", "Close", content, window)
+	viewer := newPopupWindow("Error log", content, window)
 	viewer.Resize(fyne.NewSize(900, 520))
 	return viewer
 }

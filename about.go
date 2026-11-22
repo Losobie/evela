@@ -5,7 +5,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -19,7 +18,7 @@ func (ui *analyzerUI) helpMenu() *fyne.Menu {
 		fyne.NewMenuItem("About", ui.openAbout),
 		fyne.NewMenuItem("Releases", func() {
 			if err := fyne.CurrentApp().OpenURL(releases); err != nil {
-				dialog.ShowError(err, ui.window)
+				showPopupError(err, ui.window)
 				reportRuntimeError("Open link", err)
 			}
 		}),
@@ -34,7 +33,7 @@ func (ui *analyzerUI) openAbout() {
 	character := widget.NewLabel(`In-game character: "Clento Loso"`)
 	note := widget.NewLabel("This application was vibe coded using Codex.")
 	note.Wrapping = fyne.TextWrapWord
-	viewer := dialog.NewCustom("About", "Close", container.NewVBox(author, character, note), ui.window)
+	viewer := newPopupWindow("About", container.NewVBox(author, character, note), ui.window)
 	viewer.Resize(fyne.NewSize(460, 220))
 	viewer.Show()
 }

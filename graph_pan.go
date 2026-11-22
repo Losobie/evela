@@ -51,7 +51,7 @@ func (chart *damageChart) updatePan(position fyne.Position) {
 }
 
 func (ui *analyzerUI) applyGraphPanRange(start, end time.Time, continuing bool) {
-	if ui.window.Canvas().Overlays().Top() != nil {
+	if lastPopupWindow(ui.window) != nil || ui.window.Canvas().Overlays().Top() != nil {
 		return
 	}
 	start, end = start.UTC().Truncate(time.Second), end.UTC().Truncate(time.Second)

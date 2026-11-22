@@ -40,6 +40,9 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 		ui.window.Show()
 		initializeWindow()
 		ui.window.RequestFocus()
+		if ui.foregroundReady != nil {
+			restorePopupWindows(ui.window)
+		}
 		ui.resumeForegroundWork()
 	}
 	tray.SetSystemTrayMenu(fyne.NewMenu("Evela",
@@ -52,6 +55,7 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 
 	window := ui.window
 	minimize = func() {
+		hidePopupWindows(window)
 		ui.pauseForegroundWork()
 		window.Hide()
 		stopRestore = listenForTrayRestore(func() {
@@ -63,8 +67,8 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 		})
 	}
 	prefs := application.Preferences()
-	var closePrompt fyne.Window
-	window.SetCloseIntercept(func() {
+	var closePrompt *popupWindow
+	ui.requestWindowClose = func() {
 		if closePrompt != nil {
 			closePrompt.RequestFocus()
 			return
@@ -79,8 +83,11 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 		}
 
 		remember := widget.NewCheck("Remember my choice", nil)
-		prompt := application.NewWindow("Close Evela")
-		prompt.SetOnClosed(func() { closePrompt = nil })
+		content := container.NewVBox(
+			widget.NewLabel("Minimize Evela to the system tray or close the application?"),
+			remember,
+		)
+		prompt := newPopupWindow("Close Evela", content, window)
 		choose := func(action string, run func()) func() {
 			return func() {
 				if remember.Checked {
@@ -90,19 +97,15 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 				run()
 			}
 		}
-		prompt.SetContent(container.NewPadded(container.NewVBox(
-			widget.NewLabel("Minimize Evela to the system tray or close the application?"),
-			remember,
-			container.NewGridWithColumns(2,
-				widget.NewButton("Minimize to tray", choose(closeActionMinimize, minimize)),
-				widget.NewButton("Close application", choose(closeActionQuit, quit)),
-			),
-		)))
-		prompt.SetFixedSize(true)
+		content.Add(container.NewGridWithColumns(2,
+			widget.NewButton("Minimize to tray", choose(closeActionMinimize, minimize)),
+			widget.NewButton("Close application", choose(closeActionQuit, quit)),
+		))
+		prompt.SetOnClosed(func() { closePrompt = nil })
 		closePrompt = prompt
-		showCenteredOnClient(prompt, window)
-		prompt.RequestFocus()
-	})
+		prompt.Show()
+	}
+	window.SetCloseIntercept(ui.requestWindowClose)
 	return minimize, stopListening
 }
 

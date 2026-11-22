@@ -10,7 +10,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -115,7 +114,7 @@ func newEventsViewer(window fyne.Window) *eventsViewer {
 func (viewer *eventsViewer) showDetails(event eventRow) {
 	text := widget.NewLabel(viewer.eventDetails(event))
 	text.Wrapping, text.Selectable = fyne.TextWrapWord, true
-	details := dialog.NewCustom("Log event", "Close", container.NewVScroll(text), viewer.window)
+	details := newPopupWindow("Log event", container.NewVScroll(text), viewer.window)
 	details.Resize(fyne.NewSize(900, 520))
 	details.Show()
 }

@@ -8,7 +8,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -45,7 +44,7 @@ func (ui *analyzerUI) openESILogin() {
 	}
 	content.Add(ui.loginStatus)
 	content.Add(container.NewHBox(ui.loginSubmit, ui.cancelLogin))
-	ui.esiLoginDialog = dialog.NewCustom("Sign in with EVE Online", "Close", content, ui.window)
+	ui.esiLoginDialog = newPopupWindow("Sign in with EVE Online", content, ui.window)
 	ui.esiLoginDialog.SetOnClosed(func() {
 		if ui.cancelESILogin != nil {
 			ui.cancelESILogin()
@@ -149,8 +148,8 @@ func (ui *analyzerUI) watchESILogins(ctx context.Context, source *esiService, re
 				if err != nil {
 					ui.setESIStatus("EVE sign-in: " + err.Error())
 					reportRuntimeError("EVE sign-in", err)
-					if !errors.Is(err, context.Canceled) {
-						dialog.ShowError(err, ui.window)
+					if !errors.Is(err, context.Canceled) && ui.esiLoginDialog != nil {
+						showPopupError(err, ui.esiLoginDialog)
 					}
 				} else {
 					select {

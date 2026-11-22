@@ -23,10 +23,10 @@ func TestShipHistoryViewer(t *testing.T) {
 	window.Resize(fyne.NewSize(1440, 960))
 	window.Show()
 	ui.openShipLocationHistory()
-	if window.Canvas().Overlays().Top() == nil {
+	if lastPopupWindow(window) == nil {
 		t.Fatal("empty history dialog did not open")
 	}
-	window.Canvas().Overlays().Remove(window.Canvas().Overlays().Top())
+	lastPopupWindow(window).Close()
 	start := time.Date(2026, 10, 17, 1, 0, 0, 0, time.UTC)
 	ui.shipHistory = shipHistory{
 		123: {
@@ -85,7 +85,7 @@ func TestShipHistoryViewer(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer file.Close()
-		if err := png.Encode(file, window.Canvas().Capture()); err != nil {
+		if err := png.Encode(file, lastPopupWindow(window).Canvas().Capture()); err != nil {
 			t.Fatal(err)
 		}
 	}

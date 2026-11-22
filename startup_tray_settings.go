@@ -3,7 +3,6 @@ package main
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -24,5 +23,5 @@ func (ui *analyzerUI) openStartupTraySettings() {
 	if startup := windowsStartupControls(ui.window); startup != nil {
 		content = container.NewVBox(startup, widget.NewSeparator(), content)
 	}
-	dialog.ShowCustom("Startup & Tray", "Close", content, ui.window)
+	newPopupWindow("Startup & Tray", content, ui.window).Show()
 }
