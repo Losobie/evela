@@ -4,6 +4,6 @@ package main
 
 import "fyne.io/fyne/v2"
 
-func windowsStartupControls() (fyne.CanvasObject, func() error) {
-	return nil, nil
+func windowsStartupControls(fyne.Window) fyne.CanvasObject {
+	return nil
 }

@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
@@ -17,32 +18,40 @@ const (
 	windowsStartupValue = "Evela"
 )
 
-func windowsStartupControls() (fyne.CanvasObject, func() error) {
+func windowsStartupControls(window fyne.Window) fyne.CanvasObject {
 	enabled, minimized, err := readWindowsStartup()
 	if err != nil {
 		reportRuntimeError("Read Windows startup settings", err)
-		message := widget.NewLabel("Windows startup settings are unavailable.")
-		return message, nil
+		return widget.NewLabel("Windows startup settings are unavailable.")
 	}
 	startMinimized := widget.NewCheck("Start minimized to system tray", nil)
+	startAtSignIn := widget.NewCheck("Start when I sign in to Windows", nil)
 	startMinimized.SetChecked(minimized)
-	startAtSignIn := widget.NewCheck("Start when I sign in to Windows", func(checked bool) {
-		if checked {
-			startMinimized.Enable()
-		} else {
-			startMinimized.Disable()
-		}
-	})
 	startAtSignIn.SetChecked(enabled)
 	if !enabled {
 		startMinimized.Disable()
 	}
-	return container.NewVBox(startAtSignIn, startMinimized), func() error {
-		if !enabled && !startAtSignIn.Checked {
-			return nil
+	apply := func(bool) {
+		if startAtSignIn.Checked == enabled && startMinimized.Checked == minimized {
+			return
 		}
-		return saveWindowsStartup(startAtSignIn.Checked, startMinimized.Checked)
+		if err := saveWindowsStartup(startAtSignIn.Checked, startMinimized.Checked); err != nil {
+			startAtSignIn.SetChecked(enabled)
+			startMinimized.SetChecked(minimized)
+			reportRuntimeError("Save Windows startup settings", err)
+			dialog.ShowError(err, window)
+			return
+		}
+		enabled, minimized = startAtSignIn.Checked, startMinimized.Checked
+		if enabled {
+			startMinimized.Enable()
+		} else {
+			startMinimized.Disable()
+		}
 	}
+	startAtSignIn.OnChanged = apply
+	startMinimized.OnChanged = apply
+	return container.NewVBox(startAtSignIn, startMinimized)
 }
 
 func readWindowsStartup() (enabled, minimized bool, err error) {

@@ -13,32 +13,16 @@ func (ui *analyzerUI) openStartupTraySettings() {
 	prefs := fyne.CurrentApp().Preferences()
 	minimizeOnClose := widget.NewCheck("Minimize to system tray", nil)
 	minimizeOnClose.SetChecked(prefs.String(closeActionPreference) == closeActionMinimize)
-	note := widget.NewLabel("Save with this unchecked to restore the window close prompt.")
-	note.Wrapping = fyne.TextWrapWord
-	content := container.NewVBox(widget.NewLabel("When closing the window"), minimizeOnClose, note)
-	startup, saveStartup := windowsStartupControls()
-	if startup != nil {
+	minimizeOnClose.OnChanged = func(checked bool) {
+		if checked {
+			prefs.SetString(closeActionPreference, closeActionMinimize)
+		} else {
+			prefs.RemoveValue(closeActionPreference)
+		}
+	}
+	content := container.NewVBox(widget.NewLabel("When closing the window"), minimizeOnClose)
+	if startup := windowsStartupControls(ui.window); startup != nil {
 		content = container.NewVBox(startup, widget.NewSeparator(), content)
 	}
-	settings := dialog.NewCustomWithoutButtons("Startup & Tray", content, ui.window)
-	settings.Resize(fyne.NewSize(450, 240))
-	settings.SetButtons([]fyne.CanvasObject{
-		widget.NewButton("Cancel", settings.Hide),
-		widget.NewButton("Save", func() {
-			if saveStartup != nil {
-				if err := saveStartup(); err != nil {
-					reportRuntimeError("Save Windows startup settings", err)
-					dialog.ShowError(err, ui.window)
-					return
-				}
-			}
-			if minimizeOnClose.Checked {
-				prefs.SetString(closeActionPreference, closeActionMinimize)
-			} else {
-				prefs.RemoveValue(closeActionPreference)
-			}
-			settings.Hide()
-		}),
-	})
-	settings.Show()
+	dialog.ShowCustom("Startup & Tray", "Close", content, ui.window)
 }
