@@ -251,6 +251,10 @@ func (ui *analyzerUI) watchESIService(service *esiService, openBrowser func(stri
 }
 
 func (ui *analyzerUI) applyShipRecords(records []shipRecord) {
+	if ui.foregroundReady != nil {
+		ui.updatePendingESIView = func() { ui.applyShipRecords(records) }
+		return
+	}
 	ui.ships = map[string]shipRecord{}
 	locations := ui.resolvedLocations()
 	ui.esiRows = nil

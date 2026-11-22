@@ -23,11 +23,12 @@ func main() {
 	window.SetContent(ui.content())
 	window.Resize(fyne.NewSize(1440, 960))
 	window.SetOnClosed(func() {
+		ui.cancelForeground()
 		ui.saveWindowGeometry()
 		ui.engagements.cancelBuild()
 		close(ui.stop)
 	})
-	setupSystemTray(application, window)
+	ui.setupSystemTray(application)
 	go ui.watch()
 	go ui.watchESI()
 	ui.requestLoad()

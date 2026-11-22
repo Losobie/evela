@@ -172,6 +172,35 @@ func TestSlowLogFolderDoesNotBlockOthersOrStartDuplicateScans(t *testing.T) {
 	}
 }
 
+func TestLogFolderRetriesScanCancelledWhileInTray(t *testing.T) {
+	folder := t.TempDir()
+	writeFolderLog(t, folder, "local.txt", "Test Pilot", 0)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var attempts atomic.Int32
+	index := &multiLogIndex{
+		read: func(ctx context.Context, index *logIndex, path string, cutoff time.Time) (*logSnapshot, error) {
+			if attempts.Add(1) == 1 {
+				<-ctx.Done()
+				return nil, ctx.Err()
+			}
+			return index.refresh(ctx, path, cutoff, nil)
+		},
+	}
+	defer index.close()
+	paths := []string{folder}
+	if _, err := index.refresh(ctx, paths, time.Time{}, func(_, _ int) { cancel() }); err != context.Canceled {
+		t.Fatalf("expected a cancelled scan, got %v", err)
+	}
+	snapshot, err := index.refresh(context.Background(), paths, time.Time{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Files != 1 || len(snapshot.Warnings) != 0 || attempts.Load() != 2 {
+		t.Fatalf("restore should retry the cancelled scan: files=%d warnings=%v attempts=%d", snapshot.Files, snapshot.Warnings, attempts.Load())
+	}
+}
+
 func TestLogFolderNormalizationSupportsUNCAndAvoidsDuplicatePaths(t *testing.T) {
 	local := t.TempDir()
 	input := "  \"" + local + "\" \n" + filepath.Join(local, ".") + "\n\n"

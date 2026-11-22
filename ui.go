@@ -69,6 +69,10 @@ type analyzerUI struct {
 	forceReprocess                    atomic.Bool
 	lastLogRefresh                    time.Time
 	stop                              chan struct{}
+	foregroundCtx                     context.Context
+	cancelForeground                  context.CancelFunc
+	foregroundReady                   chan struct{}
+	updatePendingESIView              func()
 	ships                             map[string]shipRecord
 	shipHistory                       shipHistory
 	locationHistory                   locationHistory
@@ -118,6 +122,7 @@ type analyzerUI struct {
 
 func newAnalyzerUI(window fyne.Window) *analyzerUI {
 	ui := &analyzerUI{window: window, snapshot: &logSnapshot{}, selected: make(map[string]bool), loadRequests: make(chan []string, 1), stop: make(chan struct{})}
+	ui.foregroundCtx, ui.cancelForeground = context.WithCancel(context.Background())
 	ui.path = widget.NewEntry()
 	ui.path.SetText(strings.Join(savedLogFolders(), "\n"))
 	ui.logLookbackDays = savedLogLookbackDays()

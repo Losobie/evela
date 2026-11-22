@@ -113,34 +113,27 @@ func (ui *analyzerUI) watchReleases() {
 		fyne.Do(func() { ui.releaseCheckStatus = "Unavailable: this build has no Git revision metadata." })
 		return
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go func() {
-		select {
-		case <-ui.stop:
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
 	client := &http.Client{Timeout: 10 * time.Second}
 	ticker := time.NewTicker(releaseCheckInterval)
 	defer ticker.Stop()
 	for {
+		ctx := ui.waitForForeground()
+		if ctx == nil {
+			return
+		}
 		checkCtx, stopCheck := context.WithTimeout(ctx, 10*time.Second)
 		link, err := newerRelease(checkCtx, client, releaseAPI, revision)
 		stopCheck()
 		if ctx.Err() != nil {
-			return
+			continue
 		}
 		if !errors.Is(err, errReleaseCheckUnavailable) {
 			reportRuntimeError("Check for updates", err)
 		}
 		checkedAt := time.Now().UTC().Format(time.RFC3339)
 		fyne.Do(func() {
-			select {
-			case <-ui.stop:
+			if ctx.Err() != nil {
 				return
-			default:
 			}
 			if err != nil {
 				ui.releaseCheckStatus = checkedAt + ": " + err.Error()
@@ -158,7 +151,7 @@ func (ui *analyzerUI) watchReleases() {
 			}
 		})
 		select {
-		case <-ctx.Done():
+		case <-ui.stop:
 			return
 		case <-ticker.C:
 		}

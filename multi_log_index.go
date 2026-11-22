@@ -21,6 +21,7 @@ type watchedLogFolder struct {
 	index         logIndex
 	last          *logSnapshot
 	done          chan logFolderResult
+	scanCtx       context.Context
 	cancel        context.CancelFunc
 	active        bool
 	issue         string
@@ -44,8 +45,12 @@ func (folder *watchedLogFolder) collect() bool {
 	select {
 	case result := <-folder.done:
 		folder.active = false
-		folder.scannedCutoff = result.cutoff
+		cancelled := folder.scanCtx.Err() != nil
 		folder.cancel()
+		if cancelled {
+			return true
+		}
+		folder.scannedCutoff = result.cutoff
 		if result.err != nil {
 			folder.issue = result.err.Error()
 		} else {
@@ -85,6 +90,28 @@ func (index *multiLogIndex) refresh(ctx context.Context, paths []string, cutoff 
 	}
 	var folders []*watchedLogFolder
 	awaited := map[*watchedLogFolder]bool{}
+	retry := map[*watchedLogFolder]bool{}
+	startScan := func(folder *watchedLogFolder) {
+		scanCtx, cancel := context.WithCancel(ctx)
+		folder.scanCtx, folder.cancel, folder.active = scanCtx, cancel, true
+		awaited[folder] = true
+		read := index.read
+		notify := index.notify
+		go func() {
+			var snapshot *logSnapshot
+			var err error
+			if read != nil {
+				snapshot, err = read(scanCtx, &folder.index, folder.path, cutoff)
+			} else {
+				snapshot, err = folder.index.refresh(scanCtx, folder.path, cutoff, nil)
+			}
+			folder.done <- logFolderResult{snapshot: snapshot, cutoff: cutoff, err: err}
+			select {
+			case notify <- struct{}{}:
+			default:
+			}
+		}()
+	}
 	for _, path := range paths {
 		key := logFolderKey(path)
 		folder := index.folders[key]
@@ -93,27 +120,13 @@ func (index *multiLogIndex) refresh(ctx context.Context, paths []string, cutoff 
 			index.folders[key] = folder
 		}
 		folders = append(folders, folder)
+		cancelled := folder.active && folder.scanCtx.Err() != nil
 		completed := folder.collect()
-		if !folder.active && (!completed || !folder.scannedCutoff.Equal(cutoff)) {
-			scanCtx, cancel := context.WithCancel(ctx)
-			folder.active, folder.cancel = true, cancel
+		if !folder.active && (cancelled || !completed || !folder.scannedCutoff.Equal(cutoff)) {
+			startScan(folder)
+		} else if folder.active && cancelled {
+			retry[folder] = true
 			awaited[folder] = true
-			read := index.read
-			notify := index.notify
-			go func(folder *watchedLogFolder) {
-				var snapshot *logSnapshot
-				var err error
-				if read != nil {
-					snapshot, err = read(scanCtx, &folder.index, folder.path, cutoff)
-				} else {
-					snapshot, err = folder.index.refresh(scanCtx, folder.path, cutoff, nil)
-				}
-				folder.done <- logFolderResult{snapshot: snapshot, cutoff: cutoff, err: err}
-				select {
-				case notify <- struct{}{}:
-				default:
-				}
-			}(folder)
 		}
 	}
 	wait := index.wait
@@ -128,6 +141,10 @@ waiting:
 		pending := false
 		for _, folder := range folders {
 			folder.collect()
+			if !folder.active && retry[folder] && ctx.Err() == nil {
+				delete(retry, folder)
+				startScan(folder)
+			}
 			if !folder.active {
 				done++
 			}
@@ -146,6 +163,9 @@ waiting:
 			break waiting
 		case <-index.notify:
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	combined := &logSnapshot{SourceFiles: map[string]cachedLog{}}
 	for _, folder := range folders {

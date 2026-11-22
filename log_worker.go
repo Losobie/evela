@@ -58,17 +58,25 @@ func (ui *analyzerUI) watch() {
 		case <-ctx.Done():
 		}
 	}()
+	pending := false
 	for {
-		select {
-		case <-ui.stop:
-			return
-		case directories = <-ui.loadRequests:
-		case <-ticker.C:
-			enabled := false
-			fyne.DoAndWait(func() { enabled = ui.auto.Checked })
-			if !enabled || len(directories) == 0 {
-				continue
+		if !pending {
+			select {
+			case <-ui.stop:
+				return
+			case directories = <-ui.loadRequests:
+			case <-ticker.C:
+				enabled := false
+				fyne.DoAndWait(func() { enabled = ui.auto.Checked })
+				if !enabled || len(directories) == 0 {
+					continue
+				}
 			}
+			pending = true
+		}
+		scanCtx := ui.waitForForeground()
+		if scanCtx == nil {
+			return
 		}
 		// A force request can arrive during a scan. Use the latest configured
 		// folders and keep the request pending even if refreshes are coalesced.
@@ -76,10 +84,14 @@ func (ui *analyzerUI) watch() {
 		case directories = <-ui.loadRequests:
 		default:
 		}
-		force := ui.forceReprocess.Swap(false)
+		var force bool
 		var lookbackDays int
 		fyne.DoAndWait(func() {
+			if scanCtx.Err() != nil {
+				return
+			}
 			lookbackDays = ui.logLookbackDays
+			force = ui.forceReprocess.Swap(false)
 			ui.refresh.Disable()
 			ui.progress.SetValue(0)
 			ui.progress.Show()
@@ -96,8 +108,11 @@ func (ui *analyzerUI) watch() {
 				cacheErr = nil
 			}
 		}
-		snapshot, err := index.refresh(ctx, directories, logLoadingCutoff(time.Now(), lookbackDays), func(done, total int) {
+		snapshot, err := index.refresh(scanCtx, directories, logLoadingCutoff(time.Now(), lookbackDays), func(done, total int) {
 			fyne.Do(func() {
+				if scanCtx.Err() != nil {
+					return
+				}
 				ui.progress.SetValue(float64(done) / float64(total))
 				ui.status.SetText(fmt.Sprintf("Refreshed %d / %d log folders…", done, total))
 			})
@@ -106,6 +121,10 @@ func (ui *analyzerUI) watch() {
 			return
 		}
 		fyne.DoAndWait(func() {
+			if scanCtx.Err() != nil {
+				return
+			}
+			pending = false
 			ui.refresh.Enable()
 			ui.progress.Hide()
 			if err != nil {

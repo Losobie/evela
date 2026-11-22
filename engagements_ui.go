@@ -93,6 +93,9 @@ func (viewer *engagementsViewer) invalidate() {
 }
 
 func (ui *analyzerUI) refreshEngagements() {
+	if ui.foregroundReady != nil {
+		return
+	}
 	viewer := ui.engagements
 	if viewer == nil {
 		return

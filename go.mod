@@ -4,6 +4,7 @@ go 1.23
 
 require (
 	fyne.io/fyne/v2 v2.8.0
+	fyne.io/systray v1.12.2
 	github.com/Losobie/evela/parser v0.0.0
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
@@ -13,7 +14,6 @@ require (
 )
 
 require (
-	fyne.io/systray v1.12.2 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/FyshOS/fancyfs v0.0.1 // indirect
 	github.com/anthonynsimon/bild v0.14.0 // indirect
