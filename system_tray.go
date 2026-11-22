@@ -93,8 +93,7 @@ func (ui *analyzerUI) setupSystemTray(application fyne.App, initializeWindow fun
 		prompt.SetContent(container.NewPadded(container.NewVBox(
 			widget.NewLabel("Minimize Evela to the system tray or close the application?"),
 			remember,
-			container.NewGridWithColumns(3,
-				widget.NewButton("Cancel", prompt.Close),
+			container.NewGridWithColumns(2,
 				widget.NewButton("Minimize to tray", choose(closeActionMinimize, minimize)),
 				widget.NewButton("Close application", choose(closeActionQuit, quit)),
 			),
