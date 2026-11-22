@@ -55,7 +55,7 @@ func (popup *popupWindow) Show() {
 			}
 			main = parent.parent
 		}
-		showCenteredOnClient(popup.Window, main)
+		showCenteredOnWindow(popup.Window, main)
 	}
 	popup.RequestFocus()
 }

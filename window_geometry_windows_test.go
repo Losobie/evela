@@ -94,21 +94,57 @@ func TestWindowGeometryNativePreferenceRoundTrip(t *testing.T) {
 func TestDialogFrameKeepsCloseAndDropsMinMax(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	class := windows.StringToUTF16Ptr("Static")
 	const (
 		styleIndex = ^uintptr(15)
 		caption    = 0x00c00000
 		systemMenu = 0x00080000
 		minMax     = 0x00030000
 	)
-	hwnd, _, err := trayCreateWindow.Call(0, uintptr(unsafe.Pointer(class)), 0, caption|systemMenu|minMax, 0, 0, 350, 180, 0, 0, 0, 0)
-	if hwnd == 0 {
-		t.Fatal(err)
-	}
+	hwnd := newHiddenFrame(t, caption|systemMenu|minMax, 0, 0, 350, 180)
 	defer trayDestroyWindow.Call(hwnd)
 	removeDialogMinMaxButtons(hwnd)
 	style, _, _ := getWindowLong.Call(hwnd, styleIndex)
 	if style&(caption|systemMenu|minMax) != caption|systemMenu {
 		t.Fatalf("dialog style %#x must retain its title bar and close button without minimize or maximize", style)
 	}
+}
+
+func TestDialogCentersOnMainWindowFrame(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	const overlappedWindow = 0x00cf0000
+	main := newHiddenFrame(t, overlappedWindow, -832, 122, 600, 460)
+	defer trayDestroyWindow.Call(main)
+	dialog := newHiddenFrame(t, overlappedWindow, 15, 20, 350, 180)
+	defer trayDestroyWindow.Call(dialog)
+	removeDialogMinMaxButtons(dialog)
+
+	readFrame := func(hwnd uintptr) windowRect {
+		t.Helper()
+		var frame windowRect
+		if ok, _, err := getWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&frame))); ok == 0 {
+			t.Fatal(err)
+		}
+		return frame
+	}
+	before := readFrame(dialog)
+	parent := readFrame(main)
+	centerOnWindow(dialog, main)
+	got := readFrame(dialog)
+	if got.Left+got.Right != parent.Left+parent.Right || got.Top+got.Bottom != parent.Top+parent.Bottom {
+		t.Fatalf("dialog frame %+v did not center on main frame %+v", got, parent)
+	}
+	if got.Right-got.Left != before.Right-before.Left || got.Bottom-got.Top != before.Bottom-before.Top {
+		t.Fatalf("centering resized the dialog from %+v to %+v", before, got)
+	}
+}
+
+func newHiddenFrame(t *testing.T, style uintptr, x, y, width, height int) uintptr {
+	t.Helper()
+	class := windows.StringToUTF16Ptr("Static")
+	hwnd, _, err := trayCreateWindow.Call(0, uintptr(unsafe.Pointer(class)), 0, style, uintptr(x), uintptr(y), uintptr(width), uintptr(height), 0, 0, 0, 0)
+	if hwnd == 0 {
+		t.Fatal(err)
+	}
+	return hwnd
 }

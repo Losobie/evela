@@ -17,8 +17,6 @@ var (
 	windowUser32       = windows.NewLazySystemDLL("user32.dll")
 	getWindowPlacement = windowUser32.NewProc("GetWindowPlacement")
 	setWindowPlacement = windowUser32.NewProc("SetWindowPlacement")
-	getClientRect      = windowUser32.NewProc("GetClientRect")
-	clientToScreen     = windowUser32.NewProc("ClientToScreen")
 	getWindowRect      = windowUser32.NewProc("GetWindowRect")
 	setWindowPos       = windowUser32.NewProc("SetWindowPos")
 	getWindowLong      = windowUser32.NewProc("GetWindowLongW")
@@ -109,7 +107,7 @@ func nativeWindowHandle(window fyne.Window) (hwnd uintptr) {
 	return hwnd
 }
 
-func showCenteredOnClient(prompt, parent fyne.Window) {
+func showCenteredOnWindow(prompt, parent fyne.Window) {
 	// Fyne creates the native window and sets its frame size on Show.
 	prompt.CenterOnScreen()
 	prompt.Show()
@@ -120,16 +118,14 @@ func showCenteredOnClient(prompt, parent fyne.Window) {
 	}
 	removeDialogMinMaxButtons(promptHandle)
 	parentHandle := nativeWindowHandle(parent)
-	if parentHandle == 0 {
-		return
+	if parentHandle != 0 {
+		centerOnWindow(promptHandle, parentHandle)
 	}
-	var client windowRect
-	ok, _, _ := getClientRect.Call(parentHandle, uintptr(unsafe.Pointer(&client)))
-	if ok == 0 {
-		return
-	}
-	center := windowPoint{X: client.Right / 2, Y: client.Bottom / 2}
-	ok, _, _ = clientToScreen.Call(parentHandle, uintptr(unsafe.Pointer(&center)))
+}
+
+func centerOnWindow(hwnd, parent uintptr) {
+	var parentFrame windowRect
+	ok, _, _ := getWindowRect.Call(parent, uintptr(unsafe.Pointer(&parentFrame)))
 	if ok == 0 {
 		return
 	}
@@ -137,16 +133,16 @@ func showCenteredOnClient(prompt, parent fyne.Window) {
 	// A move between monitors can resize the frame when its DPI changes.
 	for range 2 {
 		var frame windowRect
-		ok, _, _ = getWindowRect.Call(promptHandle, uintptr(unsafe.Pointer(&frame)))
+		ok, _, _ = getWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&frame)))
 		if ok == 0 {
 			return
 		}
-		x := center.X - (frame.Right-frame.Left)/2
-		y := center.Y - (frame.Bottom-frame.Top)/2
+		x := parentFrame.Left + ((parentFrame.Right-parentFrame.Left)-(frame.Right-frame.Left))/2
+		y := parentFrame.Top + ((parentFrame.Bottom-parentFrame.Top)-(frame.Bottom-frame.Top))/2
 		if frame.Left == x && frame.Top == y {
 			return
 		}
-		ok, _, _ = setWindowPos.Call(promptHandle, 0, uintptr(x), uintptr(y), 0, 0, moveOnly)
+		ok, _, _ = setWindowPos.Call(hwnd, 0, uintptr(x), uintptr(y), 0, 0, moveOnly)
 		if ok == 0 {
 			return
 		}
