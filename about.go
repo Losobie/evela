@@ -24,6 +24,7 @@ func (ui *analyzerUI) helpMenu() *fyne.Menu {
 			}
 		}),
 		fyne.NewMenuItem("Licenses", ui.openLicenses),
+		fyne.NewMenuItem("Error log", ui.openErrorLog),
 	)
 }
 

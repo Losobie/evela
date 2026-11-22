@@ -75,7 +75,6 @@ func (ui *analyzerUI) settingsMenu() *fyne.Menu {
 	return fyne.NewMenu("Settings", appearance,
 		fyne.NewMenuItem("Log loading", ui.openLogLoadingSettings),
 		fyne.NewMenuItem("Character groups", ui.openCharacterGroupSettings),
-		fyne.NewMenuItem("Error log", ui.openErrorLog),
 	)
 }
 

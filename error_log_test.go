@@ -124,14 +124,14 @@ func TestErrorLogDialogSelectionRefreshAndCopy(t *testing.T) {
 	}
 }
 
-func TestSettingsErrorLogMenu(t *testing.T) {
+func TestHelpErrorLogMenu(t *testing.T) {
 	application := test.NewTempApp(t)
-	window := errorLogTestWindow{application.NewWindow("Settings"), test.NewClipboard()}
+	window := errorLogTestWindow{application.NewWindow("Help"), test.NewClipboard()}
 	defer window.Close()
 	ui := newAnalyzerUI(window)
 	window.SetContent(ui.content())
 	window.Show()
-	for _, item := range ui.settingsMenu().Items {
+	for _, item := range ui.helpMenu().Items {
 		if item.Label != "Error log" {
 			continue
 		}
@@ -162,5 +162,5 @@ func TestSettingsErrorLogMenu(t *testing.T) {
 		}
 		return
 	}
-	t.Fatal("Settings is missing Error log")
+	t.Fatal("Help is missing Error log")
 }
