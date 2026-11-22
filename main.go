@@ -27,6 +27,7 @@ func main() {
 		ui.engagements.cancelBuild()
 		close(ui.stop)
 	})
+	setupSystemTray(application, window)
 	go ui.watch()
 	go ui.watchESI()
 	ui.requestLoad()
